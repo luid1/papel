@@ -1,0 +1,1594 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#01161e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Lumin — Controle Financeiro</title>
+
+<!-- ── Google Fonts ── -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@700&family=DM+Mono:wght@300;400&family=Outfit:wght@300;400;500;600&family=Playfair+Display:wght@700&family=Bebas+Neue&family=Space+Grotesk:wght@700&family=Abril+Fatface&family=Josefin+Sans:wght@700&display=swap" rel="stylesheet">
+
+<!-- ── jsPDF via CDN ── -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
+<!-- ── Firebase SDKs via CDN ── -->
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+  import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+  const firebaseConfig = {
+    apiKey: 'AIzaSyAeAOjFZSHy28uZFgH1PyoJaxPRyS-N1Kw',
+    authDomain: 'lumin-a5b29.firebaseapp.com',
+    projectId: 'lumin-a5b29',
+    storageBucket: 'lumin-a5b29.firebasestorage.app',
+    messagingSenderId: '413860601418',
+    appId: '1:413860601418:web:0b5cce923491e50fdf50b3',
+    measurementId: 'G-FGF6B1F2NJ'
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db  = getFirestore(app);
+
+  // Expõe funções globalmente para o script principal
+  window._fb = { db, collection, addDoc, deleteDoc, doc, onSnapshot, query, orderBy };
+  window.dispatchEvent(new Event('firebase-ready'));
+</script>
+
+<style>
+/* ================================================================
+   RESET & DESIGN TOKENS
+   ================================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:           #01161e;
+  --bg-2:         #071c26;
+  --bg-card:      rgba(255,255,255,0.04);
+  --bg-card-h:    rgba(255,255,255,0.07);
+  --border:       rgba(255,255,255,0.08);
+  --border-h:     rgba(255,255,255,0.16);
+  --text:         #eff6e0;
+  --muted:        rgba(239,246,224,0.40);
+  --dim:          rgba(239,246,224,0.65);
+  --green:        #aec3b0;
+  --green-glow:   rgba(174,195,176,0.18);
+  --red:          #d97b7b;
+  --red-glow:     rgba(217,123,123,0.14);
+  --blue:         #7ab8d4;
+  --r-xl: 24px; --r-lg: 18px; --r-md: 12px; --r-sm: 8px;
+  --ease: cubic-bezier(0.4,0,0.2,1);
+  --t: 0.22s;
+}
+
+html { font-size: 16px; -webkit-text-size-adjust: 100%; }
+body {
+  font-family: 'Outfit', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100svh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ================================================================
+   PRE-LOADER  (mínimo 4 s garantido via JS)
+   ================================================================ */
+#preloader {
+  position: fixed; inset: 0; z-index: 9999;
+  background: #01161e;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 36px;
+  transition: opacity 0.7s var(--ease), visibility 0.7s;
+}
+#preloader.out { opacity: 0; visibility: hidden; pointer-events: none; }
+
+/* Palavra "Lumin" ciclando entre 8 famílias tipográficas */
+.pl-word {
+  font-size: clamp(56px, 16vw, 84px);
+  color: #EFF6E0;
+  user-select: none;
+  /* Cicla fontes em steps — cada passo dura ~800ms × 8 passos = 6.4 s */
+  animation:
+    fontCycle  6.4s steps(1) 1 forwards,
+    wordGlow   3.5s ease-in-out infinite;
+}
+@keyframes fontCycle {
+  0%    { font-family: 'Bebas Neue', cursive;       letter-spacing: 0.14em; font-size: clamp(56px,16vw,84px); }
+  12.5% { font-family: 'Playfair Display', serif;   letter-spacing: -0.02em; font-size: clamp(52px,14vw,72px); }
+  25%   { font-family: 'DM Mono', monospace;        letter-spacing: 0.06em;  font-size: clamp(40px,11vw,56px); }
+  37.5% { font-family: 'Abril Fatface', cursive;    letter-spacing: 0.01em;  font-size: clamp(56px,15vw,80px); }
+  50%   { font-family: 'Josefin Sans', sans-serif;  letter-spacing: 0.22em;  font-size: clamp(44px,12vw,64px); }
+  62.5% { font-family: 'Space Grotesk', sans-serif; letter-spacing: -0.04em; font-size: clamp(56px,15vw,80px); }
+  75%   { font-family: 'Comfortaa', cursive;        letter-spacing: -0.02em; font-size: clamp(60px,16vw,84px); }
+  87.5% { font-family: 'Outfit', sans-serif;        letter-spacing: 0.08em;  font-size: clamp(48px,13vw,68px); }
+  100%  { font-family: 'Comfortaa', cursive;        letter-spacing: -0.02em; font-size: clamp(60px,16vw,84px); }
+}
+@keyframes wordGlow {
+  0%,100% { text-shadow: 0 0 30px rgba(174,195,176,0.22), 0 0 70px rgba(174,195,176,0.08); }
+  50%     { text-shadow: 0 0 55px rgba(174,195,176,0.58), 0 0 120px rgba(174,195,176,0.26); }
+}
+
+/* Barra de progresso do loader */
+.pl-bar-wrap {
+  width: min(200px, 52vw); height: 2px;
+  background: rgba(255,255,255,0.07); border-radius: 2px; overflow: hidden;
+}
+.pl-bar {
+  height: 100%;
+  background: linear-gradient(90deg, rgba(174,195,176,0.3), #aec3b0);
+  border-radius: 2px;
+}
+@keyframes plFill { from { width: 0%; } to { width: 100%; } }
+/* barra sincronizada com 8 s de preloader */
+.pl-bar { animation: plFill 8s linear forwards; }
+
+/* Tagline do loader */
+.pl-sub {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px; font-weight: 300;
+  letter-spacing: 0.28em; text-transform: uppercase;
+  color: rgba(239,246,224,0.22);
+  animation: fadeUp 0.8s 0.3s var(--ease) both;
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ================================================================
+   TELA DE LOGIN  (fundo #01161e conforme spec)
+   ================================================================ */
+#pg-login {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 28px 20px; background: #01161e; z-index: 100;
+  transition: opacity 0.5s var(--ease), visibility 0.5s, transform 0.5s var(--ease);
+}
+#pg-login.hidden {
+  opacity: 0; visibility: hidden; transform: scale(0.97); pointer-events: none;
+}
+.login-wrap { width: 100%; max-width: 380px; display: flex; flex-direction: column; align-items: center; }
+
+/* Logo imagem (placeholder — usuário deve trocar o src) */
+.login-logo-img {
+  max-width: 120px; display: block; margin: 0 auto 16px;
+  filter: drop-shadow(0 0 18px rgba(174,195,176,0.35));
+}
+
+/* Wordmark */
+.login-mark {
+  font-family: 'Comfortaa', cursive; font-weight: 700;
+  font-size: 46px; color: #eff6e0; letter-spacing: -0.02em;
+  text-align: center; margin-bottom: 5px;
+  animation: wordGlow 4s ease-in-out infinite;
+}
+.login-sub {
+  font-size: 11px; font-weight: 300; letter-spacing: 0.22em;
+  text-transform: uppercase; color: var(--muted);
+  text-align: center; margin-bottom: 32px;
+}
+
+/* Card de login */
+.login-card {
+  width: 100%;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.09);
+  border-radius: var(--r-xl); padding: 32px 26px 28px;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06);
+}
+
+.field { margin-bottom: 15px; }
+.field-label {
+  display: block; font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.14em;
+  color: var(--muted); margin-bottom: 8px;
+}
+.field-input {
+  width: 100%; background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border); border-radius: var(--r-sm);
+  padding: 14px 16px; color: var(--text);
+  font-family: 'Outfit', sans-serif; font-size: 15px;
+  outline: none; -webkit-appearance: none;
+  transition: border-color var(--t), background var(--t), box-shadow var(--t);
+}
+.field-input::placeholder { color: var(--muted); }
+.field-input:focus {
+  border-color: rgba(174,195,176,0.5); background: rgba(255,255,255,0.09);
+  box-shadow: 0 0 0 3px rgba(174,195,176,0.08);
+}
+
+.login-err {
+  min-height: 18px; font-size: 12px; color: var(--red);
+  text-align: center; margin: 4px 0 10px;
+  opacity: 0; transition: opacity var(--t);
+}
+.login-err.show { opacity: 1; }
+
+.btn-primary {
+  width: 100%;
+  background: linear-gradient(135deg, #aec3b0 0%, #7aa880 100%);
+  border: none; border-radius: var(--r-sm); padding: 15px;
+  color: #01161e; font-family: 'Comfortaa', cursive;
+  font-size: 14px; font-weight: 700; letter-spacing: 0.06em;
+  cursor: pointer; position: relative; overflow: hidden;
+  box-shadow: 0 4px 24px rgba(174,195,176,0.28);
+  transition: opacity var(--t), transform 0.12s;
+  -webkit-appearance: none;
+}
+.btn-primary::after {
+  content: ''; position: absolute; inset: 0;
+  background: rgba(255,255,255,0); transition: background var(--t);
+}
+.btn-primary:hover::after { background: rgba(255,255,255,0.08); }
+.btn-primary:active { transform: scale(0.97); }
+
+/* ================================================================
+   DASHBOARD  —  shell
+   ================================================================ */
+#pg-dash {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column; z-index: 10;
+  background: var(--bg);
+  transition: opacity 0.5s var(--ease), visibility 0.5s, transform 0.5s var(--ease);
+  overflow: hidden;
+}
+#pg-dash.hidden {
+  opacity: 0; visibility: hidden; transform: scale(1.02); pointer-events: none;
+}
+
+/* ── Top Bar ── */
+.topbar {
+  flex-shrink: 0; display: flex;
+  align-items: center; justify-content: space-between;
+  padding: 14px 18px 13px;
+  background: rgba(1,22,30,0.97);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(20px); z-index: 50; position: relative;
+}
+.topbar-brand {
+  font-family: 'Comfortaa', cursive; font-weight: 700;
+  font-size: 22px; color: #eff6e0; letter-spacing: -0.01em;
+  text-shadow: 0 0 22px rgba(174,195,176,0.28);
+}
+.topbar-right { display: flex; align-items: center; gap: 10px; }
+.topbar-user { font-size: 12px; color: var(--muted); }
+@media (max-width: 340px) { .topbar-user { display: none; } }
+
+.btn-icon {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: var(--bg-card); border: 1px solid var(--border);
+  color: var(--muted); font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: all var(--t); -webkit-appearance: none;
+}
+.btn-icon:hover { color: var(--red); border-color: rgba(217,123,123,0.4); background: var(--red-glow); }
+
+/* ── Scroll area ── */
+.dash-scroll {
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+  padding: 18px 16px 90px;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+.dash-scroll::-webkit-scrollbar { width: 3px; }
+.dash-scroll::-webkit-scrollbar-track { background: transparent; }
+.dash-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ── Bottom Nav ── */
+.bottom-nav {
+  position: fixed; bottom: 0; left: 0; right: 0; height: 66px;
+  background: rgba(1,22,30,0.97); border-top: 1px solid var(--border);
+  backdrop-filter: blur(20px);
+  display: flex; z-index: 50;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.nav-item {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 4px;
+  cursor: pointer; color: var(--muted);
+  transition: color var(--t); padding: 8px 4px;
+  background: none; border: none; -webkit-appearance: none;
+  position: relative;
+}
+.nav-item.active { color: var(--green); }
+.nav-item:active { transform: scale(0.92); }
+.nav-item.active::after {
+  content: ''; position: absolute; top: 4px;
+  width: 20px; height: 2px;
+  background: var(--green); border-radius: 2px;
+  box-shadow: 0 0 8px rgba(174,195,176,0.7);
+}
+.nav-icon  { font-size: 20px; line-height: 1; }
+.nav-label { font-size: 9px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+
+/* ── View sections ── */
+.view { display: none; animation: viewIn 0.28s var(--ease); }
+.view.active { display: block; }
+@keyframes viewIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Section heading ── */
+.sec-head { margin-bottom: 18px; }
+.sec-title {
+  font-family: 'Comfortaa', cursive; font-size: 21px; font-weight: 700;
+  color: var(--text); letter-spacing: -0.01em;
+}
+.sec-sub { font-size: 12px; color: var(--muted); margin-top: 3px; }
+
+/* ================================================================
+   SUMMARY CARDS
+   ================================================================ */
+.summary-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 10px; margin-bottom: 18px;
+}
+.sum-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: 16px 14px 14px;
+  position: relative; overflow: hidden;
+  transition: background var(--t);
+}
+.sum-card:active { background: var(--bg-card-h); }
+.sum-card.full { grid-column: 1 / -1; }
+.sum-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0;
+  height: 2px; border-radius: 2px 2px 0 0;
+}
+.sum-card.in::before  { background: linear-gradient(90deg,transparent,rgba(174,195,176,0.7),transparent); }
+.sum-card.out::before { background: linear-gradient(90deg,transparent,rgba(217,123,123,0.7),transparent); }
+.sum-card.bal::before { background: linear-gradient(90deg,transparent,rgba(122,184,212,0.7),transparent); }
+
+.sum-label {
+  font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.12em;
+  color: var(--muted); margin-bottom: 8px;
+  display: flex; align-items: center; gap: 6px;
+}
+.sum-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.dot-in  { background: var(--green); box-shadow: 0 0 6px rgba(174,195,176,0.8); }
+.dot-out { background: var(--red);   box-shadow: 0 0 6px rgba(217,123,123,0.8); }
+.dot-bal { background: var(--blue);  box-shadow: 0 0 6px rgba(122,184,212,0.8); }
+
+.sum-value {
+  font-family: 'DM Mono', monospace;
+  font-size: clamp(17px, 4.8vw, 23px); font-weight: 400;
+  letter-spacing: -0.01em; line-height: 1;
+}
+.sum-card.in  .sum-value { color: var(--green); }
+.sum-card.out .sum-value { color: var(--red); }
+.sum-card.bal .sum-value { color: var(--blue); }
+.sum-card.full .sum-value { font-size: clamp(20px, 5.5vw, 28px); }
+
+.sum-count { font-size: 10px; color: var(--muted); margin-top: 6px; }
+
+/* ================================================================
+   FILTRO DE PERÍODO
+   ================================================================ */
+.filter-bar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 12px 14px; margin-bottom: 18px;
+}
+.filter-label {
+  font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); flex-shrink: 0;
+}
+.filter-select {
+  background: rgba(255,255,255,0.06); border: 1px solid var(--border);
+  border-radius: 6px; padding: 8px 10px; color: var(--text);
+  font-family: 'Outfit', sans-serif; font-size: 13px;
+  outline: none; cursor: pointer; -webkit-appearance: none; flex: 1; min-width: 86px;
+}
+.filter-select:focus { border-color: rgba(174,195,176,0.4); }
+
+/* ================================================================
+   FORMULÁRIO DE TRANSAÇÃO
+   ================================================================ */
+.tx-form {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: 20px 16px; margin-bottom: 20px;
+}
+.tx-form .field { margin-bottom: 14px; }
+.tx-form .field:last-of-type { margin-bottom: 0; }
+
+/* Toggle Entrada / Saída */
+.type-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.type-opt {
+  padding: 13px; border-radius: var(--r-sm);
+  border: 1px solid var(--border); background: transparent;
+  color: var(--muted); font-family: 'Outfit', sans-serif;
+  font-size: 14px; font-weight: 500; cursor: pointer;
+  text-align: center; transition: all var(--t); -webkit-appearance: none;
+}
+.type-opt.sel-in  { background: rgba(174,195,176,0.11); border-color: rgba(174,195,176,0.42); color: var(--green); }
+.type-opt.sel-out { background: rgba(217,123,123,0.11); border-color: rgba(217,123,123,0.42); color: var(--red); }
+
+/* ================================================================
+   LISTA DE TRANSAÇÕES
+   ================================================================ */
+.tx-list { display: flex; flex-direction: column; gap: 8px; }
+
+.tx-empty {
+  text-align: center; padding: 52px 20px; color: var(--muted);
+}
+.tx-empty-icon { font-size: 42px; margin-bottom: 12px; opacity: 0.35; display: block; }
+.tx-empty-text { font-size: 14px; }
+
+.tx-item {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 14px;
+  transition: background var(--t);
+  animation: txIn 0.28s var(--ease);
+  position: relative; overflow: hidden;
+}
+@keyframes txIn {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.tx-item::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+  width: 3px; border-radius: 0 2px 2px 0;
+}
+.tx-item.tx-in::before  { background: var(--green); box-shadow: 0 0 8px rgba(174,195,176,0.55); }
+.tx-item.tx-out::before { background: var(--red);   box-shadow: 0 0 8px rgba(217,123,123,0.55); }
+
+.tx-icon {
+  width: 38px; height: 38px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; flex-shrink: 0;
+}
+.tx-item.tx-in  .tx-icon { background: rgba(174,195,176,0.10); }
+.tx-item.tx-out .tx-icon { background: rgba(217,123,123,0.10); }
+
+.tx-body { flex: 1; min-width: 0; }
+.tx-desc {
+  font-size: 14px; font-weight: 500; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.tx-date { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+.tx-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+.tx-amount { font-family: 'DM Mono', monospace; font-size: 13px; }
+.tx-item.tx-in  .tx-amount { color: var(--green); }
+.tx-item.tx-out .tx-amount { color: var(--red); }
+
+.tx-del {
+  width: 26px; height: 26px; border-radius: 50%;
+  background: transparent; border: 1px solid transparent;
+  color: rgba(217,123,123,0.35); font-size: 13px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all var(--t); -webkit-appearance: none; line-height: 1;
+}
+.tx-del:active { background: var(--red-glow); border-color: rgba(217,123,123,0.4); color: var(--red); }
+
+/* ================================================================
+   VIEW: RELATÓRIO
+   ================================================================ */
+.period-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 10px; margin-bottom: 20px;
+}
+.period-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: 18px 14px;
+  cursor: pointer; transition: all var(--t);
+}
+.period-card:active { transform: scale(0.97); background: var(--bg-card-h); }
+.period-card.pc-on { border-color: rgba(174,195,176,0.35); background: rgba(174,195,176,0.05); }
+
+.pc-name {
+  font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.14em;
+  color: var(--muted); margin-bottom: 8px;
+}
+.pc-bal { font-family: 'DM Mono', monospace; font-size: 18px; }
+.pc-bal.pos { color: var(--green); }
+.pc-bal.neg { color: var(--red); }
+.pc-info { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.pc-chips { display: flex; gap: 5px; margin-top: 10px; flex-wrap: wrap; }
+.pc-chip {
+  font-size: 10px; font-family: 'DM Mono', monospace;
+  padding: 3px 7px; border-radius: 4px;
+}
+.chip-in  { background: rgba(174,195,176,0.10); color: var(--green); }
+.chip-out { background: rgba(217,123,123,0.10); color: var(--red); }
+
+/* Botões de exportação PDF */
+.pdf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.pdf-btn {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 16px 10px;
+  color: var(--text); font-family: 'Outfit', sans-serif;
+  font-size: 13px; font-weight: 500; cursor: pointer;
+  text-align: center; transition: all var(--t);
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  -webkit-appearance: none;
+}
+.pdf-btn:active { background: var(--bg-card-h); transform: scale(0.96); }
+.pdf-icon  { font-size: 22px; }
+.pdf-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+
+/* ================================================================
+   MODAL  (bottom-sheet)
+   ================================================================ */
+#overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.68); backdrop-filter: blur(6px);
+  display: flex; align-items: flex-end; justify-content: center;
+  opacity: 0; visibility: hidden;
+  transition: opacity 0.3s var(--ease), visibility 0.3s;
+}
+#overlay.open { opacity: 1; visibility: visible; }
+
+.modal {
+  width: 100%; max-width: 480px;
+  background: #0a1e28; border: 1px solid var(--border);
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+  padding: 22px 18px 36px; max-height: 88svh; overflow-y: auto;
+  transform: translateY(100%);
+  transition: transform 0.35s var(--ease);
+}
+#overlay.open .modal { transform: translateY(0); }
+
+.modal-handle {
+  width: 36px; height: 4px; background: var(--border);
+  border-radius: 2px; margin: 0 auto 18px;
+}
+.modal-title {
+  font-family: 'Comfortaa', cursive; font-size: 20px; font-weight: 700;
+  margin-bottom: 14px;
+}
+.modal-sum {
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px; margin-bottom: 18px;
+}
+.ms-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 11px 9px; text-align: center;
+}
+.ms-label { font-size: 9px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; }
+.ms-val { font-family: 'DM Mono', monospace; font-size: 13px; margin-top: 5px; }
+
+/* Tabela do modal */
+.modal-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.modal-table th {
+  text-align: left; font-size: 9px; text-transform: uppercase;
+  letter-spacing: 0.12em; color: var(--muted);
+  padding: 7px 5px; border-bottom: 1px solid var(--border); font-weight: 600;
+}
+.modal-table td {
+  padding: 10px 5px; border-bottom: 1px solid rgba(255,255,255,0.04);
+  color: var(--dim); vertical-align: middle;
+}
+.modal-table tr:last-child td { border-bottom: none; }
+
+.modal-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 18px; }
+.btn-sec {
+  padding: 13px; border-radius: var(--r-sm);
+  border: 1px solid var(--border); background: transparent;
+  color: var(--muted); font-family: 'Outfit', sans-serif;
+  font-size: 13px; font-weight: 500; cursor: pointer;
+  transition: all var(--t); -webkit-appearance: none;
+}
+.btn-sec:active { background: var(--bg-card-h); }
+.btn-dl {
+  padding: 13px; border-radius: var(--r-sm); border: none;
+  background: linear-gradient(135deg, #aec3b0, #7aa880);
+  color: #01161e; font-family: 'Comfortaa', cursive;
+  font-size: 13px; font-weight: 700; cursor: pointer;
+  box-shadow: 0 4px 16px rgba(174,195,176,0.25);
+  transition: opacity var(--t), transform 0.12s; -webkit-appearance: none;
+}
+.btn-dl:active { transform: scale(0.97); }
+
+/* ================================================================
+   PILL TAGS
+   ================================================================ */
+.pill {
+  display: inline-block; padding: 3px 7px; border-radius: 4px;
+  font-size: 10px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.07em;
+}
+.pill-in  { background: rgba(174,195,176,0.12); color: var(--green); }
+.pill-out { background: rgba(217,123,123,0.12); color: var(--red); }
+
+/* ================================================================
+   ATMOSPHERIC BACKGROUND
+   ================================================================ */
+.atmo { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+.atmo-orb { position: absolute; border-radius: 50%; filter: blur(90px); }
+.orb1 {
+  width: 420px; height: 420px;
+  background: radial-gradient(circle, rgba(15,55,40,0.55), transparent 70%);
+  top: -140px; left: -100px;
+  animation: od1 26s ease-in-out infinite alternate;
+}
+.orb2 {
+  width: 360px; height: 360px;
+  background: radial-gradient(circle, rgba(8,30,52,0.65), transparent 70%);
+  bottom: -100px; right: -80px;
+  animation: od2 32s ease-in-out infinite alternate;
+}
+@keyframes od1 { to { transform: translate(50px,35px); } }
+@keyframes od2 { to { transform: translate(-35px,-25px); } }
+
+/* ================================================================
+   TOAST  e  UTILITÁRIOS
+   ================================================================ */
+#toast {
+  position: fixed; bottom: 82px; left: 50%;
+  transform: translateX(-50%) translateY(14px);
+  background: rgba(174,195,176,0.14);
+  border: 1px solid rgba(174,195,176,0.28);
+  backdrop-filter: blur(10px); border-radius: 20px;
+  padding: 10px 20px; font-size: 13px; color: var(--green);
+  z-index: 500; opacity: 0; pointer-events: none; white-space: nowrap;
+  transition: opacity 0.3s, transform 0.3s;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+.mt16 { margin-top: 16px; }
+.mt20 { margin-top: 20px; }
+
+/* Responsivo ≥ 480 px */
+@media (min-width: 480px) {
+  .dash-scroll { padding: 22px 22px 90px; }
+  .tx-form { padding: 24px 20px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Atmospheric background -->
+<div class="atmo" aria-hidden="true">
+  <div class="atmo-orb orb1"></div>
+  <div class="atmo-orb orb2"></div>
+</div>
+
+<!-- ============================================================
+     PRE-LOADER  (mín. 4 s via JS + barra visual)
+     ============================================================ -->
+<div id="preloader" role="status" aria-label="Carregando Lumin">
+  <div class="pl-word" id="pl-word">Lumin</div>
+  <div class="pl-bar-wrap"><div class="pl-bar"></div></div>
+  <div class="pl-sub">Controle Financeiro</div>
+</div>
+
+<!-- ============================================================
+     TELA DE LOGIN
+     ============================================================ -->
+<div id="pg-login" class="hidden" role="main" aria-label="Tela de login">
+  <div class="login-wrap">
+
+    <!--
+      Logo da aplicação.
+      Substitua o atributo src pelo link da imagem desejada.
+      Em caso de erro, a imagem é ocultada automaticamente.
+    -->
+    <img
+      src="LINK_DA_SUA_IMAGEM_AQUI"
+      alt="Lumin"
+      class="login-logo-img"
+      onerror="this.style.display='none'"
+    >
+
+    <div class="login-mark">Lumin</div>
+    <div class="login-sub">Controle Financeiro</div>
+
+    <div class="login-card">
+      <div class="field">
+        <label class="field-label" for="inp-user">Usuário</label>
+        <input id="inp-user" class="field-input" type="text"
+               placeholder="" autocomplete="username"
+               inputmode="text" spellcheck="false">
+      </div>
+      <div class="field">
+        <label class="field-label" for="inp-pass">Senha</label>
+        <input id="inp-pass" class="field-input" type="password"
+               placeholder="" autocomplete="current-password">
+      </div>
+      <!-- Mensagem de erro estrita: "Acesso negado" -->
+      <div id="login-err" class="login-err" role="alert">Acesso negado</div>
+      <button id="btn-login" class="btn-primary">Entrar</button>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============================================================
+     DASHBOARD
+     ============================================================ -->
+<div id="pg-dash" class="hidden" aria-label="Dashboard">
+
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <div class="topbar-brand">Lumin</div>
+    <div class="topbar-right">
+      <span class="topbar-user" id="topbar-user">Olá, Ana ✦</span>
+      <button class="btn-icon" id="btn-logout" aria-label="Sair" title="Sair">⎋</button>
+    </div>
+  </header>
+
+  <!-- ÁREA ROLÁVEL -->
+  <main class="dash-scroll" id="dash-scroll">
+
+    <!-- ──────────────────────────────────────────────
+         VIEW HOME: Resumo + Transações do período
+         ────────────────────────────────────────────── -->
+    <section class="view active" id="view-home" aria-label="Resumo">
+
+      <div class="sec-head">
+        <div class="sec-title">Resumo</div>
+        <div class="sec-sub" id="home-period-lbl">—</div>
+      </div>
+
+      <!-- Seletor de período -->
+      <div class="filter-bar">
+        <span class="filter-label">Período</span>
+        <select class="filter-select" id="sel-month" aria-label="Selecionar mês">
+          <option value="1">Janeiro</option><option value="2">Fevereiro</option>
+          <option value="3">Março</option><option value="4">Abril</option>
+          <option value="5">Maio</option><option value="6">Junho</option>
+          <option value="7">Julho</option><option value="8">Agosto</option>
+          <option value="9">Setembro</option><option value="10">Outubro</option>
+          <option value="11">Novembro</option><option value="12">Dezembro</option>
+        </select>
+        <select class="filter-select" id="sel-year" aria-label="Selecionar ano"></select>
+      </div>
+
+      <!-- Cards de resumo -->
+      <div class="summary-grid">
+        <div class="sum-card in">
+          <div class="sum-label"><span class="sum-dot dot-in"></span>Entradas</div>
+          <div class="sum-value" id="sum-in">R$ 0,00</div>
+          <div class="sum-count" id="sum-in-ct">0 transações</div>
+        </div>
+        <div class="sum-card out">
+          <div class="sum-label"><span class="sum-dot dot-out"></span>Saídas</div>
+          <div class="sum-value" id="sum-out">R$ 0,00</div>
+          <div class="sum-count" id="sum-out-ct">0 transações</div>
+        </div>
+        <div class="sum-card bal full">
+          <div class="sum-label"><span class="sum-dot dot-bal"></span>Saldo do Período</div>
+          <div class="sum-value" id="sum-bal">R$ 0,00</div>
+          <div class="sum-count" id="sum-bal-sub">Nenhuma movimentação</div>
+        </div>
+      </div>
+
+      <!-- Lista de transações -->
+      <div class="sec-head mt20">
+        <div class="sec-title">Transações</div>
+        <div class="sec-sub">Toque ✕ para excluir</div>
+      </div>
+      <div class="tx-list" id="tx-list" aria-live="polite"></div>
+
+    </section>
+
+    <!-- ──────────────────────────────────────────────
+         VIEW ADICIONAR: Formulário de nova transação
+         ────────────────────────────────────────────── -->
+    <section class="view" id="view-add" aria-label="Adicionar transação">
+
+      <div class="sec-head">
+        <div class="sec-title">Nova Transação</div>
+        <div class="sec-sub">Registre uma entrada ou saída</div>
+      </div>
+
+      <div class="tx-form">
+
+        <!-- Tipo: Entrada / Saída -->
+        <div class="field">
+          <label class="field-label">Tipo</label>
+          <div class="type-toggle">
+            <button class="type-opt sel-in"  id="opt-in"  data-type="entrada">↑ Entrada</button>
+            <button class="type-opt"         id="opt-out" data-type="saida">↓ Saída</button>
+          </div>
+        </div>
+
+        <!-- Descrição -->
+        <div class="field">
+          <label class="field-label" for="tx-desc">Descrição</label>
+          <input id="tx-desc" class="field-input" type="text"
+                 placeholder="Ex: Salário, Mercado…" maxlength="80">
+        </div>
+
+        <!-- Valor com máscara R$ -->
+        <div class="field">
+          <label class="field-label" for="tx-val">Valor</label>
+          <input id="tx-val" class="field-input" type="text"
+                 placeholder="R$ 0,00" inputmode="numeric">
+        </div>
+
+        <!-- Data -->
+        <div class="field">
+          <label class="field-label" for="tx-date">Data</label>
+          <input id="tx-date" class="field-input" type="date">
+        </div>
+
+        <button id="btn-add-tx" class="btn-primary" style="margin-top:8px">
+          Adicionar Transação
+        </button>
+
+      </div>
+    </section>
+
+    <!-- ──────────────────────────────────────────────
+         VIEW RELATÓRIO: Períodos + Exportação PDF
+         ────────────────────────────────────────────── -->
+    <section class="view" id="view-report" aria-label="Relatórios">
+
+      <div class="sec-head">
+        <div class="sec-title">Relatórios</div>
+        <div class="sec-sub">Toque num período para detalhes</div>
+      </div>
+
+      <!-- Cards de período -->
+      <div class="period-grid">
+        <div class="period-card" data-period="semanal">
+          <div class="pc-name">Semanal</div>
+          <div class="pc-bal" id="pcb-semanal">—</div>
+          <div class="pc-info" id="pci-semanal">—</div>
+          <div class="pc-chips" id="pcc-semanal"></div>
+        </div>
+        <div class="period-card" data-period="mensal">
+          <div class="pc-name">Mensal</div>
+          <div class="pc-bal" id="pcb-mensal">—</div>
+          <div class="pc-info" id="pci-mensal">—</div>
+          <div class="pc-chips" id="pcc-mensal"></div>
+        </div>
+        <div class="period-card" data-period="trimestral">
+          <div class="pc-name">Trimestral</div>
+          <div class="pc-bal" id="pcb-trimestral">—</div>
+          <div class="pc-info" id="pci-trimestral">—</div>
+          <div class="pc-chips" id="pcc-trimestral"></div>
+        </div>
+        <div class="period-card" data-period="anual">
+          <div class="pc-name">Anual</div>
+          <div class="pc-bal" id="pcb-anual">—</div>
+          <div class="pc-info" id="pci-anual">—</div>
+          <div class="pc-chips" id="pcc-anual"></div>
+        </div>
+      </div>
+
+      <!-- Exportação direta -->
+      <div class="sec-head mt20">
+        <div class="sec-title">Exportar PDF</div>
+        <div class="sec-sub">Gere um relatório completo</div>
+      </div>
+      <div class="pdf-grid">
+        <button class="pdf-btn" data-pdf="semanal">
+          <span class="pdf-icon">📄</span>
+          <span>Semanal</span>
+          <span class="pdf-label">últimos 7 dias</span>
+        </button>
+        <button class="pdf-btn" data-pdf="mensal">
+          <span class="pdf-icon">📋</span>
+          <span>Mensal</span>
+          <span class="pdf-label">este mês</span>
+        </button>
+        <button class="pdf-btn" data-pdf="trimestral">
+          <span class="pdf-icon">📊</span>
+          <span>Trimestral</span>
+          <span class="pdf-label">90 dias</span>
+        </button>
+        <button class="pdf-btn" data-pdf="anual">
+          <span class="pdf-icon">📁</span>
+          <span>Anual</span>
+          <span class="pdf-label">este ano</span>
+        </button>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- BOTTOM NAV -->
+  <nav class="bottom-nav" role="navigation" aria-label="Navegação">
+    <button class="nav-item active" data-view="view-home" aria-label="Início">
+      <span class="nav-icon">⌂</span>
+      <span class="nav-label">Início</span>
+    </button>
+    <button class="nav-item" data-view="view-add" aria-label="Adicionar">
+      <span class="nav-icon">＋</span>
+      <span class="nav-label">Adicionar</span>
+    </button>
+    <button class="nav-item" data-view="view-report" aria-label="Relatório">
+      <span class="nav-icon">◑</span>
+      <span class="nav-label">Relatório</span>
+    </button>
+  </nav>
+
+</div><!-- /pg-dash -->
+
+<!-- ============================================================
+     MODAL  (bottom-sheet de detalhes)
+     ============================================================ -->
+<div id="overlay" role="dialog" aria-modal="true" aria-labelledby="modal-ttl">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modal-ttl">Relatório</div>
+    <div class="modal-sum" id="modal-sum"></div>
+    <div style="overflow-x:auto">
+      <table class="modal-table">
+        <thead>
+          <tr>
+            <th>Data</th><th>Descrição</th><th>Tipo</th>
+            <th style="text-align:right">Valor</th>
+          </tr>
+        </thead>
+        <tbody id="modal-tbody"></tbody>
+      </table>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-sec" id="btn-modal-close">Fechar</button>
+      <button class="btn-dl"  id="btn-modal-pdf">⬇ PDF</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast de feedback -->
+<div id="toast" aria-live="polite"></div>
+
+
+<!-- ============================================================
+     JAVASCRIPT
+     ============================================================ -->
+<script>
+'use strict';
+
+/* ── Atalhos DOM ─────────────────────────────────────────────── */
+const $ = id => document.getElementById(id);
+
+/* ── Formatação ─────────────────────────────────────────────── */
+
+/** Formata valor em BRL: ex. 1234.56 → "R$ 1.234,56" */
+function fmtBRL(v) {
+  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+}
+
+/** Formata número sem símbolo (usado no PDF) */
+function fmtNum(v) {
+  return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+/** Converte "YYYY-MM-DD" → "DD/MM/YYYY" */
+function fmtDate(iso) {
+  if (!iso) return '—';
+  const [y, m, d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+/** Escapa caracteres HTML para prevenir XSS */
+function esc(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ── Toast de notificação ───────────────────────────────────── */
+function showToast(msg, ms = 2400) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._tid);
+  t._tid = setTimeout(() => t.classList.remove('show'), ms);
+}
+
+/* ── Helpers financeiros ────────────────────────────────────── */
+const sumIn  = arr => arr.filter(t => t.type === 'entrada').reduce((a,t) => a + t.amount, 0);
+const sumOut = arr => arr.filter(t => t.type === 'saida'  ).reduce((a,t) => a + t.amount, 0);
+
+/* ================================================================
+   PRE-LOADER  —  garantia de mínimo 8 s
+   ================================================================ */
+(function() {
+  const MIN_MS  = 8000;
+  const start   = Date.now();
+  let domOk     = false;
+  let timerOk   = false;
+
+  function tryShow() {
+    if (!domOk || !timerOk) return;
+    const loader = $('preloader');
+    loader.classList.add('out');
+    // Remove do DOM após transição
+    loader.addEventListener('transitionend', () => loader.remove(), { once: true });
+    $('pg-login').classList.remove('hidden');
+  }
+
+  // Temporizador mínimo 8 s
+  setTimeout(() => { timerOk = true; tryShow(); }, MIN_MS);
+
+  // DOM pronto
+  document.addEventListener('DOMContentLoaded', () => { domOk = true; tryShow(); });
+})();
+
+/* ================================================================
+   ESTADO DA APLICAÇÃO
+   ================================================================ */
+const state = {
+  transactions: [],               // { id, desc, amount, type, date }
+  filterMonth:  new Date().getMonth() + 1,
+  filterYear:   new Date().getFullYear(),
+  txType:       'entrada',        // tipo selecionado no form
+  modalPeriod:  null,             // período aberto no modal
+  modalData:    null,             // txs do modal
+  currentUser:  null,             // usuário logado
+  _unsubFirestore: null,          // listener realtime do Firestore
+};
+
+/* ================================================================
+   LOCAL STORAGE  —  apenas sessão (login permanente)
+   ================================================================ */
+const KEY      = 'lumin_v3';
+const KEY_USER = 'lumin_user';
+
+function save() {
+  // Dados salvos localmente como fallback; Firestore é a fonte primária
+  localStorage.setItem(KEY, JSON.stringify(state.transactions));
+}
+function load() {
+  try { return JSON.parse(localStorage.getItem(KEY)) || []; }
+  catch { return []; }
+}
+
+/* ================================================================
+   AUTENTICAÇÃO
+   Usuários: anakarolina/anakarolina  |  wallace/wallace
+   Sessão mantida via localStorage — só sai ao clicar em Sair
+   ================================================================ */
+
+const USERS = {
+  anakarolina: 'anakarolina',
+  wallace:     'wallace',
+};
+
+/* Verifica sessão salva ao iniciar */
+(function checkSession() {
+  const saved = localStorage.getItem(KEY_USER);
+  if (saved && USERS[saved] !== undefined) {
+    // Aguarda Firebase estar pronto antes de iniciar dashboard
+    function startWithUser() {
+      state.currentUser = saved;
+      bootDash();
+      document.getElementById('pg-login').classList.add('hidden');
+      document.getElementById('pg-dash').classList.remove('hidden');
+    }
+    if (window._fb) {
+      startWithUser();
+    } else {
+      window.addEventListener('firebase-ready', startWithUser, { once: true });
+    }
+  }
+})();
+
+$('btn-login').addEventListener('click', handleLogin);
+$('inp-pass').addEventListener('keydown', e => e.key === 'Enter' && handleLogin());
+$('inp-user').addEventListener('keydown', e => e.key === 'Enter' && $('inp-pass').focus());
+
+function handleLogin() {
+  const u   = $('inp-user').value.trim().toLowerCase();
+  const p   = $('inp-pass').value;
+  const err = $('login-err');
+
+  if (USERS[u] && USERS[u] === p) {
+    err.classList.remove('show');
+    state.currentUser = u;
+    localStorage.setItem(KEY_USER, u);
+    bootDash();
+    $('pg-login').classList.add('hidden');
+    $('pg-dash').classList.remove('hidden');
+  } else {
+    /* Mensagem estrita: "Acesso negado" */
+    err.classList.add('show');
+    $('inp-pass').value = '';
+    $('inp-pass').focus();
+    shakeLoginCard();
+  }
+}
+
+/* Animação de shake no card ao errar */
+function shakeLoginCard() {
+  const card = document.querySelector('.login-card');
+  card.animate([
+    { transform: 'translateX(0)' },
+    { transform: 'translateX(-9px)' },
+    { transform: 'translateX(9px)' },
+    { transform: 'translateX(-7px)' },
+    { transform: 'translateX(7px)' },
+    { transform: 'translateX(0)' },
+  ], { duration: 380, easing: 'ease-in-out' });
+}
+
+/* Logout */
+$('btn-logout').addEventListener('click', () => {
+  // Cancela listener do Firestore se existir
+  if (state._unsubFirestore) { state._unsubFirestore(); state._unsubFirestore = null; }
+  localStorage.removeItem(KEY_USER);
+  state.currentUser = null;
+  state.transactions = [];
+  $('pg-dash').classList.add('hidden');
+  $('pg-login').classList.remove('hidden');
+  $('inp-user').value = '';
+  $('inp-pass').value = '';
+  $('login-err').classList.remove('show');
+});
+
+/* ================================================================
+   BOOT DO DASHBOARD
+   ================================================================ */
+function bootDash() {
+  // Atualiza saudação no topbar
+  const displayName = state.currentUser === 'anakarolina' ? 'Ana' : 'Wallace';
+  $('topbar-user').textContent = `Olá, ${displayName} ✦`;
+
+  state.filterMonth = new Date().getMonth() + 1;
+  state.filterYear  = new Date().getFullYear();
+  buildYearSelect();
+  $('sel-month').value = state.filterMonth;
+  $('tx-date').valueAsDate = new Date();
+
+  // Inicia listener do Firestore (tempo real, compartilhado entre usuários)
+  initFirestoreListener();
+}
+
+/* ── Listener Firestore ─────────────────────────────────────── */
+function initFirestoreListener() {
+  // Cancela listener anterior se existir
+  if (state._unsubFirestore) { state._unsubFirestore(); state._unsubFirestore = null; }
+
+  function startListener() {
+    const fb  = window._fb;
+    if (!fb) return;
+    const q = fb.query(fb.collection(fb.db, 'transactions'), fb.orderBy('date', 'asc'));
+    state._unsubFirestore = fb.onSnapshot(q, snapshot => {
+      state.transactions = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      // Salva cópia local como fallback
+      localStorage.setItem(KEY, JSON.stringify(state.transactions));
+      refreshAll();
+    }, err => {
+      console.warn('Firestore error, usando localStorage:', err);
+      // Fallback: carrega do localStorage
+      state.transactions = load();
+      refreshAll();
+    });
+  }
+
+  if (window._fb) {
+    startListener();
+  } else {
+    window.addEventListener('firebase-ready', startListener, { once: true });
+  }
+}
+
+/* ================================================================
+   SELECT DE ANO (dinâmico)
+   ================================================================ */
+function buildYearSelect() {
+  const sel = $('sel-year');
+  const now = new Date().getFullYear();
+  sel.innerHTML = '';
+  for (let y = now + 1; y >= 2020; y--) {
+    const o = document.createElement('option');
+    o.value = y; o.textContent = y;
+    if (y === now) o.selected = true;
+    sel.appendChild(o);
+  }
+}
+
+$('sel-month').addEventListener('change', () => {
+  state.filterMonth = +$('sel-month').value; refreshAll();
+});
+$('sel-year').addEventListener('change', () => {
+  state.filterYear = +$('sel-year').value; refreshAll();
+});
+
+/* ================================================================
+   REFRESH GERAL
+   ================================================================ */
+function refreshAll() {
+  renderSummary();
+  renderTxList();
+  renderPeriodCards();
+}
+
+/* ================================================================
+   TRANSAÇÕES DO PERÍODO SELECIONADO (Home)
+   ================================================================ */
+function txsFiltered() {
+  return state.transactions.filter(t => {
+    if (!t.date) return false;
+    const [y, m] = t.date.split('-').map(Number);
+    return y === state.filterYear && m === state.filterMonth;
+  });
+}
+
+/* ================================================================
+   RENDERIZA SUMMARY CARDS
+   ================================================================ */
+const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+                'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+function renderSummary() {
+  const txs = txsFiltered();
+  const inc = sumIn(txs);
+  const exp = sumOut(txs);
+  const bal = inc - exp;
+
+  $('sum-in').textContent    = fmtBRL(inc);
+  $('sum-out').textContent   = fmtBRL(exp);
+  $('sum-bal').textContent   = fmtBRL(bal);
+  $('sum-in-ct').textContent  = `${txs.filter(t=>t.type==='entrada').length} transação(ões)`;
+  $('sum-out-ct').textContent = `${txs.filter(t=>t.type==='saida').length} transação(ões)`;
+  $('sum-bal-sub').textContent = txs.length === 0
+    ? 'Nenhuma movimentação'
+    : `${txs.length} registro(s) no período`;
+
+  $('sum-bal').style.color = bal >= 0 ? 'var(--green)' : 'var(--red)';
+  $('home-period-lbl').textContent = `${MONTHS[state.filterMonth-1]} de ${state.filterYear}`;
+}
+
+/* ================================================================
+   RENDERIZA LISTA DE TRANSAÇÕES
+   ================================================================ */
+function renderTxList() {
+  const list = $('tx-list');
+  // Mais recentes primeiro
+  const txs  = txsFiltered().slice().reverse();
+
+  if (!txs.length) {
+    list.innerHTML = `
+      <div class="tx-empty">
+        <span class="tx-empty-icon">💸</span>
+        <div class="tx-empty-text">Nenhuma transação neste período</div>
+      </div>`;
+    return;
+  }
+
+  list.innerHTML = txs.map(t => `
+    <div class="tx-item ${t.type === 'entrada' ? 'tx-in' : 'tx-out'}">
+      <div class="tx-icon">${t.type === 'entrada' ? '↑' : '↓'}</div>
+      <div class="tx-body">
+        <div class="tx-desc">${esc(t.desc)}</div>
+        <div class="tx-date">${fmtDate(t.date)}</div>
+      </div>
+      <div class="tx-right">
+        <div class="tx-amount">${t.type === 'entrada' ? '+' : '-'}${fmtBRL(t.amount)}</div>
+        <button class="tx-del" data-id="${t.id}" aria-label="Excluir">✕</button>
+      </div>
+    </div>
+  `).join('');
+
+  // Delegação: botões de exclusão
+  list.querySelectorAll('.tx-del').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      deleteTx(btn.dataset.id);
+    });
+  });
+}
+
+/* ================================================================
+   ADICIONAR TRANSAÇÃO
+   ================================================================ */
+
+/* Máscara BRL no campo de valor */
+$('tx-val').addEventListener('input', function() {
+  const raw = this.value.replace(/\D/g, '');
+  if (!raw) { this.value = ''; return; }
+  const num = (parseInt(raw, 10) / 100).toFixed(2);
+  this.value = 'R$ ' + parseFloat(num).toLocaleString('pt-BR', {
+    minimumFractionDigits: 2, maximumFractionDigits: 2,
+  });
+});
+
+/* Seleção de tipo */
+$('opt-in').addEventListener('click',  () => setTxType('entrada'));
+$('opt-out').addEventListener('click', () => setTxType('saida'));
+
+function setTxType(t) {
+  state.txType = t;
+  $('opt-in').className  = 'type-opt' + (t === 'entrada' ? ' sel-in'  : '');
+  $('opt-out').className = 'type-opt' + (t === 'saida'   ? ' sel-out' : '');
+}
+
+/* Submissão */
+$('btn-add-tx').addEventListener('click', async () => {
+  const desc   = $('tx-desc').value.trim();
+  const valRaw = $('tx-val').value.replace(/[^\d,]/g, '').replace(',', '.');
+  const val    = parseFloat(valRaw);
+  const date   = $('tx-date').value;
+
+  if (!desc)         { showToast('⚠ Preencha a descrição'); return; }
+  if (!val || val<=0){ showToast('⚠ Informe um valor válido'); return; }
+  if (!date)         { showToast('⚠ Selecione uma data'); return; }
+
+  const newTx = { desc, amount: val, type: state.txType, date, createdBy: state.currentUser || 'unknown', createdAt: Date.now() };
+
+  // Tenta salvar no Firestore
+  if (window._fb) {
+    try {
+      await window._fb.addDoc(window._fb.collection(window._fb.db, 'transactions'), newTx);
+      // O onSnapshot vai atualizar state.transactions automaticamente
+    } catch (e) {
+      console.warn('Firestore addDoc error:', e);
+      // Fallback local
+      state.transactions.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2,5), ...newTx });
+      save(); refreshAll();
+    }
+  } else {
+    state.transactions.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2,5), ...newTx });
+    save(); refreshAll();
+  }
+
+  // Limpa form
+  $('tx-desc').value = '';
+  $('tx-val').value  = '';
+  $('tx-date').valueAsDate = new Date();
+
+  showToast('✓ Transação adicionada');
+  switchView('view-home');
+  setNavActive('view-home');
+});
+
+/* ================================================================
+   EXCLUIR TRANSAÇÃO
+   ================================================================ */
+async function deleteTx(id) {
+  if (window._fb) {
+    try {
+      await window._fb.deleteDoc(window._fb.doc(window._fb.db, 'transactions', id));
+      // onSnapshot vai atualizar a lista automaticamente
+    } catch (e) {
+      console.warn('Firestore deleteDoc error:', e);
+      // Fallback local
+      state.transactions = state.transactions.filter(t => t.id !== id);
+      save(); refreshAll();
+    }
+  } else {
+    state.transactions = state.transactions.filter(t => t.id !== id);
+    save(); refreshAll();
+  }
+  showToast('✓ Transação removida');
+}
+
+/* ================================================================
+   NAVEGAÇÃO  (bottom nav)
+   ================================================================ */
+document.querySelectorAll('.nav-item').forEach(btn => {
+  btn.addEventListener('click', () => {
+    switchView(btn.dataset.view);
+    setNavActive(btn.dataset.view);
+  });
+});
+
+function switchView(id) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  $(id).classList.add('active');
+  $('dash-scroll').scrollTop = 0;
+}
+
+function setNavActive(id) {
+  document.querySelectorAll('.nav-item').forEach(n => {
+    n.classList.toggle('active', n.dataset.view === id);
+  });
+}
+
+/* ================================================================
+   CARDS DE PERÍODO  (view Relatório)
+   ================================================================ */
+
+/** Retorna transações dentro de um período pré-definido */
+function txsByPeriod(period) {
+  const now   = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  return state.transactions.filter(t => {
+    if (!t.date) return false;
+    const d = new Date(t.date + 'T00:00:00');
+    switch (period) {
+      case 'semanal':    return d >= new Date(today - 6*86400000) && d <= today;
+      case 'mensal':     return d.getMonth()===today.getMonth() && d.getFullYear()===today.getFullYear();
+      case 'trimestral': return d >= new Date(today - 89*86400000) && d <= today;
+      case 'anual':      return d.getFullYear() === today.getFullYear();
+      default: return false;
+    }
+  });
+}
+
+const PERIOD_NAMES = {
+  semanal: 'Últimos 7 Dias', mensal: 'Este Mês',
+  trimestral: 'Últimos 90 Dias', anual: 'Este Ano',
+};
+
+function renderPeriodCards() {
+  ['semanal','mensal','trimestral','anual'].forEach(p => {
+    const txs = txsByPeriod(p);
+    const inc = sumIn(txs);
+    const exp = sumOut(txs);
+    const bal = inc - exp;
+
+    const balEl  = $(`pcb-${p}`);
+    balEl.textContent = fmtBRL(Math.abs(bal));
+    balEl.className   = 'pc-bal ' + (bal >= 0 ? 'pos' : 'neg');
+    $(`pci-${p}`).textContent = `${txs.length} registro(s)`;
+    $(`pcc-${p}`).innerHTML   =
+      `<span class="pc-chip chip-in">↑ ${fmtBRL(inc)}</span>` +
+      `<span class="pc-chip chip-out">↓ ${fmtBRL(exp)}</span>`;
+  });
+}
+
+/* ── Abre modal ao clicar no period-card ── */
+document.querySelectorAll('.period-card').forEach(c => {
+  c.addEventListener('click', () => openModal(c.dataset.period));
+});
+
+/* ── Botões de PDF rápido ── */
+document.querySelectorAll('.pdf-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    openModal(b.dataset.pdf);   // abre modal para confirmar antes de gerar
+  });
+});
+
+/* ================================================================
+   MODAL  (bottom-sheet)
+   ================================================================ */
+function openModal(period) {
+  const txs = txsByPeriod(period);
+  state.modalPeriod = period;
+  state.modalData   = txs;
+
+  const inc = sumIn(txs);
+  const exp = sumOut(txs);
+  const bal = inc - exp;
+
+  $('modal-ttl').textContent = PERIOD_NAMES[period];
+
+  $('modal-sum').innerHTML = `
+    <div class="ms-card">
+      <div class="ms-label">Entradas</div>
+      <div class="ms-val" style="color:var(--green)">${fmtBRL(inc)}</div>
+    </div>
+    <div class="ms-card">
+      <div class="ms-label">Saídas</div>
+      <div class="ms-val" style="color:var(--red)">${fmtBRL(exp)}</div>
+    </div>
+    <div class="ms-card">
+      <div class="ms-label">Saldo</div>
+      <div class="ms-val" style="color:${bal>=0?'var(--green)':'var(--red)'}">${fmtBRL(bal)}</div>
+    </div>
+  `;
+
+  const tbody = $('modal-tbody');
+  if (!txs.length) {
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--muted);padding:24px">Sem transações neste período.</td></tr>`;
+  } else {
+    tbody.innerHTML = txs
+      .slice().sort((a,b) => b.date.localeCompare(a.date))
+      .map(t => `
+        <tr>
+          <td>${fmtDate(t.date)}</td>
+          <td>${esc(t.desc)}</td>
+          <td><span class="pill ${t.type==='entrada'?'pill-in':'pill-out'}">${t.type==='entrada'?'Entrada':'Saída'}</span></td>
+          <td style="text-align:right;font-family:'DM Mono',monospace;color:${t.type==='entrada'?'var(--green)':'var(--red)'}">
+            ${t.type==='entrada'?'+':'-'}${fmtBRL(t.amount)}
+          </td>
+        </tr>
+      `).join('');
+  }
+
+  $('overlay').classList.add('open');
+}
+
+$('btn-modal-close').addEventListener('click', closeModal);
+$('overlay').addEventListener('click', e => { if (e.target===$('overlay')) closeModal(); });
+
+function closeModal() {
+  $('overlay').classList.remove('open');
+  state.modalPeriod = null;
+  state.modalData   = null;
+}
+
+$('btn-modal-pdf').addEventListener('click', () => {
+  if (state.modalPeriod) generatePDF(state.modalPeriod, state.modalData);
+});
+
+/* ================================================================
+   GERAÇÃO DE PDF  (jsPDF + autoTable)
+   ================================================================ */
+function generatePDF(period, txs) {
+  if (!txs) txs = txsByPeriod(period);
+  const { jsPDF } = window.jspdf;
+
+  const doc    = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+  const inc    = sumIn(txs);
+  const exp    = sumOut(txs);
+  const bal    = inc - exp;
+  const today  = new Date().toLocaleDateString('pt-BR');
+
+  /* ── Header ─── */
+  doc.setFillColor(1,22,30);
+  doc.rect(0,0,210,46,'F');
+
+  doc.setFont('helvetica','bold');
+  doc.setFontSize(26); doc.setTextColor(174,195,176);
+  doc.text('Lumin', 14, 22);
+
+  doc.setFont('helvetica','normal');
+  doc.setFontSize(10); doc.setTextColor(155,195,175);
+  doc.text('Controle Financeiro', 14, 30);
+
+  doc.setFontSize(9); doc.setTextColor(90,130,110);
+  doc.text(PERIOD_NAMES[period], 14, 38);
+  doc.text(`Gerado em ${today}`, 196, 38, { align:'right' });
+
+  /* ── Summary boxes ─── */
+  [
+    { x:14,  label:'Total Entradas', val:'R$ '+fmtNum(inc), color:[80,168,100] },
+    { x:80,  label:'Total Saídas',   val:'R$ '+fmtNum(exp), color:[210,100,100] },
+    { x:146, label:'Saldo Líquido',  val:'R$ '+fmtNum(bal), color: bal>=0?[80,168,100]:[210,100,100] },
+  ].forEach(({ x,label,val,color }) => {
+    doc.setFillColor(10,38,52);
+    doc.roundedRect(x,52,58,26,3,3,'F');
+    doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(120,160,140);
+    doc.text(label, x+4, 59);
+    doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(...color);
+    doc.text(val, x+4, 69);
+  });
+
+  /* ── Tabela ─── */
+  if (txs.length) {
+    const rows = txs.slice().sort((a,b) => b.date.localeCompare(a.date));
+    doc.autoTable({
+      startY: 86,
+      head:   [['Data','Descrição','Tipo','Valor']],
+      body:   rows.map(t => [
+        fmtDate(t.date), t.desc,
+        t.type==='entrada'?'Entrada':'Saída',
+        (t.type==='entrada'?'+ ':'- ')+'R$ '+fmtNum(t.amount),
+      ]),
+      styles: { fontSize:9, cellPadding:4, font:'helvetica', textColor:[40,40,40] },
+      headStyles: { fillColor:[1,22,30], textColor:[174,195,176], fontStyle:'bold', fontSize:8 },
+      alternateRowStyles: { fillColor:[245,250,246] },
+      columnStyles: {
+        0:{ cellWidth:26 }, 1:{ cellWidth:90 },
+        2:{ cellWidth:26 }, 3:{ cellWidth:42, halign:'right' },
+      },
+      didParseCell: data => {
+        if (data.section==='body') {
+          const tx = rows[data.row.index];
+          if (data.column.index===2||data.column.index===3)
+            data.cell.styles.textColor = tx?.type==='entrada'?[50,130,70]:[180,60,60];
+        }
+      },
+    });
+  } else {
+    doc.setFontSize(10); doc.setTextColor(130,130,130);
+    doc.text('Nenhuma transação neste período.', 14, 92);
+  }
+
+  /* ── Rodapé ─── */
+  const ph = doc.internal.pageSize.height;
+  doc.setDrawColor(30,60,45);
+  doc.line(14, ph-14, 196, ph-14);
+  doc.setFontSize(8); doc.setFont('helvetica','normal'); doc.setTextColor(140,140,140);
+  doc.text('Lumin — Controle Financeiro', 14, ph-8);
+  doc.text('Gerado automaticamente', 196, ph-8, { align:'right' });
+
+  doc.save(`lumin-${period}-${today.replace(/\//g,'-')}.pdf`);
+  showToast('✓ PDF gerado com sucesso');
+}
+</script>
+</body>
+</html>
