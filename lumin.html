@@ -1,0 +1,1714 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lumin — Controle Financeiro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@400;600;700&family=DM+Mono:wght@300;400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+/* ============================================================
+   RESET & ROOT
+   ============================================================ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:          #01161e;
+  --bg-card:     rgba(255,255,255,0.03);
+  --bg-card-h:   rgba(255,255,255,0.06);
+  --border:      rgba(255,255,255,0.07);
+  --border-h:    rgba(255,255,255,0.14);
+  --text:        #eff6e0;
+  --text-muted:  rgba(239,246,224,0.42);
+  --text-dim:    rgba(239,246,224,0.65);
+  --green:       #aec3b0;
+  --green-glow:  rgba(174,195,176,0.18);
+  --green-dim:   rgba(174,195,176,0.55);
+  --red:         #d97b7b;
+  --red-dim:     rgba(217,123,123,0.55);
+  --red-glow:    rgba(217,123,123,0.15);
+  --blue:        #6aa3bd;
+  --accent:      #aec3b0;
+  --r-lg:        18px;
+  --r-md:        12px;
+  --r-sm:        8px;
+  --r-xs:        5px;
+  --shadow:      0 8px 40px rgba(0,0,0,0.55);
+  --transition:  0.22s cubic-bezier(0.4,0,0.2,1);
+}
+
+html { font-size: 16px; }
+body {
+  font-family: 'Outfit', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ============================================================
+   ATMOSPHERIC BACKGROUND
+   ============================================================ */
+.atmo {
+  position: fixed; inset: 0;
+  pointer-events: none; z-index: 0;
+  overflow: hidden;
+}
+.atmo-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(100px);
+}
+.atmo-orb-1 {
+  width: 650px; height: 650px;
+  background: radial-gradient(circle, rgba(15,60,44,0.7), transparent 70%);
+  top: -200px; left: -180px;
+  animation: drift1 25s ease-in-out infinite alternate;
+}
+.atmo-orb-2 {
+  width: 500px; height: 500px;
+  background: radial-gradient(circle, rgba(8,35,55,0.8), transparent 70%);
+  bottom: -150px; right: -120px;
+  animation: drift2 30s ease-in-out infinite alternate;
+}
+.atmo-orb-3 {
+  width: 350px; height: 350px;
+  background: radial-gradient(circle, rgba(18,42,18,0.5), transparent 70%);
+  top: 45%; left: 50%; transform: translateX(-50%);
+  animation: drift3 20s ease-in-out infinite alternate;
+}
+@keyframes drift1 { from { transform: translate(0,0); } to { transform: translate(60px,40px); } }
+@keyframes drift2 { from { transform: translate(0,0); } to { transform: translate(-50px,-30px); } }
+@keyframes drift3 { from { transform: translateX(-50%) scale(1); } to { transform: translateX(-50%) scale(1.2); } }
+
+/* ============================================================
+   PAGE TRANSITIONS
+   ============================================================ */
+.page {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 10;
+  transition: opacity 0.55s ease, transform 0.55s ease, visibility 0.55s;
+}
+.page.hidden {
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.975);
+  visibility: hidden;
+}
+
+/* ============================================================
+   LOGIN PAGE
+   ============================================================ */
+#pg-login { background: transparent; }
+
+.login-wrap {
+  position: relative; z-index: 1;
+  display: flex; flex-direction: column; align-items: center;
+  width: 100%; max-width: 400px;
+  padding: 0 20px;
+}
+
+/* Lumin wordmark */
+.lumin-wordmark {
+  font-family: 'Comfortaa', cursive;
+  font-weight: 700;
+  font-size: 52px;
+  color: #eff6e0;
+  letter-spacing: -0.02em;
+  text-shadow:
+    0 0 40px rgba(174,195,176,0.35),
+    0 0 80px rgba(174,195,176,0.15),
+    0 2px 4px rgba(0,0,0,0.4);
+  margin-bottom: 8px;
+  user-select: none;
+  animation: wordmarkPulse 4s ease-in-out infinite;
+}
+@keyframes wordmarkPulse {
+  0%, 100% { text-shadow: 0 0 40px rgba(174,195,176,0.35), 0 0 80px rgba(174,195,176,0.15), 0 2px 4px rgba(0,0,0,0.4); }
+  50%       { text-shadow: 0 0 60px rgba(174,195,176,0.55), 0 0 120px rgba(174,195,176,0.25), 0 2px 4px rgba(0,0,0,0.4); }
+}
+.lumin-sub {
+  font-family: 'Outfit', sans-serif;
+  font-size: 12px; font-weight: 400;
+  color: var(--text-muted);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin-bottom: 40px;
+}
+
+/* Glass card */
+.glass-card {
+  width: 100%;
+  background: rgba(255,255,255,0.05);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.08);
+  padding: 40px 36px 36px;
+}
+
+.field {
+  margin-bottom: 16px;
+}
+.field-label {
+  display: block;
+  font-size: 10px; font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+.field-input {
+  width: 100%;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  padding: 12px 15px;
+  color: var(--text);
+  font-family: 'Outfit', sans-serif;
+  font-size: 14px;
+  outline: none;
+  transition: border-color var(--transition), background var(--transition), box-shadow var(--transition);
+}
+.field-input::placeholder { color: var(--text-muted); }
+.field-input:focus {
+  border-color: rgba(174,195,176,0.5);
+  background: rgba(255,255,255,0.09);
+  box-shadow: 0 0 0 3px rgba(174,195,176,0.08);
+}
+.login-error {
+  min-height: 20px;
+  font-size: 12px;
+  color: var(--red);
+  text-align: center;
+  margin: 4px 0 2px;
+  opacity: 0;
+  transition: opacity var(--transition);
+}
+.login-error.show { opacity: 1; }
+
+.btn-primary {
+  width: 100%;
+  background: linear-gradient(135deg, #aec3b0 0%, #8aaa8c 100%);
+  border: none;
+  border-radius: var(--r-sm);
+  padding: 13px;
+  color: #01161e;
+  font-family: 'Comfortaa', cursive;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  margin-top: 10px;
+  position: relative;
+  overflow: hidden;
+  transition: opacity var(--transition), transform 0.12s;
+  box-shadow: 0 4px 20px rgba(174,195,176,0.25);
+}
+.btn-primary::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: rgba(255,255,255,0);
+  transition: background var(--transition);
+}
+.btn-primary:hover::before { background: rgba(255,255,255,0.1); }
+.btn-primary:active { transform: scale(0.97); }
+
+/* ============================================================
+   DASHBOARD SHELL
+   ============================================================ */
+#pg-dash {
+  position: fixed; inset: 0;
+  display: flex; flex-direction: row;
+  z-index: 10;
+  overflow: hidden;
+  transition: opacity 0.55s ease, transform 0.55s ease, visibility 0.55s;
+}
+#pg-dash.hidden {
+  opacity: 0; pointer-events: none;
+  transform: scale(1.02);
+  visibility: hidden;
+}
+
+/* ---- SIDEBAR ---- */
+.sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  background: rgba(1,22,30,0.95);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  padding: 32px 0 24px;
+  z-index: 20;
+  position: relative;
+}
+.sidebar::after {
+  content: '';
+  position: absolute; top: 0; right: -1px; bottom: 0;
+  width: 1px;
+  background: linear-gradient(to bottom, transparent, rgba(174,195,176,0.15) 30%, rgba(174,195,176,0.15) 70%, transparent);
+}
+.sb-brand {
+  font-family: 'Comfortaa', cursive;
+  font-weight: 700;
+  font-size: 22px;
+  color: #eff6e0;
+  text-shadow: 0 0 20px rgba(174,195,176,0.3);
+  padding: 0 24px;
+  margin-bottom: 36px;
+  letter-spacing: -0.01em;
+}
+.sb-section {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--text-muted);
+  padding: 0 24px;
+  margin-bottom: 8px;
+  margin-top: 16px;
+}
+.nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 24px;
+  font-family: 'Outfit', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition);
+  border-left: 2px solid transparent;
+  user-select: none;
+  position: relative;
+}
+.nav-btn:hover {
+  color: var(--text-dim);
+  background: rgba(255,255,255,0.03);
+}
+.nav-btn.active {
+  color: var(--green);
+  border-left-color: var(--green);
+  background: rgba(174,195,176,0.07);
+}
+.nav-btn.active::before {
+  content: '';
+  position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+  width: 3px; height: 20px;
+  background: var(--green);
+  border-radius: 2px 0 0 2px;
+  box-shadow: 0 0 10px rgba(174,195,176,0.4);
+}
+.nav-icon {
+  font-size: 15px;
+  width: 18px;
+  text-align: center;
+  flex-shrink: 0;
+}
+.sb-footer {
+  margin-top: auto;
+  padding: 0 16px;
+}
+.btn-logout {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--r-xs);
+  padding: 10px;
+  color: var(--text-muted);
+  font-family: 'Outfit', sans-serif;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.btn-logout:hover {
+  color: var(--red);
+  border-color: rgba(217,123,123,0.4);
+  background: var(--red-glow);
+}
+
+/* ---- MAIN CONTENT ---- */
+.main-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 36px 40px 60px;
+  position: relative;
+  z-index: 1;
+  scroll-behavior: smooth;
+}
+.main-content::-webkit-scrollbar { width: 4px; }
+.main-content::-webkit-scrollbar-track { background: transparent; }
+.main-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ---- SECTION MANAGEMENT ---- */
+.section { display: none; animation: sectionIn 0.3s ease; }
+.section.active { display: block; }
+@keyframes sectionIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ---- PAGE HEADER ---- */
+.page-header { margin-bottom: 28px; }
+.page-title {
+  font-family: 'Comfortaa', cursive;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+.page-subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* ============================================================
+   FILTER BAR
+   ============================================================ */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 14px 20px;
+  margin-bottom: 24px;
+}
+.filter-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+}
+.filter-select {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xs);
+  padding: 7px 12px;
+  color: var(--text);
+  font-family: 'Outfit', sans-serif;
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color var(--transition);
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(239,246,224,0.3)'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+}
+.filter-select:focus { border-color: var(--green-dim); }
+.filter-select option { background: #071e28; }
+
+/* ============================================================
+   SUMMARY CARDS
+   ============================================================ */
+.cards-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+.cards-row-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 28px;
+}
+.summary-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 22px 24px;
+  position: relative;
+  overflow: hidden;
+  transition: background var(--transition), border-color var(--transition), transform var(--transition);
+}
+.summary-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+}
+.summary-card:hover {
+  background: var(--bg-card-h);
+  border-color: var(--border-h);
+  transform: translateY(-1px);
+}
+.card-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.card-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.card-value {
+  font-family: 'DM Mono', monospace;
+  font-size: 26px;
+  font-weight: 300;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  transition: color var(--transition);
+}
+.card-value.positive { color: var(--green); }
+.card-value.negative { color: var(--red); }
+.card-value.neutral  { color: var(--text); }
+.card-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 8px;
+}
+
+/* 7-day card special */
+.week-card {
+  background: linear-gradient(135deg, rgba(174,195,176,0.06) 0%, rgba(106,163,189,0.04) 100%);
+  border-color: rgba(174,195,176,0.15);
+}
+
+/* ============================================================
+   DIVIDER
+   ============================================================ */
+.divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border) 30%, var(--border) 70%, transparent);
+  margin: 28px 0;
+}
+
+/* ============================================================
+   TRANSACTION FORM
+   ============================================================ */
+.form-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 24px;
+  margin-bottom: 24px;
+}
+.form-section-title {
+  font-family: 'Comfortaa', cursive;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-dim);
+  margin-bottom: 18px;
+  letter-spacing: 0.02em;
+}
+.form-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 12px;
+  align-items: end;
+}
+.form-field label {
+  display: block;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-bottom: 7px;
+}
+.form-input {
+  width: 100%;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xs);
+  padding: 10px 13px;
+  color: var(--text);
+  font-family: 'Outfit', sans-serif;
+  font-size: 13px;
+  outline: none;
+  transition: border-color var(--transition), background var(--transition), box-shadow var(--transition);
+}
+.form-input::placeholder { color: var(--text-muted); }
+.form-input:focus {
+  border-color: rgba(174,195,176,0.45);
+  background: rgba(255,255,255,0.08);
+  box-shadow: 0 0 0 3px rgba(174,195,176,0.06);
+}
+.form-input option { background: #071e28; }
+.btn-add {
+  background: linear-gradient(135deg, #aec3b0, #8aaa8c);
+  border: none;
+  border-radius: var(--r-xs);
+  padding: 10px 20px;
+  color: #01161e;
+  font-family: 'Comfortaa', cursive;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity var(--transition), transform 0.12s, box-shadow var(--transition);
+  height: 40px;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(174,195,176,0.2);
+}
+.btn-add:hover {
+  opacity: 0.88;
+  box-shadow: 0 4px 20px rgba(174,195,176,0.35);
+}
+.btn-add:active { transform: scale(0.97); }
+
+/* ============================================================
+   TRANSACTIONS TABLE
+   ============================================================ */
+.table-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+.table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border);
+}
+.table-title {
+  font-family: 'Comfortaa', cursive;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+.table-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: rgba(255,255,255,0.05);
+  padding: 3px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+}
+table { width: 100%; border-collapse: collapse; }
+thead th {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  padding: 12px 24px;
+  text-align: left;
+  background: rgba(255,255,255,0.02);
+  border-bottom: 1px solid var(--border);
+}
+tbody td {
+  padding: 13px 24px;
+  font-size: 13px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  transition: background var(--transition);
+}
+tbody tr:last-child td { border-bottom: none; }
+tbody tr:hover td { background: rgba(255,255,255,0.025); }
+
+.type-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.pill-in  { background: rgba(174,195,176,0.12); color: var(--green); }
+.pill-out { background: rgba(217,123,123,0.12); color: var(--red); }
+.amount-in  { color: var(--green); font-family: 'DM Mono', monospace; }
+.amount-out { color: var(--red);   font-family: 'DM Mono', monospace; }
+.date-cell  { color: var(--text-muted); font-size: 12px; font-family: 'DM Mono', monospace; }
+
+.btn-delete {
+  background: transparent;
+  border: 1px solid rgba(217,123,123,0.2);
+  border-radius: var(--r-xs);
+  padding: 4px 10px;
+  color: var(--red-dim);
+  font-size: 11px;
+  cursor: pointer;
+  font-family: 'Outfit', sans-serif;
+  transition: all var(--transition);
+}
+.btn-delete:hover {
+  background: var(--red-glow);
+  border-color: rgba(217,123,123,0.4);
+  color: var(--red);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 56px 24px;
+  color: var(--text-muted);
+  display: none;
+}
+.empty-state.show { display: block; }
+.empty-icon {
+  font-size: 36px;
+  margin-bottom: 14px;
+  opacity: 0.3;
+}
+.empty-text { font-size: 13px; }
+
+/* ============================================================
+   REPORTS SECTION
+   ============================================================ */
+.reports-title {
+  font-family: 'Comfortaa', cursive;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-dim);
+  margin-bottom: 16px;
+  letter-spacing: 0.02em;
+}
+.period-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  margin-bottom: 28px;
+}
+.period-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 22px 18px;
+  cursor: pointer;
+  transition: all var(--transition);
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.period-card::after {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: var(--r-lg);
+  opacity: 0;
+  transition: opacity var(--transition);
+  background: linear-gradient(135deg, rgba(174,195,176,0.08), rgba(106,163,189,0.05));
+}
+.period-card:hover {
+  border-color: rgba(174,195,176,0.3);
+  transform: translateY(-3px);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+}
+.period-card:hover::after { opacity: 1; }
+.period-icon {
+  font-size: 28px;
+  margin-bottom: 12px;
+  position: relative; z-index: 1;
+}
+.period-name {
+  font-family: 'Comfortaa', cursive;
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  position: relative; z-index: 1;
+}
+.period-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  position: relative; z-index: 1;
+}
+
+/* ============================================================
+   MODAL
+   ============================================================ */
+.overlay {
+  position: fixed; inset: 0;
+  background: rgba(1,22,30,0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+  transition: opacity 0.28s ease, visibility 0.28s;
+}
+.overlay.open {
+  opacity: 1;
+  pointer-events: all;
+  visibility: visible;
+}
+.modal {
+  background: #071e28;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 20px;
+  padding: 36px;
+  width: 90%;
+  max-width: 580px;
+  max-height: 85vh;
+  overflow-y: auto;
+  transform: translateY(24px) scale(0.97);
+  transition: transform 0.28s cubic-bezier(0.34,1.56,0.64,1);
+  box-shadow: 0 24px 80px rgba(0,0,0,0.6);
+}
+.overlay.open .modal {
+  transform: translateY(0) scale(1);
+}
+.modal::-webkit-scrollbar { width: 3px; }
+.modal::-webkit-scrollbar-thumb { background: var(--border); }
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+.modal-title {
+  font-family: 'Comfortaa', cursive;
+  font-size: 18px;
+  font-weight: 700;
+}
+.modal-close {
+  background: rgba(255,255,255,0.07);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  width: 32px; height: 32px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all var(--transition);
+  line-height: 1;
+}
+.modal-close:hover {
+  background: var(--red-glow);
+  color: var(--red);
+  border-color: rgba(217,123,123,0.3);
+}
+
+.modal-summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.modal-card {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: 14px 16px;
+  text-align: center;
+}
+.modal-card-label {
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  margin-bottom: 7px;
+  font-weight: 600;
+}
+.modal-card-value {
+  font-family: 'DM Mono', monospace;
+  font-size: 16px;
+  font-weight: 400;
+}
+
+.modal-table-wrap {
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+.modal-table-wrap thead th { padding: 10px 16px; }
+.modal-table-wrap tbody td { padding: 10px 16px; font-size: 12px; }
+
+.btn-download {
+  width: 100%;
+  background: linear-gradient(135deg, #aec3b0, #8aaa8c);
+  border: none;
+  border-radius: var(--r-sm);
+  padding: 13px;
+  color: #01161e;
+  font-family: 'Comfortaa', cursive;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: opacity var(--transition), box-shadow var(--transition);
+  box-shadow: 0 4px 16px rgba(174,195,176,0.2);
+}
+.btn-download:hover {
+  opacity: 0.88;
+  box-shadow: 0 4px 24px rgba(174,195,176,0.35);
+}
+
+/* ============================================================
+   COUNTING ANIMATION
+   ============================================================ */
+.counting { opacity: 0.7; }
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+@media (max-width: 1100px) {
+  .form-grid { grid-template-columns: 1fr 1fr; }
+  .cards-row { grid-template-columns: 1fr 1fr; }
+  .period-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 780px) {
+  .sidebar { width: 60px; }
+  .sb-brand, .nav-btn span, .sb-section, .sb-footer { display: none; }
+  .nav-btn { justify-content: center; padding: 12px; }
+  .main-content { padding: 24px 20px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ATMOSPHERIC BACKGROUND -->
+<div class="atmo">
+  <div class="atmo-orb atmo-orb-1"></div>
+  <div class="atmo-orb atmo-orb-2"></div>
+  <div class="atmo-orb atmo-orb-3"></div>
+</div>
+
+<!-- ================================================================
+     LOGIN PAGE
+     ================================================================ -->
+<div class="page" id="pg-login">
+  <div class="login-wrap">
+    <div class="lumin-wordmark">Lumin</div>
+    <div class="lumin-sub">Controle Financeiro</div>
+    <div class="glass-card">
+      <div class="field">
+        <label class="field-label">Usuário</label>
+        <input type="text" class="field-input" id="inp-user" placeholder="Seu usuário" autocomplete="username">
+      </div>
+      <div class="field">
+        <label class="field-label">Senha</label>
+        <input type="password" class="field-input" id="inp-pass" placeholder="Sua senha" autocomplete="current-password">
+      </div>
+      <div class="login-error" id="login-error">Usuário ou senha incorretos.</div>
+      <button class="btn-primary" id="btn-login">Entrar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================================================================
+     DASHBOARD PAGE
+     ================================================================ -->
+<div class="page hidden" id="pg-dash">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sb-brand">Lumin</div>
+    <div class="sb-section">Menu</div>
+    <div class="nav-btn active" data-section="overview">
+      <span class="nav-icon">◈</span>
+      <span>Visão Geral</span>
+    </div>
+    <div class="nav-btn" data-section="movimentos">
+      <span class="nav-icon">⇄</span>
+      <span>Movimentações</span>
+    </div>
+    <div class="nav-btn" data-section="insights">
+      <span class="nav-icon">◉</span>
+      <span>Insights</span>
+    </div>
+    <div class="sb-footer">
+      <button class="btn-logout" id="btn-logout">↩ Sair</button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main-content">
+
+    <!-- ========== OVERVIEW SECTION ========== -->
+    <div class="section active" id="sec-overview">
+      <div class="page-header">
+        <h1 class="page-title">Visão Geral</h1>
+        <p class="page-subtitle" id="ov-subtitle">Resumo financeiro do período</p>
+      </div>
+
+      <div class="filter-bar">
+        <span class="filter-label">Período</span>
+        <select class="filter-select" id="sel-month">
+          <option value="1">Janeiro</option><option value="2">Fevereiro</option>
+          <option value="3">Março</option><option value="4">Abril</option>
+          <option value="5">Maio</option><option value="6">Junho</option>
+          <option value="7">Julho</option><option value="8">Agosto</option>
+          <option value="9">Setembro</option><option value="10">Outubro</option>
+          <option value="11">Novembro</option><option value="12">Dezembro</option>
+        </select>
+        <select class="filter-select" id="sel-year"></select>
+        <span class="filter-label" style="margin-left:auto">
+          <span id="filter-tx-count" style="color:var(--text-dim)">0 transações</span>
+        </span>
+      </div>
+
+      <!-- Main 3 cards -->
+      <div class="cards-row" id="cards-main">
+        <div class="summary-card">
+          <div class="card-label"><span class="card-dot" style="background:var(--green)"></span>Total Entradas</div>
+          <div class="card-value positive" id="cv-in">R$ 0,00</div>
+          <div class="card-meta" id="cm-in">0 lançamentos</div>
+        </div>
+        <div class="summary-card">
+          <div class="card-label"><span class="card-dot" style="background:var(--red)"></span>Total Saídas</div>
+          <div class="card-value" id="cv-out" style="color:var(--red)">R$ 0,00</div>
+          <div class="card-meta" id="cm-out">0 lançamentos</div>
+        </div>
+        <div class="summary-card">
+          <div class="card-label"><span class="card-dot" style="background:var(--blue)"></span>Saldo Atual</div>
+          <div class="card-value" id="cv-bal">R$ 0,00</div>
+          <div class="card-meta">Resultado líquido do período</div>
+        </div>
+      </div>
+
+      <!-- Secondary cards -->
+      <div class="cards-row-2">
+        <div class="summary-card">
+          <div class="card-label">Acumulado do Ano <span id="year-label" style="color:var(--green-dim)"></span></div>
+          <div class="card-value" id="cv-year-bal">R$ 0,00</div>
+          <div class="card-meta" id="cm-year-bal">— entradas · — saídas</div>
+        </div>
+        <div class="summary-card week-card">
+          <div class="card-label">Últimos 7 Dias</div>
+          <div class="card-value" id="cv-7d">R$ 0,00</div>
+          <div class="card-meta" id="cm-7d">Balanço líquido dos 7 dias corridos</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== MOVIMENTOS SECTION ========== -->
+    <div class="section" id="sec-movimentos">
+      <div class="page-header">
+        <h1 class="page-title">Movimentações</h1>
+        <p class="page-subtitle">Registre e gerencie suas transações financeiras</p>
+      </div>
+
+      <!-- Form -->
+      <div class="form-card">
+        <div class="form-section-title">Nova Transação</div>
+        <div class="form-grid">
+          <div class="form-field">
+            <label>Descrição</label>
+            <input type="text" class="form-input" id="tx-desc" placeholder="Ex: Salário, Aluguel, Mercado...">
+          </div>
+          <div class="form-field">
+            <label>Valor R$</label>
+            <input type="text" class="form-input" id="tx-val" placeholder="0,00">
+          </div>
+          <div class="form-field">
+            <label>Tipo</label>
+            <select class="form-input" id="tx-type">
+              <option value="entrada">↑ Entrada</option>
+              <option value="saida">↓ Saída</option>
+            </select>
+          </div>
+          <div class="form-field">
+            <label>Data</label>
+            <input type="date" class="form-input" id="tx-date">
+          </div>
+        </div>
+        <div style="margin-top:14px">
+          <button class="btn-add" id="btn-add-tx">+ Adicionar Transação</button>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="table-card">
+        <div class="table-header">
+          <span class="table-title">Histórico Completo</span>
+          <span class="table-count" id="tbl-count">0 registros</span>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th>Descrição</th>
+              <th>Tipo</th>
+              <th>Valor</th>
+              <th style="width:80px"></th>
+            </tr>
+          </thead>
+          <tbody id="tx-tbody"></tbody>
+        </table>
+        <div class="empty-state" id="empty-state">
+          <div class="empty-icon">◎</div>
+          <div class="empty-text">Nenhuma transação registrada ainda.<br>Adicione a primeira acima.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== INSIGHTS SECTION ========== -->
+    <div class="section" id="sec-insights">
+      <div class="page-header">
+        <h1 class="page-title">Relatórios & Insights</h1>
+        <p class="page-subtitle" id="ins-subtitle">Análises sincronizadas com seus dados</p>
+      </div>
+
+      <!-- Sync cards -->
+      <div class="cards-row" style="margin-bottom:28px" id="ins-cards-row">
+        <div class="summary-card">
+          <div class="card-label"><span class="card-dot" style="background:var(--green)"></span>Entradas (mês)</div>
+          <div class="card-value positive" id="ins-in">R$ 0,00</div>
+          <div class="card-meta" id="ins-in-m">—</div>
+        </div>
+        <div class="summary-card">
+          <div class="card-label"><span class="card-dot" style="background:var(--red)"></span>Saídas (mês)</div>
+          <div class="card-value" id="ins-out" style="color:var(--red)">R$ 0,00</div>
+          <div class="card-meta" id="ins-out-m">—</div>
+        </div>
+        <div class="summary-card week-card">
+          <div class="card-label">Últimos 7 Dias</div>
+          <div class="card-value" id="ins-7d">R$ 0,00</div>
+          <div class="card-meta">Balanço líquido</div>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- Period buttons -->
+      <div class="reports-title">Exportar Relatório por Período</div>
+      <div class="period-grid">
+        <div class="period-card" data-period="week">
+          <div class="period-icon">◷</div>
+          <div class="period-name">Semanal</div>
+          <div class="period-desc">Últimos 7 dias</div>
+        </div>
+        <div class="period-card" data-period="month">
+          <div class="period-icon">◈</div>
+          <div class="period-name">Mensal</div>
+          <div class="period-desc">Mês corrente</div>
+        </div>
+        <div class="period-card" data-period="quarter">
+          <div class="period-icon">◉</div>
+          <div class="period-name">Trimestral</div>
+          <div class="period-desc">Últimos 3 meses</div>
+        </div>
+        <div class="period-card" data-period="year">
+          <div class="period-icon">◎</div>
+          <div class="period-name">Anual</div>
+          <div class="period-desc">Ano corrente</div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ================================================================
+     MODAL
+     ================================================================ -->
+<div class="overlay" id="overlay">
+  <div class="modal" id="modal">
+    <div class="modal-header">
+      <h2 class="modal-title" id="modal-title">Relatório</h2>
+      <button class="modal-close" id="btn-modal-close">✕</button>
+    </div>
+    <div class="modal-summary" id="modal-summary"></div>
+    <div class="modal-table-wrap table-card" id="modal-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Data</th>
+            <th>Descrição</th>
+            <th>Tipo</th>
+            <th>Valor</th>
+          </tr>
+        </thead>
+        <tbody id="modal-tbody"></tbody>
+      </table>
+    </div>
+    <button class="btn-download" id="btn-download">⬇ Baixar PDF</button>
+  </div>
+</div>
+
+<!-- ================================================================
+     JAVASCRIPT
+     ================================================================ -->
+<script>
+'use strict';
+
+// ─────────────────────────────────────────────
+//  STATE
+// ─────────────────────────────────────────────
+const LS_KEY = 'lumin_v2_transactions';
+let state = {
+  transactions: [],
+  filterMonth: new Date().getMonth() + 1,
+  filterYear:  new Date().getFullYear(),
+  currentReportPeriod: null,
+  currentReportData: null,
+};
+
+// ─────────────────────────────────────────────
+//  HELPERS
+// ─────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+const PERIOD_NAMES = { week: 'Semanal — Últimos 7 Dias', month: 'Mensal — Mês Corrente', quarter: 'Trimestral — 3 Meses', year: 'Anual — Ano Corrente' };
+
+const fmt = v => new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL' }).format(v);
+const fmtNum = v => new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL' }).format(v);
+const fmtDate = d => {
+  const [y, m, day] = d.split('-');
+  return `${day}/${m}/${y}`;
+};
+
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+
+// Clean & validate a single transaction
+function isValidTx(tx) {
+  return tx && typeof tx === 'object'
+    && typeof tx.id === 'string'
+    && typeof tx.desc === 'string' && tx.desc.trim() !== ''
+    && typeof tx.amount === 'number' && isFinite(tx.amount) && tx.amount > 0
+    && (tx.type === 'entrada' || tx.type === 'saida')
+    && typeof tx.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(tx.date);
+}
+
+// ─────────────────────────────────────────────
+//  STORAGE
+// ─────────────────────────────────────────────
+function loadStorage() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(isValidTx); // clean corrupted entries
+  } catch (_) { return []; }
+}
+
+function saveStorage() {
+  localStorage.setItem(LS_KEY, JSON.stringify(state.transactions));
+}
+
+// ─────────────────────────────────────────────
+//  FILTERS
+// ─────────────────────────────────────────────
+function txByMonthYear(arr, m, y) {
+  return arr.filter(t => {
+    const d = new Date(t.date + 'T12:00:00');
+    return d.getMonth() + 1 === m && d.getFullYear() === y;
+  });
+}
+
+function txByYear(arr, y) {
+  return arr.filter(t => new Date(t.date + 'T12:00:00').getFullYear() === y);
+}
+
+function txByPeriod(period) {
+  const now = new Date();
+  let from;
+  switch (period) {
+    case 'week':
+      from = new Date(now);
+      from.setDate(now.getDate() - 6);
+      from.setHours(0, 0, 0, 0);
+      break;
+    case 'month':
+      from = new Date(now.getFullYear(), now.getMonth(), 1);
+      break;
+    case 'quarter':
+      from = new Date(now);
+      from.setMonth(now.getMonth() - 2);
+      from.setDate(1);
+      from.setHours(0, 0, 0, 0);
+      break;
+    case 'year':
+      from = new Date(now.getFullYear(), 0, 1);
+      break;
+    default:
+      from = new Date(0);
+  }
+  return state.transactions.filter(t => {
+    const d = new Date(t.date + 'T12:00:00');
+    return d >= from && d <= now;
+  }).sort((a, b) => b.date.localeCompare(a.date));
+}
+
+function txLast7Days() {
+  const now = new Date();
+  const from = new Date(now);
+  from.setDate(now.getDate() - 6);
+  from.setHours(0, 0, 0, 0);
+  return state.transactions.filter(t => {
+    const d = new Date(t.date + 'T12:00:00');
+    return d >= from && d <= now;
+  });
+}
+
+function sumIn(arr)  { return arr.filter(t => t.type === 'entrada').reduce((s, t) => s + t.amount, 0); }
+function sumOut(arr) { return arr.filter(t => t.type === 'saida').reduce((s, t) => s + t.amount, 0); }
+
+// ─────────────────────────────────────────────
+//  ANIMATED COUNTER
+// ─────────────────────────────────────────────
+const runningAnimations = new Map();
+
+function animateValue(el, targetVal, duration = 1500) {
+  const elId = el.id;
+  if (runningAnimations.has(elId)) {
+    cancelAnimationFrame(runningAnimations.get(elId));
+  }
+  const start = performance.now();
+  const startVal = 0;
+
+  function tick(now) {
+    const elapsed = now - start;
+    const progress = Math.min(elapsed / duration, 1);
+    // ease-out cubic
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const current = startVal + (targetVal - startVal) * eased;
+    el.textContent = fmt(current);
+    if (progress < 1) {
+      runningAnimations.set(elId, requestAnimationFrame(tick));
+    } else {
+      el.textContent = fmt(targetVal);
+      runningAnimations.delete(elId);
+    }
+  }
+  runningAnimations.set(elId, requestAnimationFrame(tick));
+}
+
+// ─────────────────────────────────────────────
+//  CORE: updateApp()  ← Central renderer
+// ─────────────────────────────────────────────
+function updateApp(animate = false) {
+  const { filterMonth: m, filterYear: y } = state;
+  const monthly = txByMonthYear(state.transactions, m, y);
+  const yearly  = txByYear(state.transactions, y);
+  const last7   = txLast7Days();
+
+  const inM  = sumIn(monthly);
+  const outM = sumOut(monthly);
+  const balM = inM - outM;
+  const inY  = sumIn(yearly);
+  const outY = sumOut(yearly);
+  const balY = inY - outY;
+  const in7  = sumIn(last7);
+  const out7 = sumOut(last7);
+  const bal7 = in7 - out7;
+
+  // ── Overview ──────────────────────────────────
+  $('ov-subtitle').textContent = `${MONTHS[m-1]} / ${y}`;
+  $('filter-tx-count').textContent = `${monthly.length} transaç${monthly.length === 1 ? 'ão' : 'ões'}`;
+  $('year-label').textContent = y;
+
+  const cv_in  = $('cv-in');
+  const cv_out = $('cv-out');
+  const cv_bal = $('cv-bal');
+
+  if (animate) {
+    animateValue(cv_in,  inM);
+    animateValue(cv_out, outM);
+    animateValue(cv_bal, balM);
+    animateValue($('cv-year-bal'), balY);
+    animateValue($('cv-7d'), bal7);
+  } else {
+    cv_in.textContent  = fmt(inM);
+    cv_out.textContent = fmt(outM);
+    cv_bal.textContent = fmt(balM);
+    $('cv-year-bal').textContent = fmt(balY);
+    $('cv-7d').textContent = fmt(bal7);
+  }
+
+  $('cm-in').textContent  = `${monthly.filter(t => t.type === 'entrada').length} lançamento(s)`;
+  $('cm-out').textContent = `${monthly.filter(t => t.type === 'saida').length} lançamento(s)`;
+
+  // Balance color
+  cv_bal.className = 'card-value ' + (balM >= 0 ? 'positive' : 'negative');
+  $('cv-year-bal').className = 'card-value ' + (balY >= 0 ? 'positive' : 'negative');
+  $('cv-7d').className = 'card-value ' + (bal7 >= 0 ? 'positive' : 'negative');
+
+  $('cm-year-bal').textContent = `${fmt(inY)} entradas · ${fmt(outY)} saídas`;
+  $('cm-7d').textContent = `${last7.length} transação(ões) nos últimos 7 dias`;
+
+  // ── Insights (synced) ─────────────────────────
+  $('ins-subtitle').textContent = `Sincronizado com ${MONTHS[m-1]} / ${y}`;
+  $('ins-in').textContent  = fmt(inM);
+  $('ins-out').textContent = fmt(outM);
+  $('ins-7d').textContent  = fmt(bal7);
+  $('ins-in').className    = 'card-value positive';
+  $('ins-out').className   = 'card-value negative';
+  $('ins-7d').className    = 'card-value ' + (bal7 >= 0 ? 'positive' : 'negative');
+  $('ins-in-m').textContent  = `${monthly.filter(t => t.type === 'entrada').length} lançamentos`;
+  $('ins-out-m').textContent = `${monthly.filter(t => t.type === 'saida').length} lançamentos`;
+
+  // ── Table ──────────────────────────────────────
+  renderTable();
+}
+
+// ─────────────────────────────────────────────
+//  TABLE RENDER
+// ─────────────────────────────────────────────
+function renderTable() {
+  const sorted = [...state.transactions].sort((a, b) => b.date.localeCompare(a.date));
+  const tbody = $('tx-tbody');
+  const empty = $('empty-state');
+  const count = $('tbl-count');
+
+  count.textContent = `${sorted.length} registro${sorted.length !== 1 ? 's' : ''}`;
+
+  if (!sorted.length) {
+    tbody.innerHTML = '';
+    empty.classList.add('show');
+    return;
+  }
+  empty.classList.remove('show');
+
+  tbody.innerHTML = sorted.map(tx => `
+    <tr>
+      <td class="date-cell">${fmtDate(tx.date)}</td>
+      <td>${escHtml(tx.desc)}</td>
+      <td>
+        <span class="type-pill ${tx.type === 'entrada' ? 'pill-in' : 'pill-out'}">
+          ${tx.type === 'entrada' ? '↑ Entrada' : '↓ Saída'}
+        </span>
+      </td>
+      <td class="${tx.type === 'entrada' ? 'amount-in' : 'amount-out'}">${fmt(tx.amount)}</td>
+      <td>
+        <button class="btn-delete" onclick="deleteTx('${tx.id}')">Excluir</button>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─────────────────────────────────────────────
+//  ADD / DELETE TRANSACTION
+// ─────────────────────────────────────────────
+function parseBRL(s) {
+  const cleaned = s.replace(/\./g, '').replace(',', '.');
+  return parseFloat(cleaned) || 0;
+}
+
+$('btn-add-tx').addEventListener('click', () => {
+  const desc = $('tx-desc').value.trim();
+  const valStr = $('tx-val').value.trim();
+  const type = $('tx-type').value;
+  const date = $('tx-date').value;
+
+  if (!desc)   { alert('Preencha a descrição.'); return; }
+  if (!valStr) { alert('Preencha o valor.'); return; }
+  if (!date)   { alert('Selecione a data.'); return; }
+
+  const amount = parseBRL(valStr);
+  if (amount <= 0) { alert('Valor inválido.'); return; }
+
+  const tx = { id: uid(), desc, amount, type, date };
+  if (!isValidTx(tx)) { alert('Dados inválidos.'); return; }
+
+  state.transactions.push(tx);
+  saveStorage();
+  updateApp(false);
+
+  // Reset form
+  $('tx-desc').value = '';
+  $('tx-val').value = '';
+  $('tx-type').value = 'entrada';
+  $('tx-date').valueAsDate = new Date();
+});
+
+// Currency mask
+$('tx-val').addEventListener('input', function () {
+  let v = this.value.replace(/\D/g, '');
+  if (!v) { this.value = ''; return; }
+  v = (parseInt(v, 10) / 100).toFixed(2);
+  this.value = v.replace('.', ',').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+});
+
+window.deleteTx = function (id) {
+  if (!confirm('Excluir esta transação?')) return;
+  state.transactions = state.transactions.filter(t => t.id !== id);
+  saveStorage();
+  updateApp(false);
+};
+
+// ─────────────────────────────────────────────
+//  NAVIGATION
+// ─────────────────────────────────────────────
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    btn.classList.add('active');
+    const secId = 'sec-' + btn.dataset.section;
+    $(secId).classList.add('active');
+  });
+});
+
+// ─────────────────────────────────────────────
+//  FILTERS
+// ─────────────────────────────────────────────
+function buildYearSelect() {
+  const sel = $('sel-year');
+  const now = new Date().getFullYear();
+  sel.innerHTML = '';
+  for (let y = now + 1; y >= 2018; y--) {
+    const o = document.createElement('option');
+    o.value = y; o.textContent = y;
+    if (y === now) o.selected = true;
+    sel.appendChild(o);
+  }
+}
+
+$('sel-month').addEventListener('change', () => {
+  state.filterMonth = parseInt($('sel-month').value, 10);
+  updateApp(true);
+});
+$('sel-year').addEventListener('change', () => {
+  state.filterYear = parseInt($('sel-year').value, 10);
+  updateApp(true);
+});
+
+// ─────────────────────────────────────────────
+//  PERIOD REPORT MODAL
+// ─────────────────────────────────────────────
+document.querySelectorAll('.period-card').forEach(card => {
+  card.addEventListener('click', () => openReportModal(card.dataset.period));
+});
+
+function openReportModal(period) {
+  const txs = txByPeriod(period);
+  state.currentReportPeriod = period;
+  state.currentReportData   = txs;
+
+  const inTotal  = sumIn(txs);
+  const outTotal = sumOut(txs);
+  const balance  = inTotal - outTotal;
+
+  $('modal-title').textContent = PERIOD_NAMES[period];
+
+  $('modal-summary').innerHTML = `
+    <div class="modal-card">
+      <div class="modal-card-label">Entradas</div>
+      <div class="modal-card-value" style="color:var(--green)">${fmt(inTotal)}</div>
+    </div>
+    <div class="modal-card">
+      <div class="modal-card-label">Saídas</div>
+      <div class="modal-card-value" style="color:var(--red)">${fmt(outTotal)}</div>
+    </div>
+    <div class="modal-card">
+      <div class="modal-card-label">Saldo</div>
+      <div class="modal-card-value" style="color:${balance >= 0 ? 'var(--green)' : 'var(--red)'}">${fmt(balance)}</div>
+    </div>
+  `;
+
+  const tbody = $('modal-tbody');
+  if (!txs.length) {
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:24px">Sem transações neste período.</td></tr>`;
+  } else {
+    tbody.innerHTML = txs.map(tx => `
+      <tr>
+        <td class="date-cell">${fmtDate(tx.date)}</td>
+        <td>${escHtml(tx.desc)}</td>
+        <td><span class="type-pill ${tx.type === 'entrada' ? 'pill-in' : 'pill-out'}">${tx.type === 'entrada' ? 'Entrada' : 'Saída'}</span></td>
+        <td class="${tx.type === 'entrada' ? 'amount-in' : 'amount-out'}">${fmt(tx.amount)}</td>
+      </tr>
+    `).join('');
+  }
+
+  $('overlay').classList.add('open');
+}
+
+$('btn-modal-close').addEventListener('click', closeModal);
+$('overlay').addEventListener('click', e => {
+  if (e.target === $('overlay')) closeModal();
+});
+function closeModal() {
+  $('overlay').classList.remove('open');
+  state.currentReportPeriod = null;
+  state.currentReportData = null;
+}
+
+// ─────────────────────────────────────────────
+//  PDF EXPORT
+// ─────────────────────────────────────────────
+$('btn-download').addEventListener('click', generatePDF);
+
+function generatePDF() {
+  const { jsPDF } = window.jspdf;
+  const period = state.currentReportPeriod;
+  const txs    = state.currentReportData;
+  if (!txs) return;
+
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const inTotal  = sumIn(txs);
+  const outTotal = sumOut(txs);
+  const balance  = inTotal - outTotal;
+  const today    = new Date().toLocaleDateString('pt-BR');
+  const title    = PERIOD_NAMES[period];
+
+  // ── Header bar ──────────────────────────────────
+  doc.setFillColor(1, 22, 30);
+  doc.rect(0, 0, 210, 44, 'F');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(24);
+  doc.setTextColor(174, 195, 176);
+  doc.text('Lumin', 14, 20);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.setTextColor(180, 210, 185);
+  doc.text('Relatório Financeiro', 14, 28);
+
+  doc.setFontSize(9);
+  doc.setTextColor(100, 140, 110);
+  doc.text(title, 14, 36);
+  doc.text(`Gerado em ${today}`, 196, 36, { align: 'right' });
+
+  // ── Summary boxes ─────────────────────────────
+  const boxes = [
+    { x: 14,  label: 'Total Entradas', value: fmtNum(inTotal),  color: [80, 168, 100] },
+    { x: 80,  label: 'Total Saídas',   value: fmtNum(outTotal), color: [210, 100, 100] },
+    { x: 146, label: 'Saldo Líquido',  value: fmtNum(balance),  color: balance >= 0 ? [80, 168, 100] : [210, 100, 100] },
+  ];
+
+  boxes.forEach(({ x, label, value, color }) => {
+    doc.setFillColor(12, 42, 55);
+    doc.roundedRect(x, 50, 58, 24, 3, 3, 'F');
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(130, 165, 140);
+    doc.text(label, x + 4, 57);
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...color);
+    doc.text(value, x + 4, 67);
+  });
+
+  // ── Table ────────────────────────────────────
+  if (txs.length) {
+    doc.autoTable({
+      startY: 82,
+      head:   [['Data', 'Descrição', 'Tipo', 'Valor']],
+      body:   txs.map(t => [
+        fmtDate(t.date),
+        t.desc,
+        t.type === 'entrada' ? 'Entrada' : 'Saída',
+        fmtNum(t.amount),
+      ]),
+      styles: {
+        fontSize: 9,
+        cellPadding: 4,
+        font: 'helvetica',
+        textColor: [40, 40, 40],
+      },
+      headStyles: {
+        fillColor: [1, 22, 30],
+        textColor: [174, 195, 176],
+        fontStyle: 'bold',
+        fontSize: 8,
+      },
+      alternateRowStyles: { fillColor: [245, 250, 246] },
+      columnStyles: {
+        0: { cellWidth: 28 },
+        1: { cellWidth: 88 },
+        2: { cellWidth: 28 },
+        3: { cellWidth: 40, halign: 'right' },
+      },
+      didParseCell: data => {
+        if (data.section === 'body') {
+          const tx = txs[data.row.index];
+          if (data.column.index === 2) {
+            data.cell.styles.textColor = tx?.type === 'entrada' ? [50, 130, 70] : [180, 60, 60];
+          }
+          if (data.column.index === 3) {
+            data.cell.styles.textColor = tx?.type === 'entrada' ? [50, 130, 70] : [180, 60, 60];
+          }
+        }
+      },
+    });
+  } else {
+    doc.setFontSize(10);
+    doc.setTextColor(130, 130, 130);
+    doc.text('Nenhuma transação encontrada neste período.', 14, 88);
+  }
+
+  // ── Footer ────────────────────────────────────
+  const pageH = doc.internal.pageSize.height;
+  doc.setDrawColor(30, 60, 45);
+  doc.line(14, pageH - 14, 196, pageH - 14);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(140, 140, 140);
+  doc.text('Lumin — Controle Financeiro', 14, pageH - 8);
+  doc.text('Documento gerado automaticamente', 196, pageH - 8, { align: 'right' });
+
+  doc.save(`lumin-relatorio-${period}.pdf`);
+}
+
+// ─────────────────────────────────────────────
+//  AUTH
+// ─────────────────────────────────────────────
+$('btn-login').addEventListener('click', handleLogin);
+$('inp-pass').addEventListener('keydown', e => { if (e.key === 'Enter') handleLogin(); });
+$('inp-user').addEventListener('keydown', e => { if (e.key === 'Enter') $('inp-pass').focus(); });
+
+function handleLogin() {
+  const u = $('inp-user').value.trim();
+  const p = $('inp-pass').value;
+  const errEl = $('login-error');
+
+  if (u === 'anakarolina' && p === 'anakarolina') {
+    errEl.classList.remove('show');
+    initDashboard();
+    $('pg-login').classList.add('hidden');
+    $('pg-dash').classList.remove('hidden');
+  } else {
+    errEl.classList.add('show');
+    $('inp-pass').value = '';
+    $('inp-pass').focus();
+  }
+}
+
+$('btn-logout').addEventListener('click', () => {
+  $('pg-dash').classList.add('hidden');
+  $('pg-login').classList.remove('hidden');
+  $('inp-user').value = '';
+  $('inp-pass').value = '';
+  $('login-error').classList.remove('show');
+});
+
+// ─────────────────────────────────────────────
+//  INIT DASHBOARD
+// ─────────────────────────────────────────────
+function initDashboard() {
+  state.transactions = loadStorage();
+  state.filterMonth  = new Date().getMonth() + 1;
+  state.filterYear   = new Date().getFullYear();
+
+  buildYearSelect();
+  $('sel-month').value = state.filterMonth;
+  $('tx-date').valueAsDate = new Date();
+
+  updateApp(true);
+}
+
+// ─────────────────────────────────────────────
+//  BOOT (check session)
+// ─────────────────────────────────────────────
+// Auto-login removed for security: always show login screen
+</script>
+</body>
+</html>
