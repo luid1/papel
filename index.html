@@ -23,7 +23,7 @@
 <script type="module">
   import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
   import {
-    getFirestore, collection, addDoc, updateDoc,
+    getFirestore, collection, addDoc, updateDoc, setDoc,
     deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp
   } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
@@ -39,7 +39,7 @@
 
   const app = initializeApp(cfg);
   const db  = getFirestore(app);
-  window._fb = { db, collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp };
+  window._fb = { db, collection, addDoc, updateDoc, setDoc, deleteDoc, doc, onSnapshot, query, orderBy, serverTimestamp };
   window.dispatchEvent(new Event('firebase-ready'));
 </script>
 
@@ -478,6 +478,181 @@ table.tx-table td { padding:11px 14px; vertical-align:middle; }
 .ps-lbl { font-size:9px; color:var(--muted); margin-top:3px; text-transform:uppercase; letter-spacing:.1em; }
 
 /* ================================================
+   USUÁRIOS
+================================================ */
+.users-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; }
+.user-card {
+  background:var(--card); border:1px solid var(--border); border-radius:var(--r-lg);
+  padding:22px 18px; display:flex; flex-direction:column; align-items:center; gap:12px;
+  transition:background var(--t),border-color var(--t),transform var(--t); position:relative; overflow:hidden;
+}
+.user-card:hover { background:var(--card-h); border-color:var(--border-h); transform:translateY(-2px); }
+.user-card::before { content:''; position:absolute; top:0;left:0;right:0; height:2px; background:linear-gradient(90deg,transparent,var(--accent),transparent); }
+.user-card.admin-card::before { background:linear-gradient(90deg,transparent,#f0c040,transparent); }
+.user-card-avatar { width:72px; height:72px; border-radius:50%; border:2.5px solid var(--accent); overflow:hidden; box-shadow:0 0 18px rgba(0,212,255,.22); flex-shrink:0; }
+.user-card.admin-card .user-card-avatar { border-color:#f0c040; box-shadow:0 0 18px rgba(240,192,64,.28); }
+.user-card-avatar svg,.user-card-avatar img { width:100%; height:100%; object-fit:cover; display:block; }
+.user-card-name { font-family:'Montserrat',sans-serif; font-size:15px; font-weight:800; text-align:center; }
+.user-card-role { font-size:11px; padding:3px 10px; border-radius:12px; font-weight:600; text-transform:uppercase; letter-spacing:.08em; }
+.user-card-role.admin { background:rgba(240,192,64,.14); color:#f0c040; border:1px solid rgba(240,192,64,.25); }
+.user-card-role.user  { background:var(--accent-g); color:var(--accent); border:1px solid rgba(0,212,255,.2); }
+.user-card-login { font-family:'DM Mono',monospace; font-size:11px; color:var(--muted); }
+.user-card-stats { width:100%; display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:4px; }
+.user-stat { background:var(--bg3); border-radius:var(--r-md); padding:9px 8px; text-align:center; }
+.user-stat-val { font-family:'DM Mono',monospace; font-size:14px; color:var(--accent); }
+.user-stat-lbl { font-size:9px; color:var(--muted); margin-top:2px; text-transform:uppercase; letter-spacing:.08em; }
+.user-online-dot { width:9px; height:9px; border-radius:50%; background:var(--green); flex-shrink:0; box-shadow:0 0 6px var(--green); display:inline-block; margin-right:5px; }
+.user-status-row { display:flex; align-items:center; font-size:11px; color:var(--muted); }
+
+/* ================================================
+   CALENDÁRIO
+================================================ */
+.cal-wrap { display:flex; flex-direction:column; gap:16px; }
+
+/* Nav header */
+.cal-nav {
+  display:flex; align-items:center; justify-content:space-between;
+  background:var(--card); border:1px solid var(--border); border-radius:var(--r-lg);
+  padding:14px 18px; position:relative; overflow:hidden;
+}
+.cal-nav::before { content:''; position:absolute; top:0;left:0;right:0; height:2px; background:linear-gradient(90deg,transparent,var(--accent),transparent); }
+.cal-nav-btn {
+  width:34px; height:34px; border-radius:var(--r-md);
+  background:rgba(0,212,255,.06); border:1px solid var(--border);
+  color:var(--accent); font-size:16px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  transition:all var(--t);
+}
+.cal-nav-btn:hover { background:rgba(0,212,255,.14); border-color:var(--border-h); transform:scale(1.05); }
+.cal-month-label { font-family:'Montserrat',sans-serif; font-size:17px; font-weight:800; color:var(--text); letter-spacing:-.01em; }
+.cal-year-label  { font-size:11px; color:var(--muted); margin-top:1px; text-align:center; }
+
+/* Summary strip */
+.cal-strip {
+  display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px;
+}
+.cal-strip-card {
+  background:var(--card); border:1px solid var(--border); border-radius:var(--r-lg);
+  padding:13px 14px; position:relative; overflow:hidden;
+  transition:background var(--t),transform var(--t);
+}
+.cal-strip-card:hover { background:var(--card-h); transform:translateY(-1px); }
+.cal-strip-card::before { content:''; position:absolute; top:0;left:0;right:0; height:2px; }
+.cal-strip-card.cs-in::before  { background:linear-gradient(90deg,transparent,var(--green),transparent); }
+.cal-strip-card.cs-out::before { background:linear-gradient(90deg,transparent,var(--red),transparent); }
+.cal-strip-card.cs-bal::before { background:linear-gradient(90deg,transparent,var(--accent),transparent); }
+.cal-strip-lbl { font-size:9px; font-weight:600; text-transform:uppercase; letter-spacing:.12em; color:var(--muted); margin-bottom:6px; }
+.cal-strip-val { font-family:'DM Mono',monospace; font-size:clamp(13px,1.8vw,17px); }
+.cs-in  .cal-strip-val { color:var(--green); }
+.cs-out .cal-strip-val { color:var(--red); }
+.cs-bal .cal-strip-val { color:var(--accent); }
+
+/* Grid */
+.cal-grid-wrap {
+  background:var(--card); border:1px solid var(--border); border-radius:var(--r-lg);
+  overflow:hidden;
+}
+.cal-dow-row {
+  display:grid; grid-template-columns:repeat(7,1fr);
+  background:var(--bg3); border-bottom:1px solid var(--border);
+}
+.cal-dow {
+  text-align:center; padding:9px 4px;
+  font-size:9px; font-weight:700; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--muted);
+}
+.cal-dow:first-child,.cal-dow:last-child { color:rgba(0,212,255,.5); }
+
+.cal-days {
+  display:grid; grid-template-columns:repeat(7,1fr);
+}
+.cal-day {
+  min-height:80px; padding:7px 6px 5px;
+  border-right:1px solid rgba(255,255,255,.03);
+  border-bottom:1px solid rgba(255,255,255,.03);
+  cursor:pointer; position:relative;
+  transition:background var(--t);
+  display:flex; flex-direction:column; gap:3px;
+}
+.cal-day:hover { background:rgba(255,255,255,.028); }
+.cal-day.today { background:rgba(0,212,255,.05); }
+.cal-day.today .cal-day-num { color:var(--accent); font-weight:700; }
+.cal-day.other-month { opacity:.28; pointer-events:none; }
+.cal-day.has-tx { background:rgba(0,212,255,.02); }
+.cal-day:nth-child(7n)   { border-right:none; }
+.cal-day:nth-child(n+36) { border-bottom:none; }
+
+.cal-day-num {
+  font-family:'DM Mono',monospace; font-size:12px; color:var(--dim);
+  line-height:1; margin-bottom:3px; flex-shrink:0;
+}
+.cal-day-today-dot {
+  position:absolute; top:6px; right:6px;
+  width:5px; height:5px; border-radius:50%;
+  background:var(--accent); box-shadow:0 0 6px var(--accent);
+}
+
+/* Transaction chips inside day */
+.cal-chips { display:flex; flex-direction:column; gap:2px; flex:1; overflow:hidden; }
+.cal-chip {
+  font-size:9px; font-weight:600; padding:2px 5px; border-radius:3px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  line-height:1.4; letter-spacing:.02em;
+}
+.cal-chip.chip-in      { background:rgba(0,229,160,.14); color:var(--green); border-left:2px solid var(--green); }
+.cal-chip.chip-out     { background:rgba(255,91,112,.14); color:var(--red);   border-left:2px solid var(--red); }
+.cal-chip.chip-func    { background:rgba(255,179,71,.14); color:var(--orange); border-left:2px solid var(--orange); }
+.cal-chip.chip-var     { background:rgba(176,133,245,.14);color:var(--purple);border-left:2px solid var(--purple); }
+.cal-chip.chip-fixed   { position:relative; }
+.cal-chip.chip-fixed::after { content:'🔄'; font-size:7px; margin-left:3px; opacity:.7; }
+.cal-more { font-size:9px; color:var(--muted); padding-left:3px; }
+
+/* Day detail panel */
+.cal-detail {
+  background:var(--card); border:1px solid var(--border); border-radius:var(--r-lg);
+  overflow:hidden; transition:all .22s var(--ease);
+  display:none;
+}
+.cal-detail.open { display:block; animation:viewIn .18s var(--ease); }
+.cal-detail-head {
+  padding:14px 18px 12px; background:var(--bg3); border-bottom:1px solid var(--border);
+  display:flex; align-items:center; justify-content:space-between;
+}
+.cal-detail-title { font-family:'Montserrat',sans-serif; font-size:14px; font-weight:700; }
+.cal-detail-close {
+  width:26px; height:26px; border-radius:var(--r-sm); border:1px solid var(--border);
+  background:transparent; color:var(--muted); cursor:pointer; font-size:14px;
+  display:flex; align-items:center; justify-content:center; transition:all var(--t);
+}
+.cal-detail-close:hover { color:var(--text); border-color:var(--border-h); }
+.cal-detail-body { padding:12px 18px 16px; }
+.cal-detail-empty { text-align:center; padding:20px; color:var(--muted); font-size:12px; }
+.cal-detail-row {
+  display:flex; align-items:center; gap:10px;
+  padding:9px 0; border-bottom:1px solid rgba(255,255,255,.04);
+}
+.cal-detail-row:last-child { border-bottom:none; }
+.cal-detail-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.cal-detail-desc { flex:1; font-size:12px; font-weight:500; min-width:0; }
+.cal-detail-meta { font-size:10px; color:var(--muted); margin-top:2px; }
+.cal-detail-val { font-family:'DM Mono',monospace; font-size:13px; flex-shrink:0; }
+.cal-detail-rec { font-size:9px; color:var(--orange); background:var(--orange-g); border:1px solid rgba(255,179,71,.2); padding:1px 5px; border-radius:3px; margin-left:4px; }
+
+/* Responsive */
+@media (max-width:768px) {
+  .cal-day { min-height:56px; padding:5px 4px 3px; }
+  .cal-chip { font-size:8px; padding:1px 4px; }
+  .cal-strip { grid-template-columns:1fr 1fr 1fr; }
+  .cal-strip-val { font-size:12px; }
+}
+@media (max-width:440px) {
+  .cal-strip { grid-template-columns:1fr; }
+  .cal-day { min-height:46px; }
+  .cal-chips { display:none; }
+  .cal-day.has-tx::after { content:'•'; position:absolute; bottom:3px; left:50%; transform:translateX(-50%); font-size:14px; color:var(--accent); }
+}
+
+/* ================================================
    MODAL (detalhe / confirmação)
 ================================================ */
 #overlay {
@@ -709,8 +884,10 @@ table.tx-table td { padding:11px 14px; vertical-align:middle; }
     <nav class="sb-nav">
       <button class="sb-item active" data-view="view-home"><span class="sb-icon">⌂</span>Início</button>
       <button class="sb-item" data-view="view-add"><span class="sb-icon">＋</span>Nova Transação</button>
+      <button class="sb-item" data-view="view-cal"><span class="sb-icon">📅</span>Calendário</button>
       <button class="sb-item" data-view="view-obrig"><span class="sb-icon">✓</span>Obrigações</button>
       <button class="sb-item" data-view="view-reports"><span class="sb-icon">◑</span>Relatórios</button>
+      <button class="sb-item" data-view="view-users"><span class="sb-icon">👥</span>Usuários</button>
       <button class="sb-item" data-view="view-profile"><span class="sb-icon">◎</span>Perfil</button>
     </nav>
 
@@ -940,6 +1117,72 @@ table.tx-table td { padding:11px 14px; vertical-align:middle; }
         </div>
       </section>
 
+      <!-- VIEW CALENDÁRIO -->
+      <section class="view" id="view-cal">
+        <div class="sec-head">
+          <div class="sec-title">Calendário Financeiro</div>
+          <div class="sec-sub">Visualize entradas, saídas e obrigações por dia · Saídas Fixas propagam automaticamente</div>
+        </div>
+        <div class="cal-wrap">
+
+          <!-- Nav mês -->
+          <div class="cal-nav">
+            <button class="cal-nav-btn" id="cal-prev" title="Mês anterior">‹</button>
+            <div style="text-align:center">
+              <div class="cal-month-label" id="cal-month-lbl">—</div>
+              <div class="cal-year-label"  id="cal-year-lbl">—</div>
+            </div>
+            <button class="cal-nav-btn" id="cal-next" title="Próximo mês">›</button>
+          </div>
+
+          <!-- Strip resumo -->
+          <div class="cal-strip">
+            <div class="cal-strip-card cs-in">
+              <div class="cal-strip-lbl">↑ Entradas</div>
+              <div class="cal-strip-val" id="cal-s-in">R$ 0,00</div>
+            </div>
+            <div class="cal-strip-card cs-out">
+              <div class="cal-strip-lbl">↓ Saídas</div>
+              <div class="cal-strip-val" id="cal-s-out">R$ 0,00</div>
+            </div>
+            <div class="cal-strip-card cs-bal">
+              <div class="cal-strip-lbl">⟷ Saldo</div>
+              <div class="cal-strip-val" id="cal-s-bal">R$ 0,00</div>
+            </div>
+          </div>
+
+          <!-- Grade do calendário -->
+          <div class="cal-grid-wrap">
+            <div class="cal-dow-row">
+              <div class="cal-dow">Dom</div><div class="cal-dow">Seg</div>
+              <div class="cal-dow">Ter</div><div class="cal-dow">Qua</div>
+              <div class="cal-dow">Qui</div><div class="cal-dow">Sex</div>
+              <div class="cal-dow">Sáb</div>
+            </div>
+            <div class="cal-days" id="cal-days"></div>
+          </div>
+
+          <!-- Painel de detalhe do dia -->
+          <div class="cal-detail" id="cal-detail">
+            <div class="cal-detail-head">
+              <div class="cal-detail-title" id="cal-detail-title">—</div>
+              <button class="cal-detail-close" id="cal-detail-close">✕</button>
+            </div>
+            <div class="cal-detail-body" id="cal-detail-body"></div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- VIEW USUÁRIOS -->
+      <section class="view" id="view-users">
+        <div class="sec-head">
+          <div class="sec-title">Usuários do Sistema</div>
+          <div class="sec-sub">Todos os usuários cadastrados no Lumin · Eco Mix</div>
+        </div>
+        <div class="users-grid" id="users-grid"></div>
+      </section>
+
     </div><!-- /page-content -->
   </div><!-- /main -->
 </div><!-- /app -->
@@ -1093,6 +1336,25 @@ const AVATARS = {
     <path d="M44 69 Q50 74 56 69" stroke="#a06040" stroke-width="2" fill="none" stroke-linecap="round"/>
     <ellipse cx="50" cy="73" rx="10" ry="3.5" fill="rgba(26,10,6,.28)"/>
     <circle cx="50" cy="50" r="48" fill="none" stroke="rgba(0,212,255,.18)" stroke-width="2"/>
+  </svg>`,
+  admin: `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <rect width="100" height="100" fill="#050d12"/>
+    <ellipse cx="50" cy="88" rx="26" ry="16" fill="#5a6e80"/>
+    <rect x="44" y="66" width="12" height="13" rx="4" fill="#6a7e90"/>
+    <ellipse cx="50" cy="54" rx="20" ry="22" fill="#7a8e9a"/>
+    <ellipse cx="50" cy="36" rx="20" ry="12" fill="#1a2a3a"/>
+    <ellipse cx="30" cy="54" rx="8" ry="16" fill="#1a2a3a"/>
+    <ellipse cx="70" cy="54" rx="8" ry="16" fill="#1a2a3a"/>
+    <rect x="29" y="47" width="10" height="28" rx="5" fill="#243444"/>
+    <rect x="61" y="47" width="10" height="28" rx="5" fill="#243444"/>
+    <ellipse cx="43" cy="53" rx="3.5" ry="3.5" fill="#0a1828"/>
+    <ellipse cx="57" cy="53" rx="3.5" ry="3.5" fill="#0a1828"/>
+    <ellipse cx="44" cy="52" rx="1.2" ry="1.2" fill="#fff"/>
+    <ellipse cx="58" cy="52" rx="1.2" ry="1.2" fill="#fff"/>
+    <path d="M47 57 Q50 63 53 57" stroke="#5a6e80" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+    <path d="M44 67 Q50 72 56 67" stroke="#7a9aaa" stroke-width="2" fill="none" stroke-linecap="round"/>
+    <polygon points="50,14 54,24 65,24 56,31 59,42 50,35 41,42 44,31 35,24 46,24" fill="#f0c040" stroke="#e0a000" stroke-width="1"/>
+    <circle cx="50" cy="50" r="48" fill="none" stroke="rgba(0,212,255,.35)" stroke-width="2.5"/>
   </svg>`
 };
 
@@ -1100,8 +1362,9 @@ const AVATARS = {
    USUÁRIOS
 ================================================ */
 const USERS = {
-  anakarolina:{ pass:'ana@',     display:'Ana Karolina', avatarKey:'anakarolina' },
-  wallace:    { pass:'wallace@', display:'Wallace',      avatarKey:'wallace'     },
+  anakarolina:{ pass:'ana@',     display:'Ana Karolina',     avatarKey:'anakarolina', role:'Usuário'        },
+  wallace:    { pass:'wallace@', display:'Wallace',           avatarKey:'wallace',     role:'Usuário'        },
+  admin:      { pass:'nova',     display:'Luid Administrador',avatarKey:'anakarolina', role:'Administrador'  },
 };
 const KEY_USER='lumin_user';
 
@@ -1213,8 +1476,14 @@ function bootApp(){
 
   // Profile display
   $('sb-uname').textContent=info.display;
+  // Mostra o cargo na sidebar
+  const roleEl=document.querySelector('.sb-role');
+  if(roleEl) roleEl.textContent=info.role||'Usuário';
   $('profile-name').textContent=info.display;
   updateAvatars(u);
+
+  // Sincroniza usuário no Firebase ao logar
+  syncUserToFirebase(u);
 
   // Avatar upload
   $('sb-profile-area').addEventListener('click',()=>$('avatar-input').click());
@@ -1276,6 +1545,9 @@ function bootApp(){
   // Add tx
   $('btn-add-tx').addEventListener('click',handleAddTx);
 
+  // Calendar
+  initCalendar();
+
   // Firebase
   initFirestore();
 }
@@ -1285,16 +1557,47 @@ function bootApp(){
 ================================================ */
 function updateAvatars(u){
   const saved=localStorage.getItem(`lumin_photo_${u}`);
-  const html=saved?`<img src="${saved}" alt="">`:AVATARS[USERS[u].avatarKey];
+  const html=saved?`<img src="${saved}" alt="">`:AVATARS[USERS[u].avatarKey]||AVATARS.anakarolina;
   [$('sb-avatar'),$('profile-avatar-big')].forEach(el=>{ if(el) el.innerHTML=html; });
 }
-function handleAvatarUpload(e){
+
+async function handleAvatarUpload(e){
   const file=e.target.files[0]; if(!file) return;
   const reader=new FileReader();
-  reader.onload=ev=>{
-    localStorage.setItem(`lumin_photo_${state.currentUser}`,ev.target.result);
+  reader.onload=async ev=>{
+    const b64=ev.target.result;
+    // Salva localmente (rápido, para uso imediato)
+    localStorage.setItem(`lumin_photo_${state.currentUser}`,b64);
     updateAvatars(state.currentUser);
     toast('✓ Foto atualizada');
+
+    // Salva no Firebase Firestore com compressão
+    const fb=window._fb;
+    if(fb){
+      try{
+        const img=new Image();
+        img.onload=async ()=>{
+          const canvas=document.createElement('canvas');
+          const MAX=320;
+          const ratio=Math.min(MAX/img.width,MAX/img.height,1);
+          canvas.width=Math.round(img.width*ratio);
+          canvas.height=Math.round(img.height*ratio);
+          canvas.getContext('2d').drawImage(img,0,0,canvas.width,canvas.height);
+          const small=canvas.toDataURL('image/jpeg',0.72);
+
+          // setDoc com merge — cria ou atualiza sem sobrescrever outros campos
+          await fb.setDoc(fb.doc(fb.db,'users',state.currentUser),{
+            userId:state.currentUser,
+            display:USERS[state.currentUser]?.display||state.currentUser,
+            role:USERS[state.currentUser]?.role||'Usuário',
+            photo:small,
+            photoUpdatedAt:Date.now()
+          },{ merge:true });
+          toast('✓ Foto salva no servidor');
+        };
+        img.src=b64;
+      }catch(err){ console.warn('Firebase photo save error:',err); }
+    }
   };
   reader.readAsDataURL(file);
   e.target.value='';
@@ -1352,7 +1655,7 @@ function initFirestore(){
 /* ================================================
    NAVIGATION
 ================================================ */
-const VIEW_TITLES={ 'view-home':'Dashboard','view-add':'Nova Transação','view-obrig':'Obrigações','view-reports':'Relatórios','view-profile':'Perfil' };
+const VIEW_TITLES={ 'view-home':'Dashboard','view-add':'Nova Transação','view-cal':'Calendário Financeiro','view-obrig':'Obrigações','view-reports':'Relatórios','view-users':'Usuários','view-profile':'Perfil' };
 
 function switchView(id){
   document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
@@ -1362,6 +1665,8 @@ function switchView(id){
   document.querySelectorAll('.sb-item').forEach(b=>b.classList.toggle('active',b.dataset.view===id));
   if(id==='view-reports') renderPeriodCards();
   if(id==='view-profile') renderProfile();
+  if(id==='view-users')   renderUsersView();
+  if(id==='view-cal')     renderCalendar();
 }
 function openSidebar(){ $('sidebar').classList.add('open'); $('sb-overlay').classList.add('show'); }
 function closeSidebar(){ $('sidebar').classList.remove('open'); $('sb-overlay').classList.remove('show'); }
@@ -1375,6 +1680,10 @@ function refreshAll(){
   renderCharts();
   renderTxTable();
   renderObrigacoes();
+  // Re-render calendar if it's the active view
+  if(document.getElementById('view-cal')?.classList.contains('active')){
+    renderCalendar();
+  }
 }
 
 /* ================================================
@@ -1549,7 +1858,7 @@ function renderTxTable(){
 }
 
 /* ================================================
-   ADICIONAR TRANSAÇÃO
+   ADICIONAR TRANSAÇÃO  (com propagação automática)
 ================================================ */
 async function handleAddTx(){
   const cat=$('tx-cat').value;
@@ -1562,25 +1871,64 @@ async function handleAddTx(){
   if(!date){ toast('⚠ Selecione uma data',true); return; }
 
   const rec=CAT_CFG[cat]?.isRecorrente||false;
-  const tx={
-    category:cat, description:desc, amount:val, date,
-    isRecorrente:rec, createdBy:state.currentUser,
-    createdAt:Date.now()
-  };
+  const fb=window._fb;
+  if(!fb){ toast('Firebase não disponível',true); return; }
 
-  if(window._fb){
-    try{
-      const ref=await window._fb.addDoc(window._fb.collection(window._fb.db,'transactions'),tx);
-      // If recorrente, create obrigacao
-      if(rec){
-        await window._fb.addDoc(window._fb.collection(window._fb.db,'obrigacoes'),{
-          txId:ref.id, desc, amount:val, category:cat,
-          done:false, createdAt:Date.now()
-        });
+  // Mês/dia da transação original
+  const [baseY,baseM,baseD]=date.split('-').map(Number);
+
+  try{
+    // 1. Salva a transação do mês atual
+    const txBase={
+      category:cat, description:desc, amount:val, date,
+      isRecorrente:rec, createdBy:state.currentUser,
+      createdAt:Date.now(),
+      recurringGroup: rec ? `${state.currentUser}-${Date.now()}` : null,
+    };
+    const ref=await fb.addDoc(fb.collection(fb.db,'transactions'),txBase);
+
+    if(rec){
+      // Cria obrigação para o mês atual
+      await fb.addDoc(fb.collection(fb.db,'obrigacoes'),{
+        txId:ref.id, desc, amount:val, category:cat,
+        done:false, createdAt:Date.now()
+      });
+
+      // 2. Propaga para os 11 meses seguintes (total 12 meses incluindo o atual)
+      const MONTHS_AHEAD=11;
+      const propagatePromises=[];
+      for(let i=1;i<=MONTHS_AHEAD;i++){
+        // Calcula a data do mês futuro mantendo o mesmo dia
+        let futY=baseY, futM=baseM+i;
+        while(futM>12){ futM-=12; futY++; }
+        // Garante que o dia existe no mês (ex: 31/Jan → 28/Fev)
+        const maxDay=new Date(futY,futM,0).getDate();
+        const futD=Math.min(baseD,maxDay);
+        const futDate=`${futY}-${String(futM).padStart(2,'0')}-${String(futD).padStart(2,'0')}`;
+
+        const txFut={
+          category:cat, description:desc, amount:val, date:futDate,
+          isRecorrente:true, createdBy:state.currentUser,
+          createdAt:Date.now(),
+          recurringGroup:txBase.recurringGroup,
+          propagated:true,
+        };
+        propagatePromises.push(
+          fb.addDoc(fb.collection(fb.db,'transactions'),txFut).then(async futRef=>{
+            await fb.addDoc(fb.collection(fb.db,'obrigacoes'),{
+              txId:futRef.id, desc, amount:val, category:cat,
+              done:false, createdAt:Date.now()
+            });
+          })
+        );
       }
+      await Promise.all(propagatePromises);
+      toast(`✓ Transação registrada e propagada por 12 meses 🔄`);
+    } else {
       toast('✓ Transação registrada');
-    }catch(e){ toast('Erro ao salvar',true); console.warn(e); }
-  }
+    }
+  }catch(e){ toast('Erro ao salvar',true); console.warn(e); }
+
   $('tx-desc').value=''; $('tx-val').value='';
   $('tx-date').valueAsDate=new Date();
   $('rec-indicator').style.display='none';
@@ -1588,7 +1936,196 @@ async function handleAddTx(){
 }
 
 /* ================================================
-   AUTH MODAL (edit / delete)
+   CALENDÁRIO — ENGINE COMPLETO
+================================================ */
+const CAL_STATE={
+  year: new Date().getFullYear(),
+  month: new Date().getMonth()+1,   // 1-12
+  selectedDay: null,
+};
+
+const CAL_COLORS={
+  'entrada':    { chip:'chip-in',   dot:'#00e5a0' },
+  'saida-fixa': { chip:'chip-out',  dot:'#ff5b70' },
+  'funcionario':{ chip:'chip-func', dot:'#ffb347' },
+  'variavel':   { chip:'chip-var',  dot:'#b085f5' },
+};
+
+function calTxsForMonth(y,m){
+  return state.transactions.filter(t=>{
+    if(!t.date) return false;
+    const [ty,tm]=t.date.split('-').map(Number);
+    return ty===y&&tm===m;
+  });
+}
+
+function renderCalendar(){
+  const {year,month}=CAL_STATE;
+
+  // Labels
+  $('cal-month-lbl').textContent=MONTHS[month-1];
+  $('cal-year-lbl').textContent=year;
+
+  // Strip summary
+  const monthTxs=calTxsForMonth(year,month);
+  const cIn=sumIn(monthTxs), cOut=sumOut(monthTxs), cBal=cIn-cOut;
+  $('cal-s-in').textContent=fmtBRL(cIn);
+  $('cal-s-out').textContent=fmtBRL(cOut);
+  $('cal-s-bal').textContent=fmtBRL(Math.abs(cBal));
+  $('cal-s-bal').style.color=cBal>=0?'var(--green)':'var(--red)';
+
+  // Build day grid
+  const firstDay=new Date(year,month-1,1).getDay(); // 0=Sun
+  const daysInMonth=new Date(year,month,0).getDate();
+  const daysInPrev=new Date(year,month-1,0).getDate();
+  const todayStr=new Date().toISOString().slice(0,10);
+
+  // Group txs by date string
+  const byDay={};
+  monthTxs.forEach(t=>{ (byDay[t.date]=byDay[t.date]||[]).push(t); });
+
+  let html='';
+  const totalCells=Math.ceil((firstDay+daysInMonth)/7)*7;
+
+  for(let c=0;c<totalCells;c++){
+    let dayNum, dateStr, otherMonth=false;
+    if(c<firstDay){
+      dayNum=daysInPrev-firstDay+c+1;
+      const prevM=month===1?12:month-1;
+      const prevY=month===1?year-1:year;
+      dateStr=`${prevY}-${String(prevM).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
+      otherMonth=true;
+    } else if(c>=firstDay+daysInMonth){
+      dayNum=c-firstDay-daysInMonth+1;
+      const nextM=month===12?1:month+1;
+      const nextY=month===12?year+1:year;
+      dateStr=`${nextY}-${String(nextM).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
+      otherMonth=true;
+    } else {
+      dayNum=c-firstDay+1;
+      dateStr=`${year}-${String(month).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
+    }
+
+    const isToday=dateStr===todayStr;
+    const txList=byDay[dateStr]||[];
+    const hasTx=txList.length>0;
+
+    const cls=['cal-day',
+      isToday?'today':'',
+      otherMonth?'other-month':'',
+      hasTx?'has-tx':'',
+    ].filter(Boolean).join(' ');
+
+    // Chips (max 3 shown)
+    let chipsHtml='';
+    if(!otherMonth && txList.length){
+      const show=txList.slice(0,3);
+      chipsHtml=`<div class="cal-chips">
+        ${show.map(t=>{
+          const cc=CAL_COLORS[t.category]||{chip:'chip-var'};
+          const isRec=t.isRecorrente;
+          return `<div class="cal-chip ${cc.chip}${isRec?' chip-fixed':''}" title="${esc(t.description||'')}">${esc((t.description||'').slice(0,18))}</div>`;
+        }).join('')}
+        ${txList.length>3?`<div class="cal-more">+${txList.length-3} mais</div>`:''}
+      </div>`;
+    }
+
+    html+=`<div class="${cls}" data-date="${dateStr}" onclick="calSelectDay('${dateStr}')">
+      <div class="cal-day-num">${dayNum}</div>
+      ${isToday?'<div class="cal-day-today-dot"></div>':''}
+      ${chipsHtml}
+    </div>`;
+  }
+
+  $('cal-days').innerHTML=html;
+
+  // Re-open selected day if still in same month
+  if(CAL_STATE.selectedDay){
+    const [sy,sm]=CAL_STATE.selectedDay.split('-').map(Number);
+    if(sy===year&&sm===month) calShowDetail(CAL_STATE.selectedDay);
+    else calCloseDetail();
+  }
+}
+
+function calSelectDay(dateStr){
+  // Toggle: if same day clicked again, close
+  if(CAL_STATE.selectedDay===dateStr){
+    calCloseDetail(); return;
+  }
+  CAL_STATE.selectedDay=dateStr;
+  // Highlight selected
+  document.querySelectorAll('.cal-day').forEach(d=>{
+    d.style.outline=d.dataset.date===dateStr?'2px solid rgba(0,212,255,.5)':'';
+    d.style.borderRadius=d.dataset.date===dateStr?'var(--r-sm)':'';
+  });
+  calShowDetail(dateStr);
+}
+
+function calShowDetail(dateStr){
+  const [y,m,d]=dateStr.split('-').map(Number);
+  const label=`${d} de ${MONTHS[m-1]} de ${y}`;
+  $('cal-detail-title').textContent=label;
+
+  const txList=state.transactions.filter(t=>t.date===dateStr);
+  const body=$('cal-detail-body');
+
+  if(!txList.length){
+    body.innerHTML=`<div class="cal-detail-empty">Nenhuma transação neste dia.</div>`;
+  } else {
+    const sorted=txList.slice().sort((a,b)=>{
+      const order=['entrada','saida-fixa','funcionario','variavel'];
+      return order.indexOf(a.category)-order.indexOf(b.category);
+    });
+    body.innerHTML=sorted.map(t=>{
+      const cfg=CAT_CFG[t.category]||CAT_CFG.variavel;
+      const cc=CAL_COLORS[t.category]||{dot:'#b085f5'};
+      const isIn=t.category==='entrada';
+      return `<div class="cal-detail-row">
+        <div class="cal-detail-dot" style="background:${cc.dot}"></div>
+        <div style="flex:1;min-width:0">
+          <div class="cal-detail-desc">
+            ${esc(t.description||t.desc||'—')}
+            ${t.isRecorrente?'<span class="cal-detail-rec">🔄 Recorrente</span>':''}
+          </div>
+          <div class="cal-detail-meta">
+            <span class="cat-badge ${cfg.badgeClass}" style="font-size:8px">${cfg.label}</span>
+            <span style="margin-left:6px">por ${esc(t.createdBy||'—')}</span>
+          </div>
+        </div>
+        <div class="cal-detail-val" style="color:${isIn?'var(--green)':'var(--red)'}">
+          ${isIn?'+':'-'}${fmtBRL(t.amount)}
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  $('cal-detail').classList.add('open');
+  // Scroll into view on mobile
+  setTimeout(()=>$('cal-detail').scrollIntoView({behavior:'smooth',block:'nearest'}),60);
+}
+
+function calCloseDetail(){
+  CAL_STATE.selectedDay=null;
+  $('cal-detail').classList.remove('open');
+  document.querySelectorAll('.cal-day').forEach(d=>{ d.style.outline=''; d.style.borderRadius=''; });
+}
+
+function calNavMonth(delta){
+  CAL_STATE.month+=delta;
+  if(CAL_STATE.month>12){ CAL_STATE.month=1; CAL_STATE.year++; }
+  if(CAL_STATE.month<1) { CAL_STATE.month=12; CAL_STATE.year--; }
+  calCloseDetail();
+  renderCalendar();
+}
+
+function initCalendar(){
+  $('cal-prev').addEventListener('click',()=>calNavMonth(-1));
+  $('cal-next').addEventListener('click',()=>calNavMonth(+1));
+  $('cal-detail-close').addEventListener('click',calCloseDetail);
+}
+
+/* ================================================
+   PDF — fundo branco, texto preto, cabeçalho Eco Mix
 ================================================ */
 function openEditAuth(id){
   const tx=state.transactions.find(t=>t.id===id); if(!tx) return;
@@ -1772,6 +2309,95 @@ function renderProfile(){
   $('ps-total').textContent=all.length;
   $('ps-in').textContent=fmtBRL(sumIn(all));
   $('ps-out').textContent=fmtBRL(sumOut(all));
+}
+
+/* ================================================
+   SYNC USUÁRIO NO FIREBASE (ao logar / atualizar foto)
+================================================ */
+async function syncUserToFirebase(u){
+  const fb=window._fb;
+  function doSync(){
+    if(!fb) return;
+    const info=USERS[u];
+    const photoLocal=localStorage.getItem(`lumin_photo_${u}`)||null;
+    const data={
+      userId:u,
+      display:info.display,
+      role:info.role||'Usuário',
+      lastLogin:Date.now(),
+    };
+    // Só inclui photo se houver uma salva localmente (evita sobrescrever com null)
+    if(photoLocal) data.photo=photoLocal;
+
+    fb.setDoc(fb.doc(fb.db,'users',u),data,{ merge:true })
+      .catch(err=>console.warn('syncUser error:',err));
+  }
+  window._fb ? doSync() : window.addEventListener('firebase-ready',doSync,{once:true});
+}
+
+/* ================================================
+   LISTAR USUÁRIOS (view-users)
+================================================ */
+function renderUsersView(){
+  const grid=$('users-grid');
+  if(!grid) return;
+  const allUsers=Object.entries(USERS);
+  grid.innerHTML=allUsers.map(([key,info])=>{
+    // Stats de transações deste usuário
+    const myTxs=state.transactions.filter(t=>t.createdBy===key);
+    const myIn=sumIn(myTxs), myOut=sumOut(myTxs);
+    const isAdmin=info.role==='Administrador';
+    const isOnline=state.currentUser===key;
+
+    // Foto: tenta localStorage primeiro, depois avatar SVG
+    const photoSaved=localStorage.getItem(`lumin_photo_${key}`);
+    const avatarHtml=photoSaved
+      ?`<img src="${photoSaved}" alt="${esc(info.display)}">`
+      :(AVATARS[info.avatarKey]||AVATARS.anakarolina);
+
+    return `<div class="user-card ${isAdmin?'admin-card':''}">
+      <div class="user-card-avatar">${avatarHtml}</div>
+      <div class="user-card-name">${esc(info.display)}</div>
+      <span class="user-card-role ${isAdmin?'admin':'user'}">${esc(info.role||'Usuário')}</span>
+      <div class="user-card-login">@${esc(key)}</div>
+      <div class="user-status-row">
+        ${isOnline?'<span class="user-online-dot"></span><span style="color:var(--green)">Online agora</span>':'<span style="opacity:.5">Offline</span>'}
+      </div>
+      <div class="user-card-stats">
+        <div class="user-stat">
+          <div class="user-stat-val" style="color:var(--green)">${fmtBRL(myIn)}</div>
+          <div class="user-stat-lbl">Entradas</div>
+        </div>
+        <div class="user-stat">
+          <div class="user-stat-val" style="color:var(--red)">${fmtBRL(myOut)}</div>
+          <div class="user-stat-lbl">Saídas</div>
+        </div>
+      </div>
+      <div style="font-size:10px;color:var(--muted);margin-top:2px">${myTxs.length} transaç${myTxs.length!==1?'ões':'ão'} registrada${myTxs.length!==1?'s':''}</div>
+    </div>`;
+  }).join('');
+
+  // Também tenta carregar fotos do Firebase para usuários que não estão logados
+  loadFirebasePhotosForUsers(allUsers.map(([k])=>k));
+}
+
+function loadFirebasePhotosForUsers(userIds){
+  const fb=window._fb; if(!fb) return;
+  userIds.forEach(uid=>{
+    if(localStorage.getItem(`lumin_photo_${uid}`)) return; // já tem local
+    fb.onSnapshot(fb.doc(fb.db,'users',uid),snap=>{
+      if(snap.exists&&snap.exists()){
+        const d=snap.data();
+        if(d.photo){
+          localStorage.setItem(`lumin_photo_${uid}`,d.photo);
+          // Re-renderiza se view-users estiver ativa
+          if(document.getElementById('view-users')?.classList.contains('active')){
+            renderUsersView();
+          }
+        }
+      }
+    });
+  });
 }
 
 /* ================================================
