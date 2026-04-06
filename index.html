@@ -1389,15 +1389,42 @@ const MONTHS=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Ago
 const PERIOD_NAMES={semanal:'Últimos 7 Dias',mensal:'Este Mês',trimestral:'Últimos 90 Dias',anual:'Este Ano'};
 
 function txsByPeriod(period){
-  const td=today();
+  // Cria objeto de hoje com hora zerada — independente de chamadas anteriores
+  const now   = new Date();
+  const todayY = now.getFullYear();
+  const todayM = now.getMonth();    // 0-based
+  const todayD = now.getDate();
+  const todayMidnight = new Date(todayY, todayM, todayD, 0, 0, 0, 0);
+
   return state.transactions.filter(t=>{
     if(!t.date) return false;
-    const d=new Date(t.date+'T00:00:00');
+    // Força parse local (sem fuso) para evitar off-by-one
+    const [sy, sm, sd] = t.date.split('-').map(Number);
+    const d = new Date(sy, sm - 1, sd, 0, 0, 0, 0);
+
     switch(period){
-      case 'semanal':    return d>=new Date(+td-6*86400000)&&d<=td;
-      case 'mensal':     return d.getMonth()===td.getMonth()&&d.getFullYear()===td.getFullYear();
-      case 'trimestral': return d>=new Date(+td-89*86400000)&&d<=td;
-      case 'anual':      return d.getFullYear()===td.getFullYear();
+      case 'semanal': {
+        // Últimos 7 dias: de (hoje - 6 dias) até hoje inclusive
+        const inicio = new Date(todayY, todayM, todayD - 6, 0, 0, 0, 0);
+        return d >= inicio && d <= todayMidnight;
+      }
+      case 'mensal': {
+        // Do dia 1 ao último dia do mês corrente
+        const inicio = new Date(todayY, todayM, 1, 0, 0, 0, 0);
+        const fim    = new Date(todayY, todayM + 1, 0, 23, 59, 59, 999);
+        return d >= inicio && d <= fim;
+      }
+      case 'trimestral': {
+        // Últimos 90 dias
+        const inicio = new Date(todayY, todayM, todayD - 89, 0, 0, 0, 0);
+        return d >= inicio && d <= todayMidnight;
+      }
+      case 'anual': {
+        // 1 Jan a 31 Dez do ano corrente
+        const inicio = new Date(todayY, 0, 1, 0, 0, 0, 0);
+        const fim    = new Date(todayY, 11, 31, 23, 59, 59, 999);
+        return d >= inicio && d <= fim;
+      }
       default: return false;
     }
   });
@@ -1405,9 +1432,10 @@ function txsByPeriod(period){
 function today(){ const n=new Date(); return new Date(n.getFullYear(),n.getMonth(),n.getDate()); }
 
 /* ── Sums ── */
-const sumCat = (arr,cat) => arr.filter(t=>t.category===cat).reduce((a,t)=>a+t.amount,0);
-const sumIn  = arr => arr.filter(t=>t.category==='entrada').reduce((a,t)=>a+t.amount,0);
-const sumOut = arr => arr.filter(t=>t.category!=='entrada').reduce((a,t)=>a+t.amount,0);
+// Number() garante que strings como "250" sejam somadas matematicamente
+const sumCat = (arr,cat) => arr.filter(t=>t.category===cat).reduce((a,t)=>a+Number(t.amount||0),0);
+const sumIn  = arr => arr.filter(t=>t.category==='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
+const sumOut = arr => arr.filter(t=>t.category!=='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
 
 /* ================================================
    AVATARES SVG
@@ -1873,7 +1901,7 @@ function renderSummary(){
   const ctIds=['sc-entrada-ct','sc-saida-fixa-ct','sc-funcionario-ct','sc-variavel-ct'];
   cats.forEach((cat,i)=>{
     const sub=txs.filter(t=>t.category===cat);
-    $(ids[i]).textContent=fmtBRL(sub.reduce((a,t)=>a+t.amount,0));
+    $(ids[i]).textContent=fmtBRL(sub.reduce((a,t)=>a+Number(t.amount||0),0));
     $(ctIds[i]).textContent=`${sub.length} registro${sub.length!==1?'s':''}`;
   });
   const inc=sumIn(txs), out=sumOut(txs), net=inc-out;
@@ -2506,8 +2534,8 @@ function renderObrigacoes(){
       return ob?.done===true;
     }).length;
     const pending=total-paid;
-    const totalVal=recItems.reduce((a,t)=>a+t.amount,0);
-    const paidVal=recItems.filter(t=>findObrig(t.id)?.done).reduce((a,t)=>a+t.amount,0);
+    const totalVal=recItems.reduce((a,t)=>a+Number(t.amount||0),0);
+    const paidVal=recItems.filter(t=>findObrig(t.id)?.done).reduce((a,t)=>a+Number(t.amount||0),0);
     const pendingVal=totalVal-paidVal;
     sumEl.innerHTML=`
       <div class="obrig-sum-card sc-total">
@@ -2606,14 +2634,19 @@ async function toggleObrig(txId){
    PERIOD CARDS
 ================================================ */
 function renderPeriodCards(){
+  // Cada período é calculado de forma completamente independente
   ['semanal','mensal','trimestral','anual'].forEach(p=>{
-    const txs=txsByPeriod(p);
-    const inc=sumIn(txs),out=sumOut(txs),bal=inc-out;
-    const el=$(`rpb-${p}`);
-    el.textContent=fmtBRL(Math.abs(bal));
-    el.className='rp-bal '+(bal>=0?'pos':'neg');
-    $(`rpc-${p}`).textContent=`${txs.length} registro(s)`;
-    $(`rpk-${p}`).innerHTML=`<span class="rchip i">↑ ${fmtBRL(inc)}</span><span class="rchip o">↓ ${fmtBRL(out)}</span>`;
+    // txsByPeriod cria novos objetos Date() internamente — zero contaminação entre períodos
+    const txs = txsByPeriod(p);
+    const inc = txs.filter(t=>t.category==='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
+    const out = txs.filter(t=>t.category!=='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
+    const bal = inc - out;
+    const el  = $(`rpb-${p}`);
+    if(!el) return;
+    el.textContent  = fmtBRL(Math.abs(bal));
+    el.className    = 'rp-bal '+(bal>=0?'pos':'neg');
+    $(`rpc-${p}`).textContent = `${txs.length} registro(s)`;
+    $(`rpk-${p}`).innerHTML   = `<span class="rchip i">↑ ${fmtBRL(inc)}</span><span class="rchip o">↓ ${fmtBRL(out)}</span>`;
   });
 }
 
@@ -2757,8 +2790,9 @@ function generatePDF(period, txs){
 
   // Recalcula localmente para garantir consistência total
   // entre os boxes de resumo e a soma da tabela.
-  const inc = txs.filter(t=>t.category==='entrada').reduce((a,t)=>a+(+t.amount||0),0);
-  const out = txs.filter(t=>t.category!=='entrada').reduce((a,t)=>a+(+t.amount||0),0);
+  // Soma com Number() para evitar concatenação de strings
+  const inc = txs.filter(t=>t.category==='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
+  const out = txs.filter(t=>t.category!=='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
   const bal = inc - out;
 
   const {jsPDF}=window.jspdf;
@@ -2806,8 +2840,8 @@ function generatePDF(period, txs){
   if(txs.length){
     const rows=txs.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
     // Verifica a soma da tabela == boxes (sanity check silencioso)
-    const tableInc=rows.filter(t=>t.category==='entrada').reduce((a,t)=>a+(+t.amount||0),0);
-    const tableOut=rows.filter(t=>t.category!=='entrada').reduce((a,t)=>a+(+t.amount||0),0);
+    const tableInc=rows.filter(t=>t.category==='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
+    const tableOut=rows.filter(t=>t.category!=='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
     console.assert(Math.abs(tableInc-inc)<0.001,'PDF: inc mismatch!',tableInc,inc);
     console.assert(Math.abs(tableOut-out)<0.001,'PDF: out mismatch!',tableOut,out);
 
