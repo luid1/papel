@@ -406,8 +406,61 @@ table.tx-table td { padding:11px 14px; vertical-align:middle; }
 .btn-tbl:hover.del  { border-color:rgba(255,91,112,.4); color:var(--red);   background:var(--red-g); }
 
 /* ================================================
-   OBRIGAÇÕES (CHECKLIST)
+   OBRIGAÇÕES (CHECKLIST) — COM FILTRO MENSAL
 ================================================ */
+
+/* Nav mensal */
+.obrig-month-nav {
+  display:flex; align-items:center; justify-content:space-between;
+  background:var(--card); border:1px solid var(--border); border-radius:var(--r-lg);
+  padding:14px 18px; margin-bottom:12px; position:relative; overflow:hidden;
+}
+.obrig-month-nav::before { content:''; position:absolute; top:0;left:0;right:0; height:2px; background:linear-gradient(90deg,transparent,var(--green),transparent); }
+.obrig-nav-btn {
+  width:34px; height:34px; border-radius:var(--r-md);
+  background:rgba(0,229,160,.06); border:1px solid var(--border);
+  color:var(--green); font-size:16px; cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  transition:all var(--t);
+}
+.obrig-nav-btn:hover { background:rgba(0,229,160,.14); border-color:rgba(0,229,160,.3); transform:scale(1.05); }
+.obrig-month-label-wrap { text-align:center; }
+.obrig-month-label { font-family:'Montserrat',sans-serif; font-size:17px; font-weight:800; color:var(--text); letter-spacing:-.01em; }
+.obrig-year-label { font-size:11px; color:var(--muted); margin-top:1px; }
+
+/* Pills atalho */
+.obrig-pills-row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+.obrig-pill {
+  padding:5px 12px; border-radius:20px; border:1px solid var(--border);
+  background:transparent; color:var(--muted);
+  font-family:'Inter',sans-serif; font-size:11px; font-weight:500;
+  cursor:pointer; transition:all var(--t);
+}
+.obrig-pill:hover { color:var(--text); border-color:var(--border-h); }
+.obrig-pill.active { background:var(--green-g); border-color:rgba(0,229,160,.4); color:var(--green); }
+.obrig-pill.has-pending { border-color:rgba(255,179,71,.3); }
+
+/* Resumo */
+.obrig-summary {
+  display:grid; grid-template-columns:repeat(3,1fr); gap:10px;
+  margin-bottom:16px;
+}
+.obrig-sum-card {
+  background:var(--card); border:1px solid var(--border); border-radius:var(--r-md);
+  padding:12px 14px; position:relative; overflow:hidden;
+}
+.obrig-sum-card::before { content:''; position:absolute; top:0;left:0;right:0; height:2px; }
+.obrig-sum-card.sc-total::before  { background:linear-gradient(90deg,transparent,var(--accent),transparent); }
+.obrig-sum-card.sc-paid::before   { background:linear-gradient(90deg,transparent,var(--green),transparent); }
+.obrig-sum-card.sc-pending::before{ background:linear-gradient(90deg,transparent,var(--orange),transparent); }
+.obrig-sum-lbl { font-size:9.5px; font-weight:600; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); margin-bottom:6px; }
+.obrig-sum-val { font-family:'DM Mono',monospace; font-size:clamp(14px,2vw,18px); }
+.obrig-sum-card.sc-total  .obrig-sum-val { color:var(--accent); }
+.obrig-sum-card.sc-paid   .obrig-sum-val { color:var(--green); }
+.obrig-sum-card.sc-pending .obrig-sum-val { color:var(--orange); }
+.obrig-sum-sub { font-size:10px; color:var(--muted); margin-top:3px; }
+
+/* Lista */
 .obrig-list { display:flex; flex-direction:column; gap:8px; }
 .obrig-item {
   display:flex; align-items:center; gap:12px;
@@ -430,6 +483,11 @@ table.tx-table td { padding:11px 14px; vertical-align:middle; }
 .obrig-item.done .obrig-desc { text-decoration:line-through; color:var(--muted); }
 .obrig-meta { font-size:11px; color:var(--muted); margin-top:2px; }
 .obrig-val { font-family:'DM Mono',monospace; font-size:14px; color:var(--orange); flex-shrink:0; }
+.obrig-date-badge {
+  font-size:9px; font-weight:600; padding:2px 7px; border-radius:4px;
+  background:rgba(0,212,255,.08); color:var(--accent);
+  border:1px solid rgba(0,212,255,.15); margin-left:6px;
+}
 
 .obrig-empty { text-align:center; padding:40px 20px; color:var(--muted); font-size:13px; }
 
@@ -644,6 +702,7 @@ table.tx-table td { padding:11px 14px; vertical-align:middle; }
   .cal-chip { font-size:8px; padding:1px 4px; }
   .cal-strip { grid-template-columns:1fr 1fr 1fr; }
   .cal-strip-val { font-size:12px; }
+  .obrig-summary { grid-template-columns:1fr; }
 }
 @media (max-width:440px) {
   .cal-strip { grid-template-columns:1fr; }
@@ -746,6 +805,16 @@ table.tx-table td { padding:11px 14px; vertical-align:middle; }
 }
 #toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
 #toast.err { border-color:rgba(255,91,112,.3); color:var(--red); background:rgba(255,91,112,.08); }
+
+/* ================================================
+   BULK SELECT ROW
+================================================ */
+.tx-row-selected td {
+  background: rgba(0,212,255,0.05);
+}
+.tx-row-selected {
+  outline: 1px solid rgba(0,212,255,0.18);
+}
 
 /* ================================================
    ATMOSPHERE
@@ -987,6 +1056,7 @@ table.tx-table td { padding:11px 14px; vertical-align:middle; }
             <table class="tx-table">
               <thead>
                 <tr>
+                  <th style="width:36px;text-align:center"><input type="checkbox" id="sel-all" title="Selecionar tudo" style="accent-color:var(--accent);cursor:pointer;width:15px;height:15px"></th>
                   <th>Data</th><th>Descrição</th><th>Categoria</th>
                   <th>Tipo</th><th>Autor</th><th style="text-align:right">Valor</th>
                   <th style="text-align:center">Ações</th>
@@ -1031,8 +1101,13 @@ table.tx-table td { padding:11px 14px; vertical-align:middle; }
             </div>
 
             <div class="ff">
-              <label class="ff-label" for="tx-date">Data</label>
+              <label class="ff-label" for="tx-date">Data de Início</label>
               <input id="tx-date" class="ff-input" type="date">
+            </div>
+
+            <div class="ff">
+              <label class="ff-label" for="tx-date-end">Data de Término <span style="color:var(--muted);font-weight:400;font-size:9px">(opcional)</span></label>
+              <input id="tx-date-end" class="ff-input" type="date">
             </div>
 
             <button id="btn-add-tx" class="btn-submit">Registrar Transação</button>
@@ -1044,8 +1119,26 @@ table.tx-table td { padding:11px 14px; vertical-align:middle; }
       <section class="view" id="view-obrig">
         <div class="sec-head">
           <div class="sec-title">Obrigações Recorrentes</div>
-          <div class="sec-sub">Marque como concluído ao efetuar o pagamento</div>
+          <div class="sec-sub">Selecione o mês e marque como pago — cada mês tem status independente</div>
         </div>
+
+        <!-- Barra de navegação de meses -->
+        <div class="obrig-month-nav" id="obrig-month-nav">
+          <button class="obrig-nav-btn" id="obrig-prev" title="Mês anterior">‹</button>
+          <div class="obrig-month-label-wrap">
+            <div class="obrig-month-label" id="obrig-month-lbl">—</div>
+            <div class="obrig-year-label" id="obrig-year-lbl">—</div>
+          </div>
+          <button class="obrig-nav-btn" id="obrig-next" title="Próximo mês">›</button>
+        </div>
+
+        <!-- Pills de atalho rápido para meses com obrigações -->
+        <div class="obrig-pills-row" id="obrig-pills-row"></div>
+
+        <!-- Resumo do mês -->
+        <div class="obrig-summary" id="obrig-summary"></div>
+
+        <!-- Lista de obrigações do mês -->
         <div class="obrig-list" id="obrig-list">
           <div class="obrig-empty">Nenhuma obrigação recorrente cadastrada.</div>
         </div>
@@ -1185,6 +1278,28 @@ table.tx-table td { padding:11px 14px; vertical-align:middle; }
 
     </div><!-- /page-content -->
   </div><!-- /main -->
+<!-- FLOATING BULK DELETE BAR -->
+<div id="bulk-bar" style="
+  position:fixed; bottom:28px; left:50%; transform:translateX(-50%) translateY(80px);
+  background:rgba(255,91,112,0.14); border:1px solid rgba(255,91,112,0.45);
+  backdrop-filter:blur(18px); border-radius:40px; padding:10px 20px 10px 16px;
+  display:flex; align-items:center; gap:14px; z-index:3000;
+  box-shadow:0 8px 40px rgba(0,0,0,0.5);
+  transition:transform 0.3s cubic-bezier(0.4,0,0.2,1), opacity 0.3s;
+  opacity:0; pointer-events:none;">
+  <span id="bulk-count" style="color:var(--red);font-family:Inter,sans-serif;font-size:13px;font-weight:600">0 selecionados</span>
+  <button id="btn-bulk-del" style="
+    padding:9px 20px; border-radius:24px; border:none;
+    background:linear-gradient(135deg,#ff5b70,#cc3344);
+    color:#fff; font-family:Montserrat,sans-serif; font-size:12px; font-weight:700;
+    cursor:pointer; box-shadow:0 4px 14px rgba(255,91,112,0.3); letter-spacing:.05em;">
+    🗑 Apagar Selecionados
+  </button>
+  <button id="btn-bulk-cancel" style="
+    padding:9px 14px; border-radius:24px; border:1px solid rgba(255,255,255,0.15);
+    background:transparent; color:var(--muted); font-family:Inter,sans-serif; font-size:12px;
+    cursor:pointer;">✕</button>
+</div>
 </div><!-- /app -->
 
 <!-- DETAIL MODAL -->
@@ -1373,10 +1488,12 @@ const KEY_USER='lumin_user';
 ================================================ */
 const state = {
   transactions:[],
-  obrigacoes:[],          // { id, txId, done, doneAt }
+  obrigacoes:[],          // { id, txId, done, doneAt, monthKey }
   currentUser:null,
   filterMonth:new Date().getMonth()+1,
   filterYear:new Date().getFullYear(),
+  obrigMonth:new Date().getMonth()+1,   // mês ativo na view de obrigações
+  obrigYear:new Date().getFullYear(),   // ano ativo na view de obrigações
   modalPeriod:null,
   modalData:null,
   authMode:null,          // 'delete' | 'edit'
@@ -1492,6 +1609,7 @@ function bootApp(){
 
   // Default date
   $('tx-date').valueAsDate=new Date();
+  if($('tx-date-end')) $('tx-date-end').value='';
   $('auth-edit-date').valueAsDate=new Date();
 
   // Show app
@@ -1547,6 +1665,29 @@ function bootApp(){
 
   // Calendar
   initCalendar();
+
+  // Obrigações — nav de meses
+  $('obrig-prev')?.addEventListener('click',()=>obrigNavMonth(-1));
+  $('obrig-next')?.addEventListener('click',()=>obrigNavMonth(+1));
+
+  // Bulk delete bar
+  $('btn-bulk-del')?.addEventListener('click', handleBulkDelete);
+  $('btn-bulk-cancel')?.addEventListener('click',()=>{
+    selectedIds.clear();
+    renderTxTable();
+    updateBulkBar();
+  });
+
+  // Master checkbox (re-wire after DOM)
+  const selAll=$('sel-all');
+  if(selAll){
+    selAll.addEventListener('change',()=>{
+      const txs=txsFiltered();
+      if(selAll.checked) txs.forEach(t=>selectedIds.add(t.id));
+      else selectedIds.clear();
+      renderTxTable();
+    });
+  }
 
   // Firebase
   initFirestore();
@@ -1639,7 +1780,7 @@ function initFirestore(){
       err=>console.warn('Firestore tx error:',err)
     );
 
-    // Obrigacoes
+    // Obrigacoes — escuta todos os documentos (tanto legados quanto novos com monthKey)
     state._unsubObrig=fb.onSnapshot(
       fb.collection(fb.db,'obrigacoes'),
       snap=>{
@@ -1667,6 +1808,7 @@ function switchView(id){
   if(id==='view-profile') renderProfile();
   if(id==='view-users')   renderUsersView();
   if(id==='view-cal')     renderCalendar();
+  if(id==='view-obrig')   renderObrigacoes();
 }
 function openSidebar(){ $('sidebar').classList.add('open'); $('sb-overlay').classList.add('show'); }
 function closeSidebar(){ $('sidebar').classList.remove('open'); $('sb-overlay').classList.remove('show'); }
@@ -1820,13 +1962,40 @@ function renderBarChart(){
 }
 
 /* ================================================
-   TRANSACTION TABLE
+   TRANSACTION TABLE (with bulk select)
 ================================================ */
+const selectedIds = new Set();
+
+function updateBulkBar(){
+  const bar=$('bulk-bar');
+  const count=selectedIds.size;
+  $('bulk-count').textContent=count+' selecionado'+(count!==1?'s':'');
+  if(count>0){
+    bar.style.opacity='1';
+    bar.style.transform='translateX(-50%) translateY(0)';
+    bar.style.pointerEvents='auto';
+  } else {
+    bar.style.opacity='0';
+    bar.style.transform='translateX(-50%) translateY(80px)';
+    bar.style.pointerEvents='none';
+  }
+}
+
 function renderTxTable(){
   const tbody=$('tx-tbody');
   const txs=txsFiltered();
+  // Sync master checkbox
+  const selAll=$('sel-all');
+  if(selAll){
+    selAll.checked=false;
+    selAll.indeterminate=false;
+  }
+  // Clear stale selections
+  selectedIds.forEach(id=>{ if(!txs.find(t=>t.id===id)) selectedIds.delete(id); });
+  updateBulkBar();
+
   if(!txs.length){
-    tbody.innerHTML=`<tr><td colspan="7" style="text-align:center;padding:32px;color:var(--muted);font-size:13px">Nenhuma transação neste período</td></tr>`;
+    tbody.innerHTML=`<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--muted);font-size:13px">Nenhuma transação neste período</td></tr>`;
     return;
   }
   tbody.innerHTML=txs.map(t=>{
@@ -1834,11 +2003,14 @@ function renderTxTable(){
     const rec=cfg.isRecorrente;
     const isIn=t.category==='entrada';
     const autor=t.createdBy||'—';
-    return `<tr>
+    const checked=selectedIds.has(t.id)?'checked':'';
+    return `<tr class="${selectedIds.has(t.id)?'tx-row-selected':''}">
+      <td style="text-align:center"><input type="checkbox" class="tx-sel" data-id="${t.id}" ${checked} style="accent-color:var(--accent);cursor:pointer;width:15px;height:15px"></td>
       <td style="white-space:nowrap;color:var(--muted)">${fmtDate(t.date)}</td>
       <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(t.description||t.desc||'')}">
         ${esc(t.description||t.desc||'—')}
-        ${rec?'<span class="rec-badge" style="margin-left:5px">🔄 Recorrente</span>':''}
+        ${rec?'<span class="rec-badge" style="margin-left:5px">🔄</span>':''}
+        ${t.dateEnd?'<span style="font-size:9px;color:var(--muted);margin-left:4px">→ '+fmtDate(t.dateEnd)+'</span>':''}
       </td>
       <td><span class="cat-badge ${cfg.badgeClass}">${cfg.label}</span></td>
       <td style="font-size:11px;color:var(--muted)">${rec?'Recorrente':'Variável'}</td>
@@ -1853,86 +2025,107 @@ function renderTxTable(){
     </tr>`;
   }).join('');
 
+  // Row checkboxes
+  tbody.querySelectorAll('.tx-sel').forEach(cb=>{
+    cb.addEventListener('change',()=>{
+      if(cb.checked) selectedIds.add(cb.dataset.id);
+      else selectedIds.delete(cb.dataset.id);
+      // Update master
+      const all=txs.length, sel=selectedIds.size;
+      if(selAll){ selAll.checked=sel===all&&all>0; selAll.indeterminate=sel>0&&sel<all; }
+      updateBulkBar();
+    });
+  });
+
   tbody.querySelectorAll('.btn-tbl.edit').forEach(b=>b.addEventListener('click',()=>openEditAuth(b.dataset.id)));
   tbody.querySelectorAll('.btn-tbl.del').forEach(b=>b.addEventListener('click',()=>openDeleteAuth(b.dataset.id)));
 }
 
+// Master checkbox
+document.addEventListener('DOMContentLoaded',()=>{
+  const selAll=$('sel-all');
+  if(selAll){
+    selAll.addEventListener('change',()=>{
+      const txs=txsFiltered();
+      if(selAll.checked) txs.forEach(t=>selectedIds.add(t.id));
+      else selectedIds.clear();
+      renderTxTable();
+    });
+  }
+});
+
 /* ================================================
-   ADICIONAR TRANSAÇÃO  (com propagação automática)
+   ADICIONAR TRANSAÇÃO — Vigência por mês (sem propagação)
+   A transação vale apenas para o mês da Data de Início.
+   Data de Término é opcional: se preenchida, define o
+   intervalo exibido no Calendário e nas Obrigações.
 ================================================ */
 async function handleAddTx(){
   const cat=$('tx-cat').value;
   const desc=$('tx-desc').value.trim();
   const valRaw=$('tx-val').value.replace(/[^\d,]/g,'').replace(',','.');
   const val=parseFloat(valRaw);
-  const date=$('tx-date').value;
+  const dateStart=$('tx-date').value;
+  const dateEnd=$('tx-date-end').value||null;
   if(!desc){ toast('⚠ Preencha a descrição',true); return; }
   if(!val||val<=0){ toast('⚠ Informe um valor válido',true); return; }
-  if(!date){ toast('⚠ Selecione uma data',true); return; }
+  if(!dateStart){ toast('⚠ Selecione a data de início',true); return; }
+  if(dateEnd&&dateEnd<dateStart){ toast('⚠ Data de Término deve ser após o Início',true); return; }
 
   const rec=CAT_CFG[cat]?.isRecorrente||false;
   const fb=window._fb;
   if(!fb){ toast('Firebase não disponível',true); return; }
 
-  // Mês/dia da transação original
-  const [baseY,baseM,baseD]=date.split('-').map(Number);
+  const [baseY,baseM]=dateStart.split('-').map(Number);
 
   try{
-    // 1. Salva a transação do mês atual
     const txBase={
-      category:cat, description:desc, amount:val, date,
+      category:cat, description:desc, amount:val,
+      date:dateStart,
+      dateEnd: dateEnd||null,
       isRecorrente:rec, createdBy:state.currentUser,
       createdAt:Date.now(),
-      recurringGroup: rec ? `${state.currentUser}-${Date.now()}` : null,
     };
     const ref=await fb.addDoc(fb.collection(fb.db,'transactions'),txBase);
 
     if(rec){
-      // Cria obrigação para o mês atual
-      await fb.addDoc(fb.collection(fb.db,'obrigacoes'),{
-        txId:ref.id, desc, amount:val, category:cat,
-        done:false, createdAt:Date.now()
+      // Cria obrigação apenas para o mês da data de início
+      const mKey=obrigKey(ref.id, baseY, baseM);
+      await fb.setDoc(fb.doc(fb.db,'obrigacoes',mKey),{
+        monthKey:mKey, txId:ref.id, desc, amount:val, category:cat,
+        month:baseM, year:baseY,
+        done:false, createdAt:Date.now(), createdBy:state.currentUser
       });
-
-      // 2. Propaga para os 11 meses seguintes (total 12 meses incluindo o atual)
-      const MONTHS_AHEAD=11;
-      const propagatePromises=[];
-      for(let i=1;i<=MONTHS_AHEAD;i++){
-        // Calcula a data do mês futuro mantendo o mesmo dia
-        let futY=baseY, futM=baseM+i;
-        while(futM>12){ futM-=12; futY++; }
-        // Garante que o dia existe no mês (ex: 31/Jan → 28/Fev)
-        const maxDay=new Date(futY,futM,0).getDate();
-        const futD=Math.min(baseD,maxDay);
-        const futDate=`${futY}-${String(futM).padStart(2,'0')}-${String(futD).padStart(2,'0')}`;
-
-        const txFut={
-          category:cat, description:desc, amount:val, date:futDate,
-          isRecorrente:true, createdBy:state.currentUser,
-          createdAt:Date.now(),
-          recurringGroup:txBase.recurringGroup,
-          propagated:true,
-        };
-        propagatePromises.push(
-          fb.addDoc(fb.collection(fb.db,'transactions'),txFut).then(async futRef=>{
-            await fb.addDoc(fb.collection(fb.db,'obrigacoes'),{
-              txId:futRef.id, desc, amount:val, category:cat,
-              done:false, createdAt:Date.now()
-            });
-          })
-        );
-      }
-      await Promise.all(propagatePromises);
-      toast(`✓ Transação registrada e propagada por 12 meses 🔄`);
-    } else {
-      toast('✓ Transação registrada');
     }
+    toast('✓ Transação registrada');
   }catch(e){ toast('Erro ao salvar',true); console.warn(e); }
 
   $('tx-desc').value=''; $('tx-val').value='';
   $('tx-date').valueAsDate=new Date();
+  $('tx-date-end').value='';
   $('rec-indicator').style.display='none';
   switchView('view-home');
+}
+
+/* ================================================
+   BULK DELETE
+================================================ */
+async function handleBulkDelete(){
+  const fb=window._fb; if(!fb) return;
+  const ids=[...selectedIds];
+  if(!ids.length) return;
+  const ok=confirm(`Excluir ${ids.length} transação${ids.length>1?'ões':''}? Esta ação é permanente.`);
+  if(!ok) return;
+  try{
+    await Promise.all(ids.map(async id=>{
+      const relObs=state.obrigacoes.filter(o=>o.txId===id);
+      await Promise.all(relObs.map(ob=>fb.deleteDoc(fb.doc(fb.db,'obrigacoes',ob.id))));
+      await fb.deleteDoc(fb.doc(fb.db,'transactions',id));
+    }));
+    selectedIds.clear();
+    updateBulkBar();
+    toast(`✓ ${ids.length} transação${ids.length>1?'ões':''} excluída${ids.length>1?'s':''}`);
+  }catch(e){ toast('Erro ao excluir em massa',true); console.warn(e); }
 }
 
 /* ================================================
@@ -1955,7 +2148,13 @@ function calTxsForMonth(y,m){
   return state.transactions.filter(t=>{
     if(!t.date) return false;
     const [ty,tm]=t.date.split('-').map(Number);
-    return ty===y&&tm===m;
+    // If no dateEnd, show only in start month
+    if(!t.dateEnd) return ty===y&&tm===m;
+    // With dateEnd: show if month is within range
+    const [ey,em]=t.dateEnd.split('-').map(Number);
+    const afterStart=(y>ty)||(y===ty&&m>=tm);
+    const beforeEnd=(y<ey)||(y===ey&&m<=em);
+    return afterStart&&beforeEnd;
   });
 }
 
@@ -2181,9 +2380,9 @@ async function handleAuthConfirm(){
   if(state.authMode==='delete'){
     if(fb){
       try{
-        // Remove obrigacao se existir
-        const ob=state.obrigacoes.find(o=>o.txId===id);
-        if(ob) await fb.deleteDoc(fb.doc(fb.db,'obrigacoes',ob.id));
+        // Remove todas as obrigações associadas a esta transação (qualquer mês)
+        const relatedObs=state.obrigacoes.filter(o=>o.txId===id);
+        await Promise.all(relatedObs.map(ob=>fb.deleteDoc(fb.doc(fb.db,'obrigacoes',ob.id))));
         await fb.deleteDoc(fb.doc(fb.db,'transactions',id));
         toast('✓ Transação excluída');
       }catch(e){ toast('Erro ao excluir',true); }
@@ -2210,27 +2409,148 @@ async function handleAuthConfirm(){
 }
 
 /* ================================================
-   OBRIGAÇÕES
+   OBRIGAÇÕES — SISTEMA MENSAL INDEPENDENTE
+   Chave do documento Firestore:
+   obrigacoes/{txId}_{YYYY-MM}
+   Isso garante que pagar Abril NÃO afeta Maio.
 ================================================ */
+
+// Chave única por transação + mês: "txId_2025-04"
+function obrigKey(txId, year, month){
+  return `${txId}_${year}-${String(month).padStart(2,'0')}`;
+}
+
+// Retorna o doc de obrigação para um txId no mês/ano ativo
+function findObrig(txId){
+  const key=obrigKey(txId, state.obrigYear, state.obrigMonth);
+  return state.obrigacoes.find(o=>o.id===key || o.monthKey===key);
+}
+
+function obrigNavMonth(delta){
+  state.obrigMonth+=delta;
+  if(state.obrigMonth>12){ state.obrigMonth=1; state.obrigYear++; }
+  if(state.obrigMonth<1) { state.obrigMonth=12; state.obrigYear--; }
+  renderObrigacoes();
+}
+
 function renderObrigacoes(){
+  // Atualiza label do mês
+  const lbl=$('obrig-month-lbl');
+  const ylbl=$('obrig-year-lbl');
+  if(lbl) lbl.textContent=MONTHS[state.obrigMonth-1];
+  if(ylbl) ylbl.textContent=state.obrigYear;
+
+  // Filtra transações recorrentes — mostra se o mês ativo
+  // estiver dentro do intervalo [date, dateEnd].
+  // Se dateEnd ausente, vale apenas o mês de date.
+  const oy=state.obrigYear, om=state.obrigMonth;
+  const recItems=state.transactions.filter(t=>{
+    if(!t.isRecorrente||!t.date) return false;
+    const [sy,sm]=t.date.split('-').map(Number);
+    const startOk=(oy>sy)||(oy===sy&&om>=sm);
+    if(!startOk) return false;
+    if(t.dateEnd){
+      const [ey,em]=t.dateEnd.split('-').map(Number);
+      return (oy<ey)||(oy===ey&&om<=em);
+    }
+    // Sem dateEnd: válida apenas no mês de início
+    return oy===sy&&om===sm;
+  });
+
+  // Pills de atalho — meses relevantes para obrigações
+  // Inclui todos os meses dentro do intervalo de cada transação recorrente
+  const months=new Set();
+  state.transactions.filter(t=>t.isRecorrente&&t.date).forEach(t=>{
+    const [sy,sm]=t.date.split('-').map(Number);
+    if(!t.dateEnd){
+      months.add(t.date.slice(0,7));
+      return;
+    }
+    const [ey,em]=t.dateEnd.split('-').map(Number);
+    let cy=sy,cm=sm;
+    while((cy<ey)||(cy===ey&&cm<=em)){
+      months.add(`${cy}-${String(cm).padStart(2,'0')}`);
+      cm++; if(cm>12){cm=1;cy++;}
+    }
+  });
+  const sortedMonths=[...months].sort().reverse();
+  const pillsRow=$('obrig-pills-row');
+  if(pillsRow){
+    pillsRow.innerHTML='<span class="filter-label">Mês</span>'+
+      sortedMonths.map(ym=>{
+        const [y,m]=ym.split('-').map(Number);
+        const active=m===state.obrigMonth&&y===state.obrigYear;
+        // Verifica se há pendentes nesse mês
+        const monthItems=state.transactions.filter(t=>{
+          if(!t.isRecorrente||!t.date) return false;
+          const [sy,sm]=t.date.split('-').map(Number);
+          const afterStart=(y>sy)||(y===sy&&m>=sm);
+          if(!afterStart) return false;
+          if(t.dateEnd){const [ey,em]=t.dateEnd.split('-').map(Number);return (y<ey)||(y===ey&&m<=em);}
+          return y===sy&&m===sm;
+        });
+        const hasPending=monthItems.some(t=>!findObrigForMonth(t.id,y,m)?.done);
+        return `<button class="obrig-pill${active?' active':''}${hasPending?' has-pending':''}"
+          onclick="state.obrigMonth=${m};state.obrigYear=${y};renderObrigacoes()">
+          ${MONTHS[m-1].slice(0,3)} ${y}${hasPending?' ·':''}
+        </button>`;
+      }).join('');
+  }
+
+  // Resumo
+  const sumEl=$('obrig-summary');
+  if(sumEl){
+    const total=recItems.length;
+    const paid=recItems.filter(t=>{
+      const ob=findObrig(t.id);
+      return ob?.done===true;
+    }).length;
+    const pending=total-paid;
+    const totalVal=recItems.reduce((a,t)=>a+t.amount,0);
+    const paidVal=recItems.filter(t=>findObrig(t.id)?.done).reduce((a,t)=>a+t.amount,0);
+    const pendingVal=totalVal-paidVal;
+    sumEl.innerHTML=`
+      <div class="obrig-sum-card sc-total">
+        <div class="obrig-sum-lbl">Total do Mês</div>
+        <div class="obrig-sum-val">${fmtBRL(totalVal)}</div>
+        <div class="obrig-sum-sub">${total} obrigação${total!==1?'s':''}</div>
+      </div>
+      <div class="obrig-sum-card sc-paid">
+        <div class="obrig-sum-lbl">✓ Pago</div>
+        <div class="obrig-sum-val">${fmtBRL(paidVal)}</div>
+        <div class="obrig-sum-sub">${paid} item${paid!==1?'s':''}</div>
+      </div>
+      <div class="obrig-sum-card sc-pending">
+        <div class="obrig-sum-lbl">⏳ Pendente</div>
+        <div class="obrig-sum-val">${fmtBRL(pendingVal)}</div>
+        <div class="obrig-sum-sub">${pending} item${pending!==1?'s':''}</div>
+      </div>`;
+  }
+
+  // Lista
   const list=$('obrig-list');
-  // Filter only recorrente categories
-  const recItems=state.transactions.filter(t=>t.isRecorrente);
+  if(!list) return;
   if(!recItems.length){
-    list.innerHTML='<div class="obrig-empty">Nenhuma obrigação recorrente cadastrada.<br>Adicione Saídas Fixas ou Pagamento de Funcionários.</div>';
+    list.innerHTML='<div class="obrig-empty">Nenhuma obrigação recorrente em '+MONTHS[state.obrigMonth-1]+' de '+state.obrigYear+'.<br><small>Adicione Saídas Fixas ou Pagamentos de Funcionários.</small></div>';
     return;
   }
+
   list.innerHTML=recItems.map(t=>{
-    const ob=state.obrigacoes.find(o=>o.txId===t.id);
+    const ob=findObrig(t.id);
     const done=ob?.done||false;
     const cfg=CAT_CFG[t.category]||CAT_CFG.variavel;
+    const dayStr=t.date?fmtDate(t.date):'';
     return `<div class="obrig-item${done?' done':''}" data-txid="${t.id}">
       <div class="obrig-check" data-txid="${t.id}" title="${done?'Marcar como pendente':'Marcar como pago'}">
         ${done?'✓':''}
       </div>
       <div class="obrig-body">
         <div class="obrig-desc">${esc(t.description||t.desc||'—')}</div>
-        <div class="obrig-meta"><span class="cat-badge ${cfg.badgeClass}" style="font-size:9px">${cfg.label}</span>${done?' · <span style="color:var(--green);font-size:11px">Pago ✓</span>':''}</div>
+        <div class="obrig-meta">
+          <span class="cat-badge ${cfg.badgeClass}" style="font-size:9px">${cfg.label}</span>
+          ${dayStr?`<span class="obrig-date-badge">📅 ${dayStr}</span>`:''}
+          ${done?'<span style="color:var(--green);font-size:11px;margin-left:6px">Pago ✓</span>':''}
+        </div>
       </div>
       <div class="obrig-val">${fmtBRL(t.amount)}</div>
     </div>`;
@@ -2241,20 +2561,45 @@ function renderObrigacoes(){
   });
 }
 
+// Helper para buscar obrigação de um mês específico (usado nas pills)
+function findObrigForMonth(txId, year, month){
+  const key=obrigKey(txId, year, month);
+  return state.obrigacoes.find(o=>o.id===key||o.monthKey===key);
+}
+
 async function toggleObrig(txId){
-  const ob=state.obrigacoes.find(o=>o.txId===txId);
   const fb=window._fb; if(!fb) return;
+  const key=obrigKey(txId, state.obrigYear, state.obrigMonth);
+  const ob=findObrig(txId);
+
   try{
     if(ob){
-      await fb.updateDoc(fb.doc(fb.db,'obrigacoes',ob.id),{ done:!ob.done, updatedAt:Date.now(), updatedBy:state.currentUser });
+      // Documento já existe — alterna done
+      const docRef=fb.doc(fb.db,'obrigacoes',ob.id||key);
+      await fb.updateDoc(docRef,{
+        done:!ob.done,
+        updatedAt:Date.now(),
+        updatedBy:state.currentUser
+      });
     } else {
+      // Cria documento específico para este mês
       const tx=state.transactions.find(t=>t.id===txId);
-      await fb.addDoc(fb.collection(fb.db,'obrigacoes'),{
-        txId, desc:tx?.description||tx?.desc||'', amount:tx?.amount||0,
-        category:tx?.category||'', done:true, createdAt:Date.now()
+      // Usa setDoc com ID = key para garantir unicidade por mês
+      await fb.setDoc(fb.doc(fb.db,'obrigacoes',key),{
+        monthKey:key,
+        txId,
+        desc:tx?.description||tx?.desc||'',
+        amount:tx?.amount||0,
+        category:tx?.category||'',
+        month:state.obrigMonth,
+        year:state.obrigYear,
+        done:true,
+        createdAt:Date.now(),
+        createdBy:state.currentUser
       });
     }
-  }catch(e){ toast('Erro ao atualizar obrigação',true); }
+    toast('✓ Status atualizado');
+  }catch(e){ toast('Erro ao atualizar obrigação',true); console.warn(e); }
 }
 
 /* ================================================
@@ -2401,13 +2746,23 @@ function loadFirebasePhotosForUsers(userIds){
 }
 
 /* ================================================
-   PDF — fundo branco, texto preto, cabeçalho Eco Mix
+   PDF — CORRIGIDO: usa exclusivamente os dados
+   passados como argumento (sem conflito com estado
+   global). Todos os valores formatados em pt-BR.
 ================================================ */
-function generatePDF(period,txs){
-  if(!txs) txs=txsByPeriod(period);
+function generatePDF(period, txs){
+  // CORREÇÃO: sempre recalcula inc/out/bal a partir dos
+  // dados recebidos — nunca do estado global.
+  if(!txs || !Array.isArray(txs)) txs = txsByPeriod(period);
+
+  // Recalcula localmente para garantir consistência total
+  // entre os boxes de resumo e a soma da tabela.
+  const inc = txs.filter(t=>t.category==='entrada').reduce((a,t)=>a+(+t.amount||0),0);
+  const out = txs.filter(t=>t.category!=='entrada').reduce((a,t)=>a+(+t.amount||0),0);
+  const bal = inc - out;
+
   const {jsPDF}=window.jspdf;
   const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-  const inc=sumIn(txs),out=sumOut(txs),bal=inc-out;
   const today=new Date().toLocaleDateString('pt-BR');
 
   /* fundo branco */
@@ -2427,27 +2782,35 @@ function generatePDF(period,txs){
   doc.text('Relatório Financeiro  |  Empresa: Eco Mix',14,26);
 
   doc.setFontSize(9); doc.setTextColor(140,200,230);
-  doc.text(PERIOD_NAMES[period],14,34);
+  doc.text(PERIOD_NAMES[period]||period,14,34);
   doc.text(`Gerado em ${today}`,196,34,{align:'right'});
 
-  /* Summary boxes */
+  /* Summary boxes — usando fmtNum (pt-BR) para garantir vírgula decimal */
   const boxes=[
-    {x:14, label:'Total Entradas',val:'R$ '+fmtNum(inc),fc:[235,252,245],tc:[0,120,70]},
-    {x:80, label:'Total Saídas',  val:'R$ '+fmtNum(out),fc:[255,235,238],tc:[160,30,40]},
-    {x:146,label:'Saldo Líquido', val:'R$ '+fmtNum(bal),fc:bal>=0?[235,252,245]:[255,235,238],tc:bal>=0?[0,120,70]:[160,30,40]},
+    {x:14, label:'Total Entradas', val:'R$ '+fmtNum(inc), fc:[235,252,245], tc:[0,120,70]},
+    {x:80, label:'Total Saídas',   val:'R$ '+fmtNum(out), fc:[255,235,238], tc:[160,30,40]},
+    {x:146,label:'Saldo Líquido',  val:'R$ '+fmtNum(bal),
+      fc:bal>=0?[235,252,245]:[255,235,238],
+      tc:bal>=0?[0,120,70]:[160,30,40]},
   ];
   boxes.forEach(({x,label,val,fc,tc})=>{
     doc.setFillColor(...fc);
     doc.roundedRect(x,48,58,26,2,2,'F');
-    doc.setFontSize(7.5);doc.setFont('helvetica','normal');doc.setTextColor(80,80,80);
+    doc.setFontSize(7.5); doc.setFont('helvetica','normal'); doc.setTextColor(80,80,80);
     doc.text(label,x+4,55);
-    doc.setFontSize(11);doc.setFont('helvetica','bold');doc.setTextColor(...tc);
+    doc.setFontSize(11); doc.setFont('helvetica','bold'); doc.setTextColor(...tc);
     doc.text(val,x+4,65);
   });
 
-  /* Table */
+  /* Tabela de transações — ordenadas da mais recente para a mais antiga */
   if(txs.length){
-    const rows=txs.slice().sort((a,b)=>b.date.localeCompare(a.date));
+    const rows=txs.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    // Verifica a soma da tabela == boxes (sanity check silencioso)
+    const tableInc=rows.filter(t=>t.category==='entrada').reduce((a,t)=>a+(+t.amount||0),0);
+    const tableOut=rows.filter(t=>t.category!=='entrada').reduce((a,t)=>a+(+t.amount||0),0);
+    console.assert(Math.abs(tableInc-inc)<0.001,'PDF: inc mismatch!',tableInc,inc);
+    console.assert(Math.abs(tableOut-out)<0.001,'PDF: out mismatch!',tableOut,out);
+
     doc.autoTable({
       startY:82,
       head:[['Data','Descrição','Categoria','Tipo','Autor','Valor']],
@@ -2457,7 +2820,8 @@ function generatePDF(period,txs){
         CAT_CFG[t.category]?.label||t.category,
         (CAT_CFG[t.category]?.isRecorrente?'Recorrente':'Variável'),
         t.createdBy||'—',
-        (t.category==='entrada'?'+ ':'- ')+'R$ '+fmtNum(t.amount),
+        // Valor formatado em pt-BR com vírgula decimal
+        (t.category==='entrada'?'+ ':'- ')+'R$ '+fmtNum(+t.amount||0),
       ]),
       styles:{fontSize:8.5,cellPadding:3.5,font:'helvetica',textColor:[30,30,30]},
       headStyles:{fillColor:[0,100,140],textColor:[255,255,255],fontStyle:'bold',fontSize:8},
@@ -2473,9 +2837,16 @@ function generatePDF(period,txs){
             data.cell.styles.textColor=tx?.category==='entrada'?[0,120,70]:[160,30,40];
         }
       },
+      // Rodapé da tabela com totais para confirmar valores
+      foot:[
+        ['','','','','↑ Entradas','R$ '+fmtNum(inc)],
+        ['','','','','↓ Saídas',  'R$ '+fmtNum(out)],
+        ['','','','','= Saldo',   'R$ '+fmtNum(bal)],
+      ],
+      footStyles:{fillColor:[240,248,255],textColor:[0,80,120],fontStyle:'bold',fontSize:8},
     });
   } else {
-    doc.setFontSize(10);doc.setTextColor(130,130,130);
+    doc.setFontSize(10); doc.setTextColor(130,130,130);
     doc.text('Nenhuma transação neste período.',14,90);
   }
 
@@ -2483,7 +2854,7 @@ function generatePDF(period,txs){
   const ph=doc.internal.pageSize.height;
   doc.setDrawColor(0,100,140);
   doc.line(14,ph-14,196,ph-14);
-  doc.setFontSize(7.5);doc.setFont('helvetica','normal');doc.setTextColor(80,80,80);
+  doc.setFontSize(7.5); doc.setFont('helvetica','normal'); doc.setTextColor(80,80,80);
   doc.text('Lumin — Relatório Financeiro | Eco Mix',14,ph-8);
   doc.text(`Gerado em ${today}`,196,ph-8,{align:'right'});
 
