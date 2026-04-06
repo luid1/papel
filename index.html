@@ -1386,12 +1386,13 @@ function isEntrada(cat){ return cat==='entrada'; }
 function isSaida(cat)  { return cat!=='entrada'; }
 
 const MONTHS=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-const PERIOD_NAMES={semanal:'Últimos 7 Dias',mensal:'Este Mês',trimestral:'Últimos 90 Dias',anual:'Este Ano'};
+const PERIOD_NAMES={semanal:'Últimos 7 Dias',mensal:'Mês Atual',trimestral:'Últimos 3 Meses',anual:'Ano Atual'};
 
 /* ================================================
-   txsByPeriod — usa timestamps numéricos (ms)
-   para comparação 100% confiável, sem ambiguidade
-   de timezone ou coerção de Date objects.
+   txsByPeriod — timestamps numéricos, sem fuso.
+   REGRA DE OURO: os limites usam MESES COMPLETOS,
+   não "hoje", para que transações com data no futuro
+   próximo (dentro do período) sejam incluídas.
 ================================================ */
 function txsByPeriod(period){
   const now = new Date();
@@ -1399,44 +1400,46 @@ function txsByPeriod(period){
   const M = now.getMonth();   // 0-based
   const D = now.getDate();
 
-  // Timestamp do início e fim do intervalo (ms)
   let tsIni, tsFim;
 
   if(period === 'semanal'){
-    // Últimos 7 dias: início = hoje - 6 dias às 00:00
-    tsIni = new Date(Y, M, D - 6, 0, 0, 0, 0).getTime();
-    tsFim = new Date(Y, M, D,     23,59,59,999).getTime();
+    // Últimos 7 dias corridos (dia a dia, não mês a mês)
+    // Inclui do dia (hoje - 6) até o fim do dia de hoje
+    tsIni = new Date(Y, M, D - 6,  0, 0, 0,   0).getTime();
+    tsFim = new Date(Y, M, D,     23,59,59, 999).getTime();
 
   } else if(period === 'mensal'){
-    // Dia 1 até último dia do mês corrente
-    tsIni = new Date(Y, M, 1,  0, 0, 0, 0).getTime();
-    tsFim = new Date(Y, M+1, 0, 23,59,59,999).getTime();
+    // Mês corrente completo: dia 1 até último dia do mês
+    tsIni = new Date(Y, M,   1,  0, 0, 0,   0).getTime();
+    tsFim = new Date(Y, M+1, 0, 23,59,59, 999).getTime(); // dia 0 do próximo = último do atual
 
   } else if(period === 'trimestral'){
-    // Últimos 90 dias: início = hoje - 89 dias às 00:00
-    tsIni = new Date(Y, M, D - 89, 0, 0, 0, 0).getTime();
-    tsFim = new Date(Y, M, D,      23,59,59,999).getTime();
+    // 3 meses completos: do dia 1 de (mês atual - 2) até o último dia do mês atual
+    // Ex: se hoje é Abril → pega Fevereiro, Março e Abril inteiros
+    tsIni = new Date(Y, M-2,  1,  0, 0, 0,   0).getTime();
+    tsFim = new Date(Y, M+1,  0, 23,59,59, 999).getTime();
 
   } else if(period === 'anual'){
-    // 1 Jan ao 31 Dez do ano corrente
-    tsIni = new Date(Y,  0,  1,  0, 0, 0, 0).getTime();
-    tsFim = new Date(Y, 11, 31, 23,59,59,999).getTime();
+    // Ano corrente completo: 1 Jan a 31 Dez
+    tsIni = new Date(Y,  0,  1,  0, 0, 0,   0).getTime();
+    tsFim = new Date(Y, 11, 31, 23,59,59, 999).getTime();
 
   } else {
     return [];
   }
 
-  // Debug: exibe no console os limites calculados
-  console.debug(`[Lumin] ${period}: ${new Date(tsIni).toLocaleDateString('pt-BR')} → ${new Date(tsFim).toLocaleDateString('pt-BR')}`);
+  console.debug(
+    `[Lumin] ${period}: ${new Date(tsIni).toLocaleDateString('pt-BR')} → ${new Date(tsFim).toLocaleDateString('pt-BR')} | total state: ${state.transactions.length}`
+  );
 
   return state.transactions.filter(t=>{
     if(!t.date) return false;
-    // Parse local da data "YYYY-MM-DD" sem risco de fuso horário
     const parts = t.date.split('-');
-    const tY = parseInt(parts[0],10);
-    const tM = parseInt(parts[1],10) - 1; // 0-based
-    const tD = parseInt(parts[2],10);
-    const ts = new Date(tY, tM, tD, 12, 0, 0, 0).getTime(); // meio-dia evita DST edge
+    const tY = parseInt(parts[0], 10);
+    const tM = parseInt(parts[1], 10) - 1; // 0-based
+    const tD = parseInt(parts[2], 10);
+    // Usa meio-dia (12h) para ser imune a qualquer ajuste de DST
+    const ts = new Date(tY, tM, tD, 12, 0, 0, 0).getTime();
     return ts >= tsIni && ts <= tsFim;
   });
 }
