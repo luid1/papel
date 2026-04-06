@@ -1388,45 +1388,56 @@ function isSaida(cat)  { return cat!=='entrada'; }
 const MONTHS=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 const PERIOD_NAMES={semanal:'Últimos 7 Dias',mensal:'Este Mês',trimestral:'Últimos 90 Dias',anual:'Este Ano'};
 
+/* ================================================
+   txsByPeriod — usa timestamps numéricos (ms)
+   para comparação 100% confiável, sem ambiguidade
+   de timezone ou coerção de Date objects.
+================================================ */
 function txsByPeriod(period){
-  // Cria objeto de hoje com hora zerada — independente de chamadas anteriores
-  const now   = new Date();
-  const todayY = now.getFullYear();
-  const todayM = now.getMonth();    // 0-based
-  const todayD = now.getDate();
-  const todayMidnight = new Date(todayY, todayM, todayD, 0, 0, 0, 0);
+  const now = new Date();
+  const Y = now.getFullYear();
+  const M = now.getMonth();   // 0-based
+  const D = now.getDate();
+
+  // Timestamp do início e fim do intervalo (ms)
+  let tsIni, tsFim;
+
+  if(period === 'semanal'){
+    // Últimos 7 dias: início = hoje - 6 dias às 00:00
+    tsIni = new Date(Y, M, D - 6, 0, 0, 0, 0).getTime();
+    tsFim = new Date(Y, M, D,     23,59,59,999).getTime();
+
+  } else if(period === 'mensal'){
+    // Dia 1 até último dia do mês corrente
+    tsIni = new Date(Y, M, 1,  0, 0, 0, 0).getTime();
+    tsFim = new Date(Y, M+1, 0, 23,59,59,999).getTime();
+
+  } else if(period === 'trimestral'){
+    // Últimos 90 dias: início = hoje - 89 dias às 00:00
+    tsIni = new Date(Y, M, D - 89, 0, 0, 0, 0).getTime();
+    tsFim = new Date(Y, M, D,      23,59,59,999).getTime();
+
+  } else if(period === 'anual'){
+    // 1 Jan ao 31 Dez do ano corrente
+    tsIni = new Date(Y,  0,  1,  0, 0, 0, 0).getTime();
+    tsFim = new Date(Y, 11, 31, 23,59,59,999).getTime();
+
+  } else {
+    return [];
+  }
+
+  // Debug: exibe no console os limites calculados
+  console.debug(`[Lumin] ${period}: ${new Date(tsIni).toLocaleDateString('pt-BR')} → ${new Date(tsFim).toLocaleDateString('pt-BR')}`);
 
   return state.transactions.filter(t=>{
     if(!t.date) return false;
-    // Força parse local (sem fuso) para evitar off-by-one
-    const [sy, sm, sd] = t.date.split('-').map(Number);
-    const d = new Date(sy, sm - 1, sd, 0, 0, 0, 0);
-
-    switch(period){
-      case 'semanal': {
-        // Últimos 7 dias: de (hoje - 6 dias) até hoje inclusive
-        const inicio = new Date(todayY, todayM, todayD - 6, 0, 0, 0, 0);
-        return d >= inicio && d <= todayMidnight;
-      }
-      case 'mensal': {
-        // Do dia 1 ao último dia do mês corrente
-        const inicio = new Date(todayY, todayM, 1, 0, 0, 0, 0);
-        const fim    = new Date(todayY, todayM + 1, 0, 23, 59, 59, 999);
-        return d >= inicio && d <= fim;
-      }
-      case 'trimestral': {
-        // Últimos 90 dias
-        const inicio = new Date(todayY, todayM, todayD - 89, 0, 0, 0, 0);
-        return d >= inicio && d <= todayMidnight;
-      }
-      case 'anual': {
-        // 1 Jan a 31 Dez do ano corrente
-        const inicio = new Date(todayY, 0, 1, 0, 0, 0, 0);
-        const fim    = new Date(todayY, 11, 31, 23, 59, 59, 999);
-        return d >= inicio && d <= fim;
-      }
-      default: return false;
-    }
+    // Parse local da data "YYYY-MM-DD" sem risco de fuso horário
+    const parts = t.date.split('-');
+    const tY = parseInt(parts[0],10);
+    const tM = parseInt(parts[1],10) - 1; // 0-based
+    const tD = parseInt(parts[2],10);
+    const ts = new Date(tY, tM, tD, 12, 0, 0, 0).getTime(); // meio-dia evita DST edge
+    return ts >= tsIni && ts <= tsFim;
   });
 }
 function today(){ const n=new Date(); return new Date(n.getFullYear(),n.getMonth(),n.getDate()); }
@@ -1850,6 +1861,9 @@ function refreshAll(){
   renderCharts();
   renderTxTable();
   renderObrigacoes();
+  // Atualiza cards de relatório SEMPRE que os dados mudam
+  // (não apenas quando o usuário navega para a aba)
+  renderPeriodCards();
   // Re-render calendar if it's the active view
   if(document.getElementById('view-cal')?.classList.contains('active')){
     renderCalendar();
@@ -2634,19 +2648,30 @@ async function toggleObrig(txId){
    PERIOD CARDS
 ================================================ */
 function renderPeriodCards(){
-  // Cada período é calculado de forma completamente independente
+  // Total de transações disponíveis para diagnóstico
+  console.debug(`[Lumin] renderPeriodCards — total no state: ${state.transactions.length} transações`);
+
   ['semanal','mensal','trimestral','anual'].forEach(p=>{
-    // txsByPeriod cria novos objetos Date() internamente — zero contaminação entre períodos
     const txs = txsByPeriod(p);
-    const inc = txs.filter(t=>t.category==='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
-    const out = txs.filter(t=>t.category!=='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
+
+    // Somas com Number() para evitar concatenação de strings (bug do Firestore)
+    const inc = txs.filter(t=>t.category==='entrada')
+                   .reduce((a,t)=>a+Number(t.amount||0), 0);
+    const out = txs.filter(t=>t.category!=='entrada')
+                   .reduce((a,t)=>a+Number(t.amount||0), 0);
     const bal = inc - out;
-    const el  = $(`rpb-${p}`);
+
+    console.debug(`[Lumin] ${p}: ${txs.length} tx | Entrada=${fmtBRL(inc)} | Saída=${fmtBRL(out)} | Saldo=${fmtBRL(bal)}`);
+
+    const el = $(`rpb-${p}`);
     if(!el) return;
-    el.textContent  = fmtBRL(Math.abs(bal));
-    el.className    = 'rp-bal '+(bal>=0?'pos':'neg');
+
+    el.textContent = fmtBRL(Math.abs(bal));
+    el.className   = 'rp-bal '+(bal>=0?'pos':'neg');
     $(`rpc-${p}`).textContent = `${txs.length} registro(s)`;
-    $(`rpk-${p}`).innerHTML   = `<span class="rchip i">↑ ${fmtBRL(inc)}</span><span class="rchip o">↓ ${fmtBRL(out)}</span>`;
+    $(`rpk-${p}`).innerHTML   =
+      `<span class="rchip i">↑ ${fmtBRL(inc)}</span>`+
+      `<span class="rchip o">↓ ${fmtBRL(out)}</span>`;
   });
 }
 
@@ -2656,7 +2681,9 @@ function renderPeriodCards(){
 function openModal(period){
   const txs=txsByPeriod(period);
   state.modalPeriod=period; state.modalData=txs;
-  const inc=sumIn(txs),out=sumOut(txs),bal=inc-out;
+  const inc=txs.filter(t=>t.category==='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
+  const out=txs.filter(t=>t.category!=='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
+  const bal=inc-out;
   $('modal-ttl').textContent=PERIOD_NAMES[period];
   $('modal-sum').innerHTML=`
     <div class="ms-card"><div class="ms-label">Entradas</div><div class="ms-val" style="color:var(--green)">${fmtBRL(inc)}</div></div>
