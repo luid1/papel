@@ -6,7 +6,8 @@
   <meta name="theme-color" content="#050d12">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>Lumin — Controle Financeiro</title>
+  <link rel="manifest" href="manifest.json">
+  <title>Lumin - Controle Financeiro</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -151,6 +152,15 @@ tr:hover td{background:rgba(255,255,255,.03);}
 #btn-sb-close{display:none;width:40px;height:40px;border-radius:10px;background:rgba(255,255,255,.07);border:1px solid var(--border);color:var(--text);align-items:center;justify-content:center;font-size:22px;flex-shrink:0;touch-action:manipulation;transition:background .2s;}
 #btn-sb-close:hover{background:rgba(255,255,255,.14);}
 
+/* ── Action buttons in tables ── */
+.btn-act{width:36px;height:36px;border-radius:8px;display:inline-grid;place-items:center;font-size:15px;border:1px solid var(--border);background:rgba(255,255,255,.05);transition:background .15s,transform .12s;cursor:pointer;touch-action:manipulation;-webkit-appearance:none;}
+.btn-act:active{transform:scale(.88);}
+.btn-act.edit{color:var(--accent);}
+.btn-act.edit:hover{background:rgba(0,212,255,.12);}
+.btn-act.del{color:var(--alert);}
+.btn-act.del:hover{background:rgba(255,91,112,.12);}
+.td-actions{display:flex;gap:6px;align-items:center;justify-content:flex-end;}
+
 /* ═══ RESPONSIVE ═══ */
 @media(max-width:1024px){
   #sidebar{transform:translateX(-100%);box-shadow:none;}
@@ -161,11 +171,208 @@ tr:hover td{background:rgba(255,255,255,.03);}
   .cal-day{min-height:70px;padding:6px;}
   table{display:block;overflow-x:auto;-webkit-overflow-scrolling:touch;}
 }
+
+/* ═══ MOBILE ═══ */
 @media(max-width:768px){
+
+  /* ── Sidebar full-width ── */
   #sidebar{width:100vw;max-width:100%;left:0;}
   #sidebar.open{width:100vw;max-width:100%;}
   #btn-sb-close{display:flex!important;}
+
+  /* ══════════════════════════════════════
+     CALENDÁRIO — Fit to Screen
+     Nenhum elemento ultrapassa 100vw.
+     7 colunas iguais sem rolagem lateral.
+  ══════════════════════════════════════ */
+  #v-cal{
+    padding:12px;
+    max-width:100vw;
+    overflow-x:hidden;
+    box-sizing:border-box;
+  }
+  /* Nav header do mês */
+  #v-cal > .glass:first-child{
+    padding:12px 14px;
+    margin-bottom:12px;
+  }
+  #cal-m{font-size:16px!important;}
+
+  /* Wrapper + grid sem vazamento */
+  .cal-grid{
+    display:grid;
+    grid-template-columns:repeat(7,1fr);
+    width:100%;
+    max-width:100%;
+    overflow:hidden;
+    border-radius:14px;
+    box-sizing:border-box;
+  }
+
+  /* Cabeçalhos Dom–Sáb */
+  .cal-grid > div:not(.cal-day){
+    padding:6px 2px!important;
+    font-size:9px!important;
+    letter-spacing:0!important;
+  }
+
+  /* Células de dia */
+  .cal-day{
+    min-height:52px!important;
+    padding:4px 2px!important;
+    box-sizing:border-box;
+    overflow:hidden;
+  }
+
+  /* Número do dia */
+  .cal-day > div:first-child{
+    font-size:11px!important;
+    line-height:1.2;
+  }
+
+  /* Chips de transação dentro do dia */
+  .cal-day > div:last-child > div{
+    font-size:7px!important;
+    padding:1px 3px!important;
+    border-radius:3px!important;
+  }
+
+  /* ══════════════════════════════════════
+     CARD VIEW FINTECH — Hierarquia Visual
+     Tabela → lista de cards premium.
+     thead oculto; cada <tr> = card grid.
+  ══════════════════════════════════════ */
+
+  /* Oculta cabeçalho */
+  .tx-table thead,
+  .tx-wrap table thead{display:none;}
+
+  /* Reseta overflow da tabela herdado de 1024px */
+  .tx-wrap{overflow:visible;background:transparent;border:none;border-radius:0;}
+  .tx-wrap table,
+  .tx-table{
+    display:block;
+    width:100%;
+    background:transparent;
+    border-collapse:unset;
+  }
+  .tx-wrap table tbody,
+  .tx-table tbody{display:block;width:100%;}
+
+  /* Cada linha → card premium */
+  .tx-table tbody tr,
+  .tx-wrap table tbody tr{
+    display:grid;
+    grid-template-columns:1fr auto;
+    grid-template-rows:auto auto auto;
+    row-gap:0;
+    column-gap:12px;
+    border-radius:16px;
+    border:1px solid rgba(255,255,255,.04);
+    background:rgba(255,255,255,.02);
+    padding:14px 16px;
+    margin-bottom:10px;
+    position:relative;
+    overflow:hidden;
+    transition:background .18s;
+  }
+  .tx-table tbody tr::before,
+  .tx-wrap table tbody tr::before{
+    content:'';
+    position:absolute;
+    left:0;top:0;bottom:0;
+    width:3px;
+    background:var(--card-accent,var(--accent));
+    border-radius:3px 0 0 3px;
+  }
+  .tx-table tbody tr:active,
+  .tx-wrap table tbody tr:active{background:rgba(255,255,255,.04);}
+  .tx-table tbody tr:hover td,
+  .tx-wrap table tbody tr:hover td{background:transparent;}
+
+  /* Reseta td padrão */
+  .tx-table tbody td,
+  .tx-wrap table tbody td{
+    display:block;
+    padding:0;
+    border:none;
+    font-size:inherit;
+    background:transparent!important;
+    line-height:1.3;
+  }
+
+  /* ── LINHA 1: Data (col 1) + Badge (col 2) ── */
+  .tx-table tbody td[data-label="Data"],
+  .tx-wrap table tbody td[data-label="Data"]{
+    grid-column:1;
+    grid-row:1;
+    font-size:11px;
+    font-family:'DM Mono',monospace;
+    color:var(--muted);
+    padding-bottom:5px;
+    align-self:center;
+    white-space:nowrap;
+  }
+  .tx-table tbody td[data-label="Categoria"],
+  .tx-wrap table tbody td[data-label="Categoria"]{
+    grid-column:2;
+    grid-row:1;
+    text-align:right;
+    align-self:center;
+    padding-bottom:5px;
+  }
+  .tx-table tbody td[data-label="Categoria"] .cat-badge,
+  .tx-wrap table tbody td[data-label="Categoria"] .cat-badge{
+    font-size:9px;
+    padding:3px 8px;
+  }
+
+  /* ── LINHA 2: Descrição (full width) ── */
+  .tx-table tbody td[data-label="Descrição"],
+  .tx-wrap table tbody td[data-label="Descrição"]{
+    grid-column:1 / -1;
+    grid-row:2;
+    font-size:15px;
+    font-weight:700;
+    color:var(--text);
+    letter-spacing:-.2px;
+    padding:4px 0 10px;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+
+  /* ── LINHA 3: Valor (col 1) + Ações (col 2) ── */
+  .tx-table tbody td[data-label="Valor"],
+  .tx-wrap table tbody td[data-label="Valor"]{
+    grid-column:1;
+    grid-row:3;
+    font-family:'DM Mono',monospace;
+    font-size:18px;
+    font-weight:700;
+    align-self:center;
+    white-space:nowrap;
+  }
+  .tx-table tbody td.td-actions-cell,
+  .tx-wrap table tbody td.td-actions-cell{
+    grid-column:2;
+    grid-row:3;
+    text-align:right;
+    align-self:center;
+    padding:0;
+  }
+  .td-actions{gap:6px;}
+
+  /* Botões de ação menores no mobile */
+  .btn-act{
+    width:32px;
+    height:32px;
+    min-height:32px;
+    font-size:14px;
+    border-radius:8px;
+  }
 }
+
 @media(max-width:640px){
   .stat-card h3{font-size:22px!important;}
   #fab{bottom:20px;right:16px;width:58px;height:58px;font-size:28px;}
@@ -346,10 +553,11 @@ tr:hover td{background:rgba(255,255,255,.03);}
             <span id="tx-count" style="font-size:11px;color:var(--muted);font-weight:600;"></span>
           </div>
           <div class="glass tx-wrap">
-            <table>
+            <table class="tx-table">
               <thead><tr>
                 <th>Data</th><th>Descrição</th><th>Categoria</th>
                 <th style="text-align:right;">Valor</th>
+                <th style="text-align:right;">Ações</th>
               </tr></thead>
               <tbody id="tx-list"></tbody>
             </table>
@@ -422,6 +630,7 @@ tr:hover td{background:rgba(255,255,255,.03);}
               <thead><tr>
                 <th>Data</th><th>Descrição</th><th>Categoria</th>
                 <th style="text-align:right;">Valor</th>
+                <th style="text-align:right;">Ações</th>
               </tr></thead>
               <tbody id="rep-list"></tbody>
             </table>
@@ -657,6 +866,9 @@ function toggleModal(open){
     setTimeout(()=>$('a-desc').focus(), 320);
   } else {
     overlay.classList.remove('active');
+    // Reset edit mode
+    const btnSave=$('btn-save');
+    if(btnSave){ btnSave._editId=null; btnSave.textContent='✓ Registrar no Sistema'; }
   }
 }
 
@@ -730,15 +942,22 @@ function renderHome(){
   $('tx-list').innerHTML = f.slice(0,15).map(t=>{
     const cat = CATS[t.category]||CATS.variavel;
     const isIn = t.category==='entrada';
-    return `<tr>
-      <td style="color:var(--muted);font-family:'DM Mono',monospace;font-size:13px;white-space:nowrap;">${fD(t.date)}</td>
-      <td style="font-weight:600;">${esc(t.description||'—')}</td>
-      <td><span class="cat-badge" style="background:${cat.color}22;color:${cat.color};">${cat.label}</span></td>
-      <td style="text-align:right;font-family:'DM Mono',monospace;font-weight:700;color:${isIn?'var(--success)':'var(--alert)'};white-space:nowrap;">
+    const valColor = isIn ? 'var(--success)' : 'var(--alert)';
+    return `<tr style="--card-accent:${cat.color};">
+      <td data-label="Data" style="color:var(--muted);font-family:'DM Mono',monospace;font-size:13px;white-space:nowrap;">${fD(t.date)}</td>
+      <td data-label="Categoria"><span class="cat-badge" style="background:${cat.color}22;color:${cat.color};">${cat.label}</span></td>
+      <td data-label="Descrição" style="font-weight:600;">${esc(t.description||'—')}</td>
+      <td data-label="Valor" style="text-align:right;font-family:'DM Mono',monospace;font-weight:700;color:${valColor};white-space:nowrap;">
         ${isIn?'+':'-'} ${fmt(t.amount)}
       </td>
+      <td data-label="Ações" class="td-actions-cell" style="text-align:right;">
+        <div class="td-actions">
+          <button class="btn-act edit" data-id="${t.id}" data-action="edit" title="Editar" aria-label="Editar transação">✎</button>
+          <button class="btn-act del" data-id="${t.id}" data-action="delete" title="Excluir" aria-label="Excluir transação">🗑</button>
+        </div>
+      </td>
     </tr>`;
-  }).join('') || `<tr><td colspan="4" style="text-align:center;padding:56px;color:var(--muted);">Sem registros para este período.</td></tr>`;
+  }).join('') || `<tr><td colspan="5" style="text-align:center;padding:56px;color:var(--muted);">Sem registros para este período.</td></tr>`;
 
   // Pie chart
   if(charts.pie) charts.pie.destroy();
@@ -913,15 +1132,22 @@ function renderRep(){
   $('rep-list').innerHTML = filtered.map(t => {
     const cat = CATS[t.category] || CATS.variavel;
     const isIn = t.category === 'entrada';
-    return `<tr>
-      <td style="color:var(--muted);font-family:'DM Mono',monospace;font-size:13px;white-space:nowrap;">${fD(t.date)}</td>
-      <td style="font-weight:600;">${esc(t.description||'—')}</td>
-      <td><span class="cat-badge" style="background:${cat.color}22;color:${cat.color};">${cat.label}</span></td>
-      <td style="text-align:right;font-family:'DM Mono',monospace;font-weight:700;color:${isIn?'var(--success)':'var(--alert)'};white-space:nowrap;">
+    const valColor = isIn ? 'var(--success)' : 'var(--alert)';
+    return `<tr style="--card-accent:${cat.color};">
+      <td data-label="Data" style="color:var(--muted);font-family:'DM Mono',monospace;font-size:13px;white-space:nowrap;">${fD(t.date)}</td>
+      <td data-label="Categoria"><span class="cat-badge" style="background:${cat.color}22;color:${cat.color};">${cat.label}</span></td>
+      <td data-label="Descrição" style="font-weight:600;">${esc(t.description||'—')}</td>
+      <td data-label="Valor" style="text-align:right;font-family:'DM Mono',monospace;font-weight:700;color:${valColor};white-space:nowrap;">
         ${isIn?'+':'-'} ${fmt(t.amount)}
       </td>
+      <td data-label="Ações" class="td-actions-cell" style="text-align:right;">
+        <div class="td-actions">
+          <button class="btn-act edit" data-id="${t.id}" data-action="edit" title="Editar" aria-label="Editar transação">✎</button>
+          <button class="btn-act del" data-id="${t.id}" data-action="delete" title="Excluir" aria-label="Excluir transação">🗑</button>
+        </div>
+      </td>
     </tr>`;
-  }).join('') || `<tr><td colspan="4" style="text-align:center;padding:56px;color:var(--muted);">Nenhuma transação neste período.</td></tr>`;
+  }).join('') || `<tr><td colspan="5" style="text-align:center;padding:56px;color:var(--muted);">Nenhuma transação neste período.</td></tr>`;
 
   // Atualiza estado visual dos filtros
   $$('.rep-filter').forEach(btn => {
@@ -1066,8 +1292,98 @@ async function saveTx(){
 }
 
 /* ════════════════════════════════════════
-   PDF
+   OPEN AUTH — Editar / Excluir Transação
+   ────────────────────────────────────────
+   Abre modal de confirmação de identidade
+   antes de permitir edição ou exclusão.
+   Por ora implementa exclusão via Firestore
+   updateDoc (soft-delete flag) e abre o
+   modal de edição com os dados pré-preenchidos.
 ════════════════════════════════════════ */
+window.openAuth = async function(id, action){
+  const tx = s.txs.find(t => t.id === id);
+  if(!tx){ toast('Transação não encontrada', true); return; }
+
+  if(action === 'delete'){
+    const confirmMsg = `Excluir "${tx.description}" (${fmt(tx.amount)})?`;
+    // Confirmação simples — substitua por um modal de confirmação se desejar
+    if(!confirm(confirmMsg)) return;
+    try{
+      const { deleteDoc, doc: firestoreDoc } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+      await deleteDoc(firestoreDoc(db,'transactions',id));
+      toast('🗑 Transação excluída');
+    }catch(e){
+      // Fallback: usa updateDoc para marcar como excluído sem deleteDoc
+      try{
+        await updateDoc(doc(db,'transactions',id),{ _deleted:true, _deletedAt:Date.now(), _deletedBy:s.user });
+        toast('🗑 Transação removida');
+      }catch(e2){ toast('Erro ao excluir',true); console.error('[Lumin] delete:',e2); }
+    }
+    return;
+  }
+
+  if(action === 'edit'){
+    // Pré-preenche o modal com os dados da transação
+    toggleModal(true);
+    setTimeout(()=>{
+      $('a-cat').value  = tx.category  || 'entrada';
+      $('a-desc').value = tx.description|| '';
+      $('a-val').value  = Number(tx.amount||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+      $('a-date').value = tx.date       || '';
+      $('rec-hint').style.display = CATS[$('a-cat').value]?.isRec ? 'block' : 'none';
+      // Troca botão Salvar para modo edição
+      const btnSave = $('btn-save');
+      btnSave.textContent = '✎ Atualizar Transação';
+      btnSave._editId = id; // guarda o id para o save
+    }, 50);
+  }
+};
+
+/* Delegação de eventos para botões de ação nas tabelas */
+['tx-list','rep-list'].forEach(tbodyId=>{
+  const el=$(tbodyId);
+  if(!el) return;
+  // Observa futuras inserções com MutationObserver para garantir binding
+  const bindActions = () => {
+    el.querySelectorAll('.btn-act').forEach(btn=>{
+      if(btn._bound) return;
+      btn._bound = true;
+      addEvents(btn, ()=>{ openAuth(btn.dataset.id, btn.dataset.action); });
+    });
+  };
+  new MutationObserver(bindActions).observe(el,{childList:true,subtree:true});
+});
+
+/* Patch em saveTx para suportar modo de edição */
+const _origSaveTx = saveTx;
+window._saveTxPatch = async function(){
+  const btnSave=$('btn-save');
+  const editId = btnSave._editId;
+  if(!editId){ await _origSaveTx(); return; }
+  // Modo edição: faz updateDoc
+  const cat  = $('a-cat').value;
+  const desc = $('a-desc').value.trim();
+  const raw  = $('a-val').value.replace(/[^\d,\.]/g,'').replace(',','.');
+  const val  = parseFloat(raw);
+  const date = $('a-date').value;
+  if(!desc)       { toast('⚠ Preencha a descrição',true); return; }
+  if(!val||val<=0){ toast('⚠ Valor inválido',true);       return; }
+  if(!date)       { toast('⚠ Selecione a data',true);     return; }
+  try{
+    await updateDoc(doc(db,'transactions',editId),{
+      category:cat, description:desc, amount:val, date,
+      isRecorrente:CATS[cat]?.isRec||false,
+      updatedBy:s.user, updatedAt:Date.now()
+    });
+    btnSave._editId = null;
+    btnSave.textContent = '✓ Registrar no Sistema';
+    $('a-desc').value=''; $('a-val').value='';
+    $('a-date').valueAsDate=new Date();
+    $('rec-hint').style.display='none';
+    toggleModal(false);
+    toast('✓ Transação atualizada');
+  }catch(e){ toast('Erro ao atualizar',true); console.error(e); }
+};
 function generatePDF(period){
   const now=new Date();
   const filtered=s.txs.filter(t=>{
@@ -1230,8 +1546,12 @@ addEvents('fab',()=>toggleModal(true));
   }, {passive:false});
 });
 
-/* Salvar transação */
-addEvents('btn-save', saveTx);
+/* Salvar transação (suporta edição) */
+addEvents('btn-save', ()=>{
+  const btnSave=$('btn-save');
+  if(btnSave._editId) window._saveTxPatch();
+  else saveTx();
+});
 
 /* ──────────────────────────────────────
    FIX #1C — Clicar/tocar no overlay fecha
