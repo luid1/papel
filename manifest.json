@@ -1,13 +1,13 @@
 {
   "name": "Lumin - Eco Mix",
   "short_name": "Lumin",
-  "start_url": "/",
+  "start_url": "/luminmkt.shop",
   "display": "standalone",
   "background_color": "#050d12",
   "theme_color": "#050d12",
   "icons": [
     {
-      "src": "lumin.jpeg", 
+      "src": "lumin.jpeg",
       "sizes": "512x512",
       "type": "image/png"
     }
