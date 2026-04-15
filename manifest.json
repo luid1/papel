@@ -1,11 +1,15 @@
 {
-  "background_color": "#ffffff",
-  "dir": "ltr",
+  "name": "Lumin - Eco Mix",
+  "short_name": "Lumin",
+  "start_url": "/",
   "display": "standalone",
-  "name": "luminmktd",
-  "orientation": "any",
-  "scope": "/",
-  "short_name": "luminmktd",
-  "start_url": "/luminmktd.shop",
-  "theme_color": "#ffffff"
+  "background_color": "#050d12",
+  "theme_color": "#050d12",
+  "icons": [
+    {
+      "src": "lumin.jpeg", 
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
 }
