@@ -1269,7 +1269,7 @@ function initApp(){
 async function saveTx(){
   const cat =$('a-cat').value;
   const desc=$('a-desc').value.trim();
-  const raw =$('a-val').value.replace(/[^\d,\.]/g,'').replace(',','.');
+  const raw =$('a-val').value.replace(/[R$\s.]/g,'').replace(',','.');
   const val =parseFloat(raw);
   const date=$('a-date').value;
 
@@ -1363,7 +1363,7 @@ window._saveTxPatch = async function(){
   // Modo edição: faz updateDoc
   const cat  = $('a-cat').value;
   const desc = $('a-desc').value.trim();
-  const raw  = $('a-val').value.replace(/[^\d,\.]/g,'').replace(',','.');
+  const raw  = $('a-val').value.replace(/[R$\s.]/g,'').replace(',','.');
   const val  = parseFloat(raw);
   const date = $('a-date').value;
   if(!desc)       { toast('⚠ Preencha a descrição',true); return; }
@@ -1450,10 +1450,9 @@ function generatePDF(period){
    MASKS & HINTS
 ════════════════════════════════════════ */
 $('a-val').addEventListener('input',function(){
-  const raw=this.value.replace(/\D/g,'');
+  let raw=this.value.replace(/\D/g,'');
   if(!raw){this.value='';return;}
-  const num=(parseInt(raw,10)/100).toFixed(2);
-  this.value=parseFloat(num).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  this.value=(Number(raw)/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 });
 $('a-cat').addEventListener('change',function(){
   $('rec-hint').style.display=CATS[this.value]?.isRec?'block':'none';
