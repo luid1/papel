@@ -22,11 +22,32 @@
 :root{
   --bg:#050d12;--bg2:#08141d;--bg3:#0c1c28;
   --accent:#00d4ff;--accent2:#008fb5;
+  --tenant-accent:var(--accent);--tenant-accent2:var(--accent2);
   --success:#00e5a0;--alert:#ff5b70;--warning:#ffb347;--purple:#b085f5;
   --text:#e4f0f6;--muted:rgba(228,240,246,.42);
   --glass:rgba(255,255,255,.05);--border:rgba(255,255,255,.10);
   --ease:cubic-bezier(.4,0,.2,1);
 }
+
+/* ═══ PAINEL ADMIN MASTER ═══ */
+#admin-panel{position:fixed;inset:0;background:radial-gradient(circle at 30% 20%,#0a1a2e,var(--bg));z-index:9100;display:none;flex-direction:column;}
+#admin-panel.active{display:flex;}
+#admin-topbar{background:rgba(5,13,18,.95);border-bottom:1px solid var(--border);padding:16px 28px;display:flex;align-items:center;justify-content:space-between;backdrop-filter:blur(20px);}
+#admin-content{flex:1;overflow-y:auto;padding:32px 28px;max-width:960px;margin:0 auto;width:100%;}
+.admin-card{background:var(--glass);border:1px solid var(--border);border-radius:20px;padding:28px;backdrop-filter:blur(20px);margin-bottom:24px;}
+.admin-card h3{font-family:'Montserrat',sans-serif;font-size:18px;font-weight:800;margin-bottom:20px;color:var(--text);}
+.admin-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.admin-form-full{grid-column:1/-1;}
+.company-row{display:flex;align-items:center;gap:14px;padding:16px 20px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);transition:.2s;margin-bottom:8px;}
+.company-row:hover{background:rgba(255,255,255,.06);}
+.company-color-dot{width:14px;height:14px;border-radius:50%;flex-shrink:0;}
+.company-info{flex:1;min-width:0;}
+.company-name{font-size:15px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.company-meta{font-size:11px;color:var(--muted);margin-top:2px;}
+.badge-status{font-size:10px;font-weight:800;padding:4px 10px;border-radius:20px;text-transform:uppercase;letter-spacing:.5px;}
+.badge-active{background:rgba(0,229,160,.12);color:var(--success);border:1px solid rgba(0,229,160,.25);}
+.badge-inactive{background:rgba(255,91,112,.1);color:var(--alert);border:1px solid rgba(255,91,112,.2);}
+@media(max-width:640px){.admin-form-grid{grid-template-columns:1fr;}.admin-form-full{grid-column:1;}.admin-content{padding:20px 16px;}}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
 html{font-size:16px;-webkit-text-size-adjust:100%;}
 body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);overflow-x:hidden;min-height:100svh;-webkit-font-smoothing:antialiased;}
@@ -217,6 +238,75 @@ tr:hover td{background:rgba(255,255,255,.03);}
 <div class="orb" style="width:500px;height:500px;background:var(--accent);top:-200px;left:50px;"></div>
 <div class="orb" style="width:400px;height:400px;background:var(--purple);bottom:-150px;right:-80px;"></div>
 
+<!-- ═══ PAINEL ADMIN MASTER ═══ -->
+<div id="admin-panel">
+  <div id="admin-topbar">
+    <div style="display:flex;align-items:center;gap:16px;">
+      <div style="font-family:'Comfortaa',cursive;font-size:22px;font-weight:700;color:var(--text);">Lumin</div>
+      <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.2em;color:var(--accent);background:rgba(0,212,255,.1);padding:4px 12px;border-radius:20px;border:1px solid rgba(0,212,255,.2);">Admin Master</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <span style="font-size:12px;color:var(--muted);">@luidoliver · Administrador</span>
+      <button id="btn-admin-logout" style="padding:8px 16px;border-radius:20px;background:rgba(255,91,112,.1);border:1px solid rgba(255,91,112,.25);color:var(--alert);font-size:12px;font-weight:700;min-height:36px;cursor:pointer;">Sair</button>
+    </div>
+  </div>
+
+  <div id="admin-content">
+
+    <!-- Cadastro de Empresa -->
+    <div class="admin-card">
+      <h3>
+        <svg style="vertical-align:middle;margin-right:8px;" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+        Cadastrar Nova Empresa
+      </h3>
+      <div class="admin-form-grid">
+        <div>
+          <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:8px;">Nome da Empresa</label>
+          <input type="text" id="adm-name" class="input-field" placeholder="Ex: Eco Mix Ltda">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:8px;">Número do Bot (WhatsApp)</label>
+          <input type="text" id="adm-phone" class="input-field" placeholder="Ex: 5511999990001" inputmode="numeric">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:8px;">Login de Acesso</label>
+          <input type="text" id="adm-login" class="input-field" placeholder="Ex: ecomix" autocomplete="off">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:8px;">Senha de Acesso</label>
+          <input type="password" id="adm-pass" class="input-field" placeholder="Senha da empresa" autocomplete="off">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:8px;">Cor de Identidade</label>
+          <div style="display:flex;gap:10px;align-items:center;">
+            <input type="color" id="adm-color" value="#00d4ff" style="width:52px;height:52px;border-radius:10px;border:1px solid var(--border);background:transparent;cursor:pointer;padding:4px;">
+            <input type="text" id="adm-color-hex" class="input-field" placeholder="#00d4ff" style="flex:1;" maxlength="7">
+          </div>
+        </div>
+        <div style="display:flex;align-items:flex-end;">
+          <button id="btn-adm-save" class="btn-primary" style="width:100%;font-size:14px;padding:15px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Cadastrar Empresa
+          </button>
+        </div>
+      </div>
+      <div id="adm-msg" style="display:none;margin-top:14px;padding:12px 16px;border-radius:10px;font-size:13px;font-weight:600;"></div>
+    </div>
+
+    <!-- Lista de Empresas -->
+    <div class="admin-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+        <h3 style="margin-bottom:0;">Empresas Cadastradas</h3>
+        <button id="btn-adm-refresh" style="padding:8px 16px;border-radius:10px;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.2);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;" title="Recarregar lista">↻ Atualizar</button>
+      </div>
+      <div id="adm-companies-list">
+        <div style="text-align:center;padding:40px;color:var(--muted);">Carregando empresas...</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
 <!-- ═══ PRELOADER ═══ -->
 <div id="preloader">
   <div class="pl-brand">Lumin</div>
@@ -294,6 +384,10 @@ tr:hover td{background:rgba(255,255,255,.03);}
       <button class="nav-item" data-view="v-rep">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
         Relatórios
+      </button>
+      <button class="nav-item" data-view="v-papelao">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="17"/><line x1="9.5" y1="14.5" x2="14.5" y2="14.5"/></svg>
+        Compra Papelão
       </button>
       <button class="nav-item" data-view="v-users">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
@@ -401,6 +495,96 @@ tr:hover td{background:rgba(255,255,255,.03);}
       <section id="v-users" class="view">
         <div style="margin-bottom:28px;"><h3 style="font-size:24px;font-weight:900;margin-bottom:8px;">Controle de Acesso</h3><p style="color:var(--muted);font-size:14px;">Usuários autorizados no sistema Eco Mix.</p></div>
         <div id="u-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:20px;"></div>
+      </section>
+
+      <!-- Compra de Papelão -->
+      <section id="v-papelao" class="view">
+
+        <div style="margin-bottom:28px;">
+          <h3 style="font-size:24px;font-weight:900;margin-bottom:8px;">Compra de Papelão</h3>
+          <p style="color:var(--muted);font-size:14px;">Registre pesagens por fornecedor e acompanhe o total a pagar.</p>
+        </div>
+
+        <!-- Formulário de registro -->
+        <div class="glass" style="padding:28px;border-radius:24px;margin-bottom:28px;">
+          <h4 style="font-size:15px;font-weight:800;margin-bottom:20px;display:flex;align-items:center;gap:10px;">
+            <span style="width:32px;height:32px;border-radius:10px;background:rgba(0,212,255,.12);border:1px solid rgba(0,212,255,.2);display:grid;place-items:center;font-size:16px;">＋</span>
+            Nova Pesagem
+          </h4>
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:20px;">
+            <div>
+              <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:8px;">Fornecedor</label>
+              <input type="text" id="pap-fornecedor" class="input-field" placeholder="Ex: Supermercado X" autocomplete="off">
+            </div>
+            <div>
+              <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:8px;">Data da Pesagem</label>
+              <input type="date" id="pap-data" class="input-field">
+            </div>
+            <div>
+              <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:8px;">Peso (KG)</label>
+              <input type="number" id="pap-peso" class="input-field" placeholder="0,00" step="0.01" min="0" inputmode="decimal">
+            </div>
+            <div>
+              <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:8px;">Valor por KG (R$)</label>
+              <input type="number" id="pap-valor-kg" class="input-field" placeholder="0,50" step="0.01" min="0" inputmode="decimal">
+            </div>
+          </div>
+
+          <!-- Preview calculado em tempo real -->
+          <div id="pap-preview" style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-radius:14px;background:rgba(0,212,255,.06);border:1px solid rgba(0,212,255,.15);margin-bottom:20px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+              <span style="font-size:13px;color:var(--muted);font-weight:600;">Total a Pagar (calculado automaticamente)</span>
+            </div>
+            <span id="pap-total-preview" style="font-family:'DM Mono',monospace;font-size:22px;font-weight:700;color:var(--accent);">R$ 0,00</span>
+          </div>
+
+          <button id="btn-pap-save" class="btn-primary" style="min-width:180px;font-size:14px;padding:15px 28px;display:inline-flex;align-items:center;gap:10px;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Registrar Pesagem
+          </button>
+          <div id="pap-msg" style="display:none;margin-top:14px;padding:12px 16px;border-radius:10px;font-size:13px;font-weight:600;"></div>
+        </div>
+
+        <!-- Totalizadores -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:28px;">
+          <div class="stat-card glass" style="color:var(--warning);">
+            <p style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--muted);margin-bottom:10px;letter-spacing:.1em;">Total KG Coletado</p>
+            <h3 id="pap-sum-kg" style="font-family:'DM Mono',monospace;font-size:26px;font-weight:400;">0,00 kg</h3>
+          </div>
+          <div class="stat-card glass" style="color:var(--alert);">
+            <p style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--muted);margin-bottom:10px;letter-spacing:.1em;">Total a Pagar</p>
+            <h3 id="pap-sum-val" style="font-family:'DM Mono',monospace;font-size:26px;font-weight:400;">R$ 0,00</h3>
+          </div>
+          <div class="stat-card glass" style="color:var(--muted);">
+            <p style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--muted);margin-bottom:10px;letter-spacing:.1em;">Registros</p>
+            <h3 id="pap-sum-qtd" style="font-family:'DM Mono',monospace;font-size:26px;font-weight:400;">0</h3>
+          </div>
+        </div>
+
+        <!-- Tabela de histórico -->
+        <div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+            <h4 style="font-size:16px;font-weight:800;">Histórico de Pesagens</h4>
+            <span id="pap-count" style="font-size:11px;color:var(--muted);font-weight:600;"></span>
+          </div>
+          <div class="glass tx-wrap">
+            <table class="tx-table">
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Fornecedor</th>
+                  <th style="text-align:right;">Peso (KG)</th>
+                  <th style="text-align:right;">R$/KG</th>
+                  <th style="text-align:right;">A Pagar</th>
+                  <th style="text-align:right;">Ações</th>
+                </tr>
+              </thead>
+              <tbody id="pap-list"></tbody>
+            </table>
+          </div>
+        </div>
+
       </section>
 
     </div>
@@ -590,7 +774,8 @@ tr:hover td{background:rgba(255,255,255,.03);}
 import { initializeApp }   from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
 import {
   getFirestore, collection, onSnapshot, query, orderBy,
-  addDoc, doc, updateDoc, setDoc, enableIndexedDbPersistence
+  addDoc, doc, updateDoc, setDoc, getDocs, deleteDoc,
+  enableIndexedDbPersistence
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 const cfg = {
@@ -614,8 +799,12 @@ enableIndexedDbPersistence(db).catch(e => {
 const CEO_USERS = {
   anakarolina:  { pass:'ana@',      display:'Ana Karolina',      role:'Usuário'       },
   wallaceduarte:{ pass:'wallace@',  display:'Wallace Duarte',     role:'Usuário'       },
-  luidoliver:   { pass:'luid@',      pass2:'luid',     display:'Luid Oliver',        role:'Administrador' }
+  luidoliver:   { pass:'luid@',      pass2:'luid',     display:'Luid Oliver',        role:'Administrador' },
 };
+
+/* Permite injetar tenants dinamicamente (multi-tenant) */
+window._ceoUsersRuntime = CEO_USERS;
+window._getCEOUsers = function(){ return CEO_USERS; };
 
 const CATS = {
   'entrada':    { label:'Entrada',               color:'#00e5a0', isRec:false },
@@ -712,7 +901,7 @@ window.switchV = function(id){
   $$('.view').forEach(v => v.classList.remove('active'));
   $(id)?.classList.add('active');
   $$('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.view === id));
-  const titles = {'v-home':'Dashboard','v-cal':'Calendário','v-obrig':'Obrigações','v-rep':'Relatórios','v-users':'Segurança'};
+  const titles = {'v-home':'Dashboard','v-cal':'Calendário','v-obrig':'Obrigações','v-rep':'Relatórios','v-users':'Segurança','v-papelao':'Compra de Papelão'};
   const titleEl = $('v-title');
   if(titleEl) titleEl.textContent = titles[id] || 'Lumin';
   closeSidebar();
@@ -722,11 +911,12 @@ window.switchV = function(id){
 /* ── Render CEO ── */
 function render(){
   buildPills();
-  if(s.view==='v-home')  renderHome();
-  if(s.view==='v-cal')   renderCal();
-  if(s.view==='v-obrig') renderOb();
-  if(s.view==='v-rep')   renderRep();
-  if(s.view==='v-users') renderU();
+  if(s.view==='v-home')     renderHome();
+  if(s.view==='v-cal')      renderCal();
+  if(s.view==='v-obrig')    renderOb();
+  if(s.view==='v-rep')      renderRep();
+  if(s.view==='v-users')    renderU();
+  if(s.view==='v-papelao')  renderPapelao();
 }
 
 function buildPills(){
@@ -854,7 +1044,24 @@ function renderOb(){
 }
 
 function renderU(){
-  $('u-grid').innerHTML=Object.entries(CEO_USERS).map(([k,i])=>{
+  /* ── Admin Master: sem filtro — vê todos os usuários de todas as empresas
+     Tenant (empresa): query filtrada — vê apenas quem tem companyId igual ao seu
+     O companyId é lido de s.userProfiles que espelha /users/{docId} no Firestore ── */
+  const isMasterAdmin = window._isAdminLoggedIn?.() || false;
+  const tenantId      = window._tenantCompanyId || null;
+
+  let usuariosVisiveis = Object.entries(CEO_USERS);
+
+  if(!isMasterAdmin && tenantId){
+    /* Filtro obrigatório: só exibe quem pertence à mesma empresa */
+    usuariosVisiveis = usuariosVisiveis.filter(([k]) => {
+      const perfil = s.userProfiles[k];
+      return perfil?.companyId === tenantId || perfil?.empresaId === tenantId;
+    });
+  }
+  /* Admin Master não entra no if — vê todos, sem nenhum filtro */
+
+  $('u-grid').innerHTML=usuariosVisiveis.map(([k,i])=>{
     const profile=s.userProfiles[k];
     const avatarInner=profile?.photoBase64?`<img src="${profile.photoBase64}" style="width:100%;height:100%;object-fit:cover;border-radius:20px;" alt="${esc(i.display)}">`:`<span>${i.display.charAt(0)}</span>`;
     return `<div class="glass" style="padding:28px;border-radius:24px;text-align:center;position:relative;overflow:hidden;"><div style="position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent);opacity:.3;"></div><div style="width:88px;height:88px;border-radius:22px;border:2.5px solid var(--accent);margin:0 auto 18px;display:grid;place-items:center;font-size:34px;font-weight:900;color:var(--accent);background:var(--bg3);overflow:hidden;">${avatarInner}</div><h4 style="font-family:'Montserrat',sans-serif;font-size:19px;font-weight:800;letter-spacing:-.5px;">${esc(i.display)}</h4><p style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--accent);background:rgba(0,212,255,.1);padding:5px 16px;border-radius:30px;display:inline-block;margin-top:12px;letter-spacing:1px;">${i.role}</p><div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--muted);margin-top:16px;">@${k}</div></div>`;
@@ -912,13 +1119,18 @@ function generatePDF(period){
 
 /* ── Auth CEO ── */
 window._doLoginCEO = function(u, p){
-  const info = CEO_USERS[u];
+  /* Aceita tanto usuários fixos quanto tenants injetados em runtime */
+  const info = CEO_USERS[u] || window._ceoUsersRuntime?.[u];
   if(info && (info.pass === p || (info.pass2 && info.pass2 === p))){
     s.user = u;
     localStorage.setItem('lumin_user', u);
     $('login-screen').classList.remove('active');
     $('ceoDashboard').style.display = '';
     $('app-shell').classList.add('active');
+    /* Aplica themeColor do tenant se disponível */
+    if(info.themeColor && typeof applyThemeColor === 'undefined'){
+      document.documentElement.style.setProperty('--accent', info.themeColor);
+    }
     showWelcomeScreen(u, info, ()=>{ showLoading(); initApp(); });
     return true;
   }
@@ -988,12 +1200,21 @@ function initApp(){
   if(tbAv){tbAv.textContent=info.display.charAt(0);tbAv.style.backgroundImage='';}
   $('a-date').valueAsDate=new Date();
 
+  /* ── MULTI-TENANT: usa subcoleção da empresa se for session tenant ── */
+  const isTenant = window._isTenantSession && window._tenantCompanyId;
+  const txCollection = isTenant
+    ? collection(db, 'companies', window._tenantCompanyId, 'financeiro')
+    : collection(db, 'transactions');
+  const obCollection = isTenant
+    ? collection(db, 'companies', window._tenantCompanyId, 'obrigacoes')
+    : collection(db, 'obrigacoes');
+
   onSnapshot(
-    query(collection(db,'transactions'),orderBy('date','desc')),
+    query(txCollection, orderBy('date','desc')),
     snap=>{ s.txs=snap.docs.map(d=>({id:d.id,...d.data()})); render(); hideLoading(); },
     err=>{ console.error('[Lumin] txs:',err); hideLoading(); }
   );
-  onSnapshot(collection(db,'obrigacoes'),snap=>{s.obs=snap.docs.map(d=>({id:d.id,...d.data()}));if(s.view==='v-obrig')renderOb();},err=>console.error('[Lumin] obrig:',err));
+  onSnapshot(obCollection, snap=>{s.obs=snap.docs.map(d=>({id:d.id,...d.data()}));if(s.view==='v-obrig')renderOb();},err=>console.error('[Lumin] obrig:',err));
   onSnapshot(collection(db,'users'),snap=>{
     snap.docs.forEach(d=>{s.userProfiles[d.id]={...d.data()};});
     const myP=s.userProfiles[s.user],tbAvEl=$('tb-avatar'),sideAvEl=$('u-av');
@@ -1014,7 +1235,13 @@ async function saveTx(){
   if(!val||val<=0){toast('⚠ Valor inválido',true);return;}
   if(!date){toast('⚠ Selecione a data',true);return;}
   try{
-    await addDoc(collection(db,'transactions'),{category:cat,description:desc,amount:val,date,isRecorrente:CATS[cat]?.isRec||false,createdBy:s.user,createdAt:Date.now()});
+    const payload={category:cat,description:desc,amount:val,date,isRecorrente:CATS[cat]?.isRec||false,createdBy:s.user,createdAt:Date.now(),companyId:window._tenantCompanyId||null};
+    /* Multi-tenant: grava na subcoleção da empresa */
+    if(window._isTenantSession && window._tenantCompanyId){
+      await addDoc(collection(db,'companies',window._tenantCompanyId,'financeiro'),payload);
+    } else {
+      await addDoc(collection(db,'transactions'),payload);
+    }
     $('a-desc').value='';$('a-val').value='';$('a-date').valueAsDate=new Date();$('rec-hint').style.display='none';
     toggleModal(false);toast('✓ Transação registrada');
   }catch(e){toast('Erro ao salvar',true);console.error(e);}
@@ -1023,13 +1250,20 @@ async function saveTx(){
 window.openAuth = async function(id, action){
   const tx=s.txs.find(t=>t.id===id);
   if(!tx){toast('Transação não encontrada',true);return;}
+
+  /* Determina coleção correta (tenant ou global) */
+  const isTenant = window._isTenantSession && window._tenantCompanyId;
+  const txColPath = isTenant
+    ? ['companies', window._tenantCompanyId, 'financeiro']
+    : ['transactions'];
+
   if(action==='delete'){
     if(!confirm(`Excluir "${tx.description}" (${fmt(tx.amount)})?`)) return;
     try{
       const{deleteDoc,doc:fd}=await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-      await deleteDoc(fd(db,'transactions',id));toast('🗑 Transação excluída');
+      await deleteDoc(fd(db,...txColPath,id));toast('🗑 Transação excluída');
     }catch(e){
-      try{await updateDoc(doc(db,'transactions',id),{_deleted:true,_deletedAt:Date.now(),_deletedBy:s.user});toast('🗑 Transação removida');}
+      try{await updateDoc(doc(db,...txColPath,id),{_deleted:true,_deletedAt:Date.now(),_deletedBy:s.user});toast('🗑 Transação removida');}
       catch(e2){toast('Erro ao excluir',true);}
     }
     return;
@@ -1059,8 +1293,13 @@ window._saveTxPatch=async function(){
   if(!desc){toast('⚠ Preencha a descrição',true);return;}
   if(!val||val<=0){toast('⚠ Valor inválido',true);return;}
   if(!date){toast('⚠ Selecione a data',true);return;}
+  /* Multi-tenant: atualiza na subcoleção correta */
+  const isTenant = window._isTenantSession && window._tenantCompanyId;
+  const txDocRef = isTenant
+    ? doc(db,'companies',window._tenantCompanyId,'financeiro',editId)
+    : doc(db,'transactions',editId);
   try{
-    await updateDoc(doc(db,'transactions',editId),{category:cat,description:desc,amount:val,date,isRecorrente:CATS[cat]?.isRec||false,updatedBy:s.user,updatedAt:Date.now()});
+    await updateDoc(txDocRef,{category:cat,description:desc,amount:val,date,isRecorrente:CATS[cat]?.isRec||false,updatedBy:s.user,updatedAt:Date.now()});
     btnSave._editId=null;btnSave.textContent='✓ Registrar no Sistema';
     $('a-desc').value='';$('a-val').value='';$('a-date').valueAsDate=new Date();$('rec-hint').style.display='none';
     toggleModal(false);toast('✓ Transação atualizada');
@@ -1103,6 +1342,186 @@ const sbOv=$('sb-overlay');
 
 $$('.nav-item').forEach(btn=>{addEvents(btn,()=>{const view=btn.dataset.view;if(view)window.switchV(view);closeSidebar();});});
 addEvents('sb-prof',()=>window.switchV('v-users'));
+
+/* ═══════════════════════════════════════════════════════════════
+   MÓDULO: COMPRA DE PAPELÃO
+   Coleção Firestore: compras_papelao
+   Campos: fornecedor, data, pesoKg, valorKg, total, createdAt
+═══════════════════════════════════════════════════════════════ */
+(function initPapelao(){
+  'use strict';
+
+  /* ── Estado local ── */
+  let papRegistros = [];   // cache dos documentos lidos do Firestore
+
+  /* ── Formatadores ── */
+  const fmtBRL = v => Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+  const fmtKg  = v => Number(v||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' kg';
+
+  /* ── Mensagem de feedback no formulário ── */
+  function papMsg(txt, isErr=false){
+    const el = $('pap-msg');
+    if(!el) return;
+    el.textContent = txt;
+    el.style.display = 'block';
+    el.style.background = isErr ? 'rgba(255,91,112,.12)' : 'rgba(0,229,160,.10)';
+    el.style.color       = isErr ? 'var(--alert)'        : 'var(--success)';
+    el.style.border      = isErr ? '1px solid rgba(255,91,112,.25)' : '1px solid rgba(0,229,160,.2)';
+    setTimeout(()=>{ el.style.display='none'; }, 3500);
+  }
+
+  /* ── Cálculo em tempo real (Peso × Valor/kg) ── */
+  function calcPreview(){
+    const peso    = parseFloat($('pap-peso')?.value)    || 0;
+    const valorKg = parseFloat($('pap-valor-kg')?.value) || 0;
+    const total   = peso * valorKg;
+    const el = $('pap-total-preview');
+    if(el) el.textContent = fmtBRL(total);
+  }
+
+  /* ── Renderiza tabela + totalizadores ── */
+  function renderPapelao(){
+    const tbody  = $('pap-list');
+    const cntEl  = $('pap-count');
+    const sumKg  = $('pap-sum-kg');
+    const sumVal = $('pap-sum-val');
+    const sumQtd = $('pap-sum-qtd');
+    if(!tbody) return;
+
+    /* Ordena por data decrescente */
+    const sorted = [...papRegistros].sort((a,b)=> (b.data||'').localeCompare(a.data||''));
+
+    let totalKg  = 0;
+    let totalVal = 0;
+
+    tbody.innerHTML = sorted.length ? sorted.map(r => {
+      totalKg  += Number(r.pesoKg  || 0);
+      totalVal += Number(r.total   || 0);
+      const dataFmt = r.data
+        ? new Date(r.data + 'T12:00:00').toLocaleDateString('pt-BR')
+        : '—';
+      return `<tr>
+        <td data-label="Data"       style="font-family:'DM Mono',monospace;font-size:13px;color:var(--muted);">${dataFmt}</td>
+        <td data-label="Fornecedor" style="font-weight:700;">${esc(r.fornecedor||'—')}</td>
+        <td data-label="Peso (KG)"  style="text-align:right;font-family:'DM Mono',monospace;">${Number(r.pesoKg||0).toLocaleString('pt-BR',{minimumFractionDigits:2})} kg</td>
+        <td data-label="R$/KG"      style="text-align:right;font-family:'DM Mono',monospace;">${fmtBRL(r.valorKg)}</td>
+        <td data-label="A Pagar"    style="text-align:right;font-family:'DM Mono',monospace;font-weight:700;color:var(--alert);">${fmtBRL(r.total)}</td>
+        <td class="td-actions-cell" data-label="Ações" style="text-align:right;">
+          <button
+            data-pap-del="${r.id}"
+            title="Excluir registro"
+            style="padding:5px 10px;border-radius:8px;background:rgba(255,91,112,.1);border:1px solid rgba(255,91,112,.2);color:var(--alert);font-size:12px;font-weight:700;cursor:pointer;min-height:30px;touch-action:manipulation;">
+            🗑
+          </button>
+        </td>
+      </tr>`;
+    }).join('')
+    : `<tr><td colspan="6" style="text-align:center;padding:32px;color:var(--muted);font-size:13px;">Nenhuma pesagem registrada ainda.</td></tr>`;
+
+    /* Totalizadores */
+    if(cntEl)  cntEl.textContent  = `${sorted.length} registro${sorted.length!==1?'s':''}`;
+    if(sumKg)  sumKg.textContent  = fmtKg(totalKg);
+    if(sumVal) sumVal.textContent = fmtBRL(totalVal);
+    if(sumQtd) sumQtd.textContent = sorted.length;
+
+    /* Bind botões de exclusão */
+    tbody.querySelectorAll('[data-pap-del]').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        const id = btn.dataset.papDel;
+        if(!confirm('Excluir este registro de pesagem?')) return;
+        try{
+          const { deleteDoc: dd, doc: fd } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+          await dd(fd(db,'compras_papelao',id));
+          papRegistros = papRegistros.filter(r => r.id !== id);
+          renderPapelao();
+        }catch(e){ papMsg('Erro ao excluir: ' + e.message, true); }
+      });
+    });
+  }
+  /* Expõe renderPapelao para o switchV/render() */
+  window.renderPapelao = renderPapelao;
+
+  /* ── Carrega histórico do Firestore ── */
+  async function loadPapelao(){
+    try{
+      const snap = await getDocs(query(collection(db,'compras_papelao'), orderBy('createdAt','desc')));
+      papRegistros = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderPapelao();
+    }catch(e){ console.error('[Papelão] load:', e); }
+  }
+
+  /* ── Salvar novo registro ── */
+  async function savePapelao(){
+    const fornecedor = $('pap-fornecedor')?.value.trim();
+    const data       = $('pap-data')?.value;
+    const pesoKg     = parseFloat($('pap-peso')?.value);
+    const valorKg    = parseFloat($('pap-valor-kg')?.value);
+
+    if(!fornecedor)          { papMsg('⚠ Informe o nome do fornecedor.', true); return; }
+    if(!data)                { papMsg('⚠ Informe a data da pesagem.', true);    return; }
+    if(!pesoKg || pesoKg<=0){ papMsg('⚠ Informe um peso válido (> 0).', true); return; }
+    if(!valorKg||valorKg<=0){ papMsg('⚠ Informe o valor por kg (> 0).', true); return; }
+
+    const total = pesoKg * valorKg;
+    const btn   = $('btn-pap-save');
+    btn.disabled = true;
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> Salvando...';
+
+    try{
+      const payload = {
+        fornecedor,
+        data,
+        pesoKg,
+        valorKg,
+        total,
+        createdAt: Date.now(),
+        createdBy: s.user || 'sistema',
+        companyId: window._tenantCompanyId || null,
+      };
+      const ref = await addDoc(collection(db,'compras_papelao'), payload);
+      papRegistros.unshift({ id: ref.id, ...payload });
+
+      /* Limpa formulário */
+      ['pap-fornecedor','pap-peso','pap-valor-kg'].forEach(id=>{ const el=$(id); if(el) el.value=''; });
+      calcPreview();
+      renderPapelao();
+      papMsg(`✓ Pesagem de ${fmtKg(pesoKg)} (${fmtBRL(total)}) registrada!`);
+    }catch(e){
+      papMsg('Erro ao salvar: ' + e.message, true);
+    }finally{
+      btn.disabled = false;
+      btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Registrar Pesagem';
+    }
+  }
+
+  /* ── Bind de eventos ── */
+  function bindPapelao(){
+    /* Cálculo em tempo real */
+    ['pap-peso','pap-valor-kg'].forEach(id=>{
+      const el = $(id);
+      if(el){
+        el.addEventListener('input',  calcPreview);
+        el.addEventListener('change', calcPreview);
+      }
+    });
+
+    /* Botão salvar */
+    const btnSave = $('btn-pap-save');
+    if(btnSave) btnSave.addEventListener('click', savePapelao);
+
+    /* Preenche data com hoje por padrão */
+    const datEl = $('pap-data');
+    if(datEl && !datEl.value){
+      datEl.value = new Date().toISOString().split('T')[0];
+    }
+  }
+
+  /* ── Init ── */
+  bindPapelao();
+  loadPapelao();
+
+})(); /* fim initPapelao */
+
 addEvents('cal-p',()=>{s.cM--;if(s.cM<1){s.cM=12;s.cY--;}renderCal();});
 addEvents('cal-n',()=>{s.cM++;if(s.cM>12){s.cM=1;s.cY++;}renderCal();});
 addEvents('fab-ceo',()=>toggleModal(true));
@@ -1748,5 +2167,595 @@ setTimeout(()=>{
   });
 </script>
 
+<!-- ═══════════════════════════════════════════════════════
+     BLOCO 3 — MULTI-TENANT: Admin Master + themeColor
+     Lê empresas do Firestore /companies
+     Painel Admin: luidoliver / luid@
+     themeColor: aplica cor de identidade da empresa logada
+═══════════════════════════════════════════════════════ -->
+<script type="module">
+'use strict';
+
+import { initializeApp, getApps } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+import {
+  getFirestore, collection, onSnapshot, query, orderBy,
+  addDoc, doc, updateDoc, getDoc, getDocs, where, deleteDoc,
+  serverTimestamp, Timestamp
+} from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
+
+/* ── Firebase (reutiliza instância existente se já inicializada) ── */
+const cfg = {
+  apiKey:            'AIzaSyAeAOjFZSHy28uZFgH1PyoJaxPRyS-N1Kw',
+  authDomain:        'lumin-a5b29.firebaseapp.com',
+  projectId:         'lumin-a5b29',
+  storageBucket:     'lumin-a5b29.firebasestorage.app',
+  messagingSenderId: '413860601418',
+  appId:             '1:413860601418:web:0b5cce923491e50fdf50b3',
+};
+const fbApp = getApps().find(a=>a.name==='[DEFAULT]') || initializeApp(cfg);
+const db2   = getFirestore(fbApp);
+
+/* ── Credenciais Master fixas ── */
+const ADMIN_USER = 'luidoliver';
+const ADMIN_PASS = 'luid@';
+
+/* ─────────────────────────────────────────────────────────
+   APLICAR THEME COLOR
+   Altera apenas --accent e --accent2 (botões, destaques)
+   Preserva todo o restante do design original
+───────────────────────────────────────────────────────── */
+function applyThemeColor(hex){
+  if(!hex || !/^#[0-9A-Fa-f]{6}$/.test(hex)) return;
+  const root = document.documentElement;
+  root.style.setProperty('--accent',  hex);
+  /* Cria versão mais escura para --accent2 */
+  const r=parseInt(hex.slice(1,3),16), g=parseInt(hex.slice(3,5),16), b=parseInt(hex.slice(5,7),16);
+  const darken = v => Math.max(0, Math.round(v * 0.65));
+  const a2 = `rgb(${darken(r)},${darken(g)},${darken(b)})`;
+  root.style.setProperty('--accent2', a2);
+  /* Salva para uso posterior */
+  window._tenantTheme = hex;
+}
+
+/* ─────────────────────────────────────────────────────────
+   PAINEL ADMIN — helpers de UI
+───────────────────────────────────────────────────────── */
+const $ = id => document.getElementById(id);
+
+function admMsg(msg, isError=false){
+  const el = $('adm-msg');
+  if(!el) return;
+  el.textContent = msg;
+  el.style.display = 'block';
+  el.style.background  = isError ? 'rgba(255,91,112,.1)' : 'rgba(0,229,160,.1)';
+  el.style.border      = isError ? '1px solid rgba(255,91,112,.3)' : '1px solid rgba(0,229,160,.3)';
+  el.style.color       = isError ? 'var(--alert)' : 'var(--success)';
+  setTimeout(()=>{ el.style.display='none'; }, 4000);
+}
+
+/* ─────────────────────────────────────────────────────────
+   LISTAR EMPRESAS
+───────────────────────────────────────────────────────── */
+async function loadCompanies(){
+  const list = $('adm-companies-list');
+  if(!list) return;
+  list.innerHTML = '<div style="text-align:center;padding:30px;color:var(--muted);">Carregando...</div>';
+  try{
+    /* 1. Busca todas as empresas — sem filtros, apenas orderBy */
+    const snapEmpresas = await getDocs(query(collection(db2,'companies'), orderBy('createdAt','desc')));
+    if(snapEmpresas.empty){
+      list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);">Nenhuma empresa cadastrada ainda.</div>';
+      return;
+    }
+
+    /* 2. Busca todos os usuários de /users — sem filtro de status, query limpa */
+    const snapUsers = await getDocs(query(collection(db2,'users'), orderBy('createdAt','desc')));
+    const todosUsuarios = snapUsers.docs.map(d => ({ _docId: d.id, ...d.data() }));
+
+    /* 3. Monta HTML: empresa → sub-lista de usuários vinculados */
+    list.innerHTML = snapEmpresas.docs.map(d=>{
+      const c     = d.data();
+      const cId   = d.id;
+      const color = c.themeColor||'#00d4ff';
+      const active = c.active !== false;
+
+      /* Filtra usuários cujo companyId bate com o ID desta empresa */
+      const usuariosDaEmpresa = todosUsuarios.filter(u => u.companyId === cId || u.empresaId === cId);
+
+      const subLista = usuariosDaEmpresa.length > 0
+        ? usuariosDaEmpresa.map(u => {
+            const nome    = escHtml(u.display || u.username || u._docId);
+            const login   = escHtml(u.username || u._docId);
+            const role    = escHtml(u.role || 'Usuário');
+            const docId   = u._docId;
+            return `
+              <div style="display:flex;align-items:center;gap:12px;padding:10px 14px 10px 36px;border-top:1px solid rgba(255,255,255,.05);">
+                <div style="width:32px;height:32px;border-radius:50%;background:${color}22;border:1.5px solid ${color}55;display:grid;place-items:center;font-weight:800;font-size:13px;color:${color};flex-shrink:0;">${(u.display||u.username||'?').charAt(0).toUpperCase()}</div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:13px;font-weight:700;">${nome}</div>
+                  <div style="font-size:11px;color:var(--muted);">@${login} · ${role}</div>
+                </div>
+                <div style="display:flex;gap:6px;flex-shrink:0;">
+                  <button
+                    data-usr-id="${docId}"
+                    data-usr-action="resetpass"
+                    title="Redefinir senha"
+                    style="padding:5px 10px;border-radius:8px;background:rgba(176,133,245,.12);border:1px solid rgba(176,133,245,.25);color:#b085f5;font-size:11px;font-weight:700;cursor:pointer;min-height:30px;">
+                    🔑 Senha
+                  </button>
+                  <button
+                    data-usr-id="${docId}"
+                    data-usr-action="delete"
+                    title="Remover usuário"
+                    style="padding:5px 10px;border-radius:8px;background:rgba(255,91,112,.1);border:1px solid rgba(255,91,112,.2);color:var(--alert);font-size:11px;font-weight:700;cursor:pointer;min-height:30px;">
+                    🗑
+                  </button>
+                </div>
+              </div>`;
+          }).join('')
+        : `<div style="padding:12px 36px;font-size:12px;color:var(--muted);border-top:1px solid rgba(255,255,255,.05);">Nenhum usuário vinculado a esta empresa.</div>`;
+
+      return `
+        <div class="company-row" style="flex-direction:column;align-items:stretch;padding:0;overflow:hidden;">
+          <!-- Cabeçalho da empresa -->
+          <div style="display:flex;align-items:center;gap:14px;padding:16px 20px;">
+            <div class="company-color-dot" style="background:${color};box-shadow:0 0 8px ${color}66;"></div>
+            <div class="company-info">
+              <div class="company-name">${escHtml(c.name||'—')}</div>
+              <div class="company-meta">@${escHtml(c.login||'—')} · Bot: +${escHtml(c.botPhone||'—')} · ID: <span style="font-family:'DM Mono',monospace;">${cId}</span></div>
+            </div>
+            <span class="badge-status ${active?'badge-active':'badge-inactive'}">${active?'Ativo':'Inativo'}</span>
+            <button
+              data-adm-id="${cId}"
+              data-adm-action="toggle"
+              title="${active?'Desativar':'Ativar'}"
+              style="color:${active?'var(--alert)':'var(--success)'};padding:6px 12px;border-radius:8px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);font-size:12px;font-weight:700;cursor:pointer;min-height:32px;flex-shrink:0;">
+              ${active?'⏸ Desativar':'▶ Ativar'}
+            </button>
+          </div>
+          <!-- Sub-lista de usuários desta empresa -->
+          <div class="company-users-sub">
+            ${subLista}
+          </div>
+        </div>`;
+    }).join('');
+
+    /* ── Bind: toggle ativo/inativo da empresa ── */
+    list.querySelectorAll('[data-adm-action="toggle"]').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        const id     = btn.dataset.admId;
+        const dRef   = doc(db2,'companies',id);
+        const snap2  = await getDoc(dRef);
+        if(!snap2.exists()) return;
+        const newVal = !(snap2.data().active !== false);
+        await updateDoc(dRef,{ active: newVal, updatedAt: Date.now() });
+        admMsg(newVal?'✓ Empresa ativada':'Empresa desativada');
+        loadCompanies();
+      });
+    });
+
+    /* ── Bind: ações de usuário (por _docId do documento /users) ── */
+    list.querySelectorAll('[data-usr-action="delete"]').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        const docId = btn.dataset.usrId;
+        if(!confirm(`Remover usuário "${docId}"? Esta ação não pode ser desfeita.`)) return;
+        try{
+          await deleteDoc(doc(db2,'users',docId));
+          admMsg(`✓ Usuário "${docId}" removido.`);
+          loadCompanies();
+        }catch(e){ admMsg(`Erro ao remover: ${e.message}`, true); }
+      });
+    });
+
+    list.querySelectorAll('[data-usr-action="resetpass"]').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        const docId  = btn.dataset.usrId;
+        const nova   = prompt(`Nova senha para "${docId}":`);
+        if(!nova || !nova.trim()) return;
+        try{
+          await updateDoc(doc(db2,'users',docId),{ password: nova.trim(), primeiroAcesso: true, updatedAt: Date.now() });
+          admMsg(`✓ Senha de "${docId}" redefinida. Próximo login exigirá troca.`);
+        }catch(e){ admMsg(`Erro: ${e.message}`, true); }
+      });
+    });
+
+  }catch(err){
+    list.innerHTML = `<div style="text-align:center;padding:30px;color:var(--alert);">Erro ao carregar: ${err.message}</div>`;
+  }
+}
+
+function escHtml(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+/* ─────────────────────────────────────────────────────────
+   CADASTRAR EMPRESA
+───────────────────────────────────────────────────────── */
+async function saveCompany(){
+  const name     = $('adm-name')?.value.trim();
+  const phone    = $('adm-phone')?.value.replace(/\D/g,'');
+  const login    = $('adm-login')?.value.trim().toLowerCase();
+  const pass     = $('adm-pass')?.value.trim();
+  const color    = $('adm-color-hex')?.value.trim() || $('adm-color')?.value || '#00d4ff';
+
+  if(!name||!phone||!login||!pass){
+    admMsg('⚠ Preencha todos os campos obrigatórios.', true); return;
+  }
+  if(!/^#[0-9A-Fa-f]{6}$/.test(color)){
+    admMsg('⚠ Cor inválida. Use formato #RRGGBB.', true); return;
+  }
+
+  /* Verifica duplicidade de telefone */
+  const dupSnap = await getDocs(query(collection(db2,'companies'), where('botPhone','==',phone)));
+  if(!dupSnap.empty){
+    admMsg(`⚠ Número +${phone} já cadastrado em outra empresa.`, true); return;
+  }
+
+  const btn = $('btn-adm-save');
+  btn.disabled = true; btn.textContent = 'Salvando...';
+
+  try{
+    const now = Date.now();
+    const ref = await addDoc(collection(db2,'companies'),{
+      name, login, password: pass, botPhone: phone, themeColor: color,
+      active: true,
+      foto: '',           // sempre vazio na criação — usuário define depois
+      primeiroAcesso: true, // força troca de senha no primeiro login
+      createdAt: now, updatedAt: now,
+    });
+    await updateDoc(doc(db2,'companies',ref.id),{ companyId: ref.id });
+
+    admMsg(`✓ Empresa "${name}" cadastrada! ID: ${ref.id}`);
+    ['adm-name','adm-phone','adm-login','adm-pass'].forEach(id=>{ const el=$(id); if(el) el.value=''; });
+    if($('adm-color')) $('adm-color').value='#00d4ff';
+    if($('adm-color-hex')) $('adm-color-hex').value='#00d4ff';
+    loadCompanies();
+  }catch(err){
+    admMsg(`Erro: ${err.message}`, true);
+  }finally{
+    btn.disabled=false; btn.textContent=''; btn.innerHTML='<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg> Cadastrar Empresa';
+  }
+}
+
+/* ─────────────────────────────────────────────────────────
+   LOGIN ADMIN MASTER
+───────────────────────────────────────────────────────── */
+function openAdminPanel(){
+  const panel = $('admin-panel');
+  if(!panel) return;
+  panel.classList.add('active');
+  localStorage.setItem('lumin_user', ADMIN_USER);
+  loadCompanies();
+}
+
+function closeAdminPanel(){
+  const panel = $('admin-panel');
+  if(panel) panel.classList.remove('active');
+  localStorage.removeItem('lumin_user');
+  const ls = $('login-screen');
+  if(ls){ ls.classList.add('active'); }
+  const lu = $('l-user'), lp = $('l-pass');
+  if(lu) lu.value=''; if(lp) lp.value='';
+}
+
+/* Expõe globalmente para o roteador de login */
+window._isAdminUser = function(u, p){
+  return u === ADMIN_USER && p === ADMIN_PASS;
+};
+
+window._doLoginAdmin = function(u, p){
+  if(!window._isAdminUser(u, p)) return false;
+  const ls = $('login-screen');
+  if(ls) ls.classList.remove('active');
+  openAdminPanel();
+  return true;
+};
+
+window._isAdminLoggedIn = function(){
+  return localStorage.getItem('lumin_user') === ADMIN_USER;
+};
+
+/* ─────────────────────────────────────────────────────────
+   LOGIN TENANT (empresa) via Firestore
+   Chamado pelo roteador unificado
+───────────────────────────────────────────────────────── */
+window._doLoginTenant = async function(u, p){
+  try{
+    const snap = await getDocs(query(
+      collection(db2,'companies'),
+      where('login','==',u.toLowerCase()),
+      where('password','==',p),
+      where('active','==',true)
+    ));
+    if(snap.empty) return false;
+
+    const companyDoc = snap.docs[0];
+    const company    = companyDoc.data();
+    const companyId  = company.companyId || companyDoc.id;
+
+    /* Salva sessão do tenant */
+    localStorage.setItem('lumin_user', u);
+    localStorage.setItem('lumin_tenant', JSON.stringify({
+      companyId, name: company.name, themeColor: company.themeColor||'#00d4ff'
+    }));
+
+    /* ── Primeiro Acesso: força troca de senha antes de continuar ── */
+    if(company.primeiroAcesso === true){
+      const ls = $('login-screen');
+      if(ls) ls.classList.remove('active');
+      /* Abre a view de configurações diretamente */
+      if(typeof window.switchV === 'function'){
+        $('app-shell')?.classList.add('active');
+        $('ceoDashboard') && ($('ceoDashboard').style.display = '');
+        window.switchV('v-config');
+      }
+      toast('⚠ Primeiro acesso: defina uma nova senha nas configurações.');
+      return true;
+    }
+
+    /* Aplica themeColor da empresa */
+    if(company.themeColor) applyThemeColor(company.themeColor);
+
+    /* Expõe companyId para o script CEO existente */
+    window._tenantCompanyId = companyId;
+    window._tenantName      = company.name;
+
+    /* Agora faz login no dashboard CEO injetando tenant context */
+    if(typeof window._doLoginCEOTenant === 'function'){
+      window._doLoginCEOTenant(u, company);
+    } else if(typeof window._doLoginCEO === 'function'){
+      /* Fallback: usa o sistema CEO existente mas com dados do tenant */
+      const ceo = window._getCEOUsers?.() || {};
+      if(!ceo[u]){
+        /* Adiciona dinamicamente o tenant ao mapa CEO */
+        window._CEO_USERS_RUNTIME = window._CEO_USERS_RUNTIME || {};
+        window._CEO_USERS_RUNTIME[u] = { pass: p, display: company.name, role: 'Empresa', companyId };
+      }
+      window._doLoginCEOWithTenant(u, p, company);
+    }
+    return true;
+  }catch(err){
+    console.error('[Tenant Login]', err);
+    return false;
+  }
+};
+
+/* ─────────────────────────────────────────────────────────
+   OVERRIDE CEO LOGIN — injeta tenant context
+   Sobrescreve o initApp para ler de /companies/{id}/financeiro
+───────────────────────────────────────────────────────── */
+window._doLoginCEOWithTenant = function(u, p, company){
+  const companyId = company.companyId || (company.id);
+  const info = {
+    display:   company.name,
+    role:      'Empresa',
+    companyId: companyId,
+    themeColor: company.themeColor,
+  };
+
+  /* Sinaliza para o BLOCO 1 que é um login de tenant */
+  window._isTenantSession = true;
+  window._tenantCompanyId = companyId;
+
+  /* Atualiza CEO_USERS em runtime para o roteador original */
+  if(typeof window._getCEOUsers === 'function'){
+    const cu = window._getCEOUsers();
+    if(!cu[u]) cu[u] = { pass: p, display: company.name, role:'Empresa' };
+  }
+
+  /* Dispara o login CEO original */
+  if(typeof window._doLoginCEO === 'function'){
+    window._doLoginCEO(u, p);
+  }
+};
+
+/* ─────────────────────────────────────────────────────────
+   PATCH DO initApp PARA MULTI-TENANT
+   Se _isTenantSession = true, troca a coleção de dados
+   de /transactions → /companies/{companyId}/financeiro
+───────────────────────────────────────────────────────── */
+(function patchTenantData(){
+  /* Aguarda o Bloco 1 carregar e expor _doLoginCEO */
+  const origInit = window._initAppPatched;
+  if(origInit) return; /* já aplicado */
+  window._initAppPatched = true;
+
+  /* Intercepta onSnapshot após login tenant */
+  const _origInitApp = window._tenantInitHook;
+
+  window._tenantDataOverride = async function(s, renderFn, db_ref){
+    if(!window._isTenantSession || !window._tenantCompanyId) return false;
+    const cid = window._tenantCompanyId;
+
+    /* Troca streams do Firestore para subcoleção da empresa */
+    try{
+      const { onSnapshot: _onSnap, collection: _col, query: _q, orderBy: _ob } =
+        await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+
+      _onSnap(
+        _q(_col(db_ref,'companies',cid,'financeiro'), _ob('date','desc')),
+        snap => {
+          s.txs = snap.docs.map(d=>({id:d.id,...d.data()}));
+          renderFn();
+        },
+        err => console.error('[Tenant] financeiro:', err)
+      );
+      return true;
+    }catch(e){ return false; }
+  };
+})();
+
+/* ─────────────────────────────────────────────────────────
+   PATCH saveTx — grava em /companies/{id}/financeiro
+───────────────────────────────────────────────────────── */
+window._tenantSaveOverride = async function(payload){
+  if(!window._isTenantSession || !window._tenantCompanyId) return null;
+  const cid = window._tenantCompanyId;
+  const ref = await addDoc(collection(db2,'companies',cid,'financeiro'), payload);
+  return ref.id;
+};
+
+window._tenantUpdateOverride = async function(txId, payload){
+  if(!window._isTenantSession || !window._tenantCompanyId) return false;
+  const cid = window._tenantCompanyId;
+  await updateDoc(doc(db2,'companies',cid,'financeiro',txId), payload);
+  return true;
+};
+
+window._tenantDeleteOverride = async function(txId){
+  if(!window._isTenantSession || !window._tenantCompanyId) return false;
+  const cid = window._tenantCompanyId;
+  const { deleteDoc, doc:fd } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+  await deleteDoc(fd(db2,'companies',cid,'financeiro',txId));
+  return true;
+};
+
+/* ─────────────────────────────────────────────────────────
+   EVENT LISTENERS — Admin Panel
+───────────────────────────────────────────────────────── */
+const btnAdmSave    = $('btn-adm-save');
+const btnAdmRefresh = $('btn-adm-refresh');
+const btnAdmLogout  = $('btn-admin-logout');
+const admColorPick  = $('adm-color');
+const admColorHex   = $('adm-color-hex');
+
+if(btnAdmSave)    btnAdmSave.addEventListener('click', saveCompany);
+if(btnAdmRefresh) btnAdmRefresh.addEventListener('click', loadCompanies);
+if(btnAdmLogout)  btnAdmLogout.addEventListener('click', closeAdminPanel);
+
+/* Sincroniza color picker ↔ hex input */
+if(admColorPick && admColorHex){
+  admColorPick.addEventListener('input', ()=>{ admColorHex.value = admColorPick.value; });
+  admColorHex.addEventListener('input', ()=>{
+    const v = admColorHex.value;
+    if(/^#[0-9A-Fa-f]{6}$/.test(v)) admColorPick.value = v;
+  });
+}
+
+/* ─────────────────────────────────────────────────────────
+   LIFECYCLE — restaura sessão Admin ou Tenant
+───────────────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', ()=>{
+  /* Restaura sessão admin master */
+  const saved = localStorage.getItem('lumin_user');
+  if(saved === ADMIN_USER){
+    /* Aguarda preloader terminar */
+    setTimeout(()=>{
+      const pl = $('preloader');
+      if(pl){ pl.classList.add('out'); setTimeout(()=>{ pl.style.display='none'; openAdminPanel(); },650); }
+      else openAdminPanel();
+    }, 100);
+  }
+
+  /* Restaura themeColor de sessão tenant */
+  const tenantRaw = localStorage.getItem('lumin_tenant');
+  if(tenantRaw){
+    try{
+      const tenant = JSON.parse(tenantRaw);
+      if(tenant.themeColor) applyThemeColor(tenant.themeColor);
+      window._tenantCompanyId = tenant.companyId;
+      window._tenantName      = tenant.name;
+    }catch(_){}
+  }
+});
+
+/* ─────────────────────────────────────────────────────────
+   PATCH DO LOGIN UNIFICADO (estende doLoginUnified)
+   Intercepta antes do CEO/Pães para verificar Admin/Tenant
+───────────────────────────────────────────────────────── */
+document.addEventListener('lumin:beforeLogin', async (e)=>{
+  const { u, p, resolve } = e.detail;
+
+  /* 1. Admin Master */
+  if(window._isAdminUser(u, p)){
+    resolve(window._doLoginAdmin(u, p));
+    return;
+  }
+
+  /* 2. Tenant (empresa cadastrada no Firestore) */
+  const tenantOk = await window._doLoginTenant(u, p);
+  if(tenantOk){ resolve(true); return; }
+
+  /* 3. Fallthrough para Pães / CEO local */
+  resolve(false);
+});
+
+/* Patch de doLoginUnified para disparar evento antes */
+(function(){
+  const originalUnified = window._originalDoLoginUnified;
+  if(originalUnified) return;
+
+  /* Guarda referência original */
+  window._originalDoLoginUnified = true;
+
+  /* O evento é capturado no handler acima. Se não resolver,
+     o fluxo natural (loginPaes / _doLoginCEO / _fallbackLoginCEO) continua. */
+})();
+
+</script>
+
+<!-- ═══ Patch do roteador de login para suportar Admin e Tenant ═══ -->
+<script>
+(function(){
+  'use strict';
+  /* Aguarda todos os módulos carregarem */
+  window.addEventListener('load', ()=>{
+    /* Guarda referência da função original */
+    const _origDoLoginUnified = window._doLoginUnifiedOrig;
+    if(_origDoLoginUnified) return;
+    window._doLoginUnifiedOrig = true;
+
+    /* Reescreve doLoginUnified para incluir Admin/Tenant */
+    const btnLogin = document.getElementById('btn-do-login');
+    const lUser    = document.getElementById('l-user');
+    const lPass    = document.getElementById('l-pass');
+    if(!btnLogin) return;
+
+    async function doLoginMultiTenant(){
+      const u = lUser?.value.trim().toLowerCase() || '';
+      const p = lPass?.value.trim() || '';
+
+      /* 1. Admin Master (síncrono) */
+      if(typeof window._isAdminUser==='function' && window._isAdminUser(u,p)){
+        document.getElementById('login-screen')?.classList.remove('active');
+        if(typeof window._doLoginAdmin==='function') window._doLoginAdmin(u,p);
+        return;
+      }
+
+      /* 2. Tenant async (Firebase) */
+      if(typeof window._doLoginTenant==='function'){
+        const ok = await window._doLoginTenant(u,p);
+        if(ok) return;
+      }
+
+      /* 3. Pães (IndexedDB) */
+      const USUARIO_PAO='armazemdagulakg', SENHA_PAO='1234';
+      if(u===USUARIO_PAO && p===SENHA_PAO){
+        /* Dispara loginPaes original que já está no escopo global do BLOCO 2 */
+        if(typeof loginPaes==='function'){ loginPaes(u,p); return; }
+      }
+
+      /* 4. CEO local Firebase */
+      if(typeof window._doLoginCEO==='function' && window._doLoginCEO(u,p)) return;
+      if(typeof _fallbackLoginCEO==='function'   && _fallbackLoginCEO(u,p)) return;
+
+      /* 5. Falha */
+      const errEl = document.getElementById('l-err');
+      if(errEl){ errEl.style.display='block'; setTimeout(()=>errEl.style.display='none',3000); }
+      const card = document.getElementById('login-screen')?.querySelector('.glass');
+      if(card) card.animate([
+        {transform:'translateX(0)'},{transform:'translateX(-8px)'},
+        {transform:'translateX(8px)'},{transform:'translateX(-5px)'},
+        {transform:'translateX(5px)'},{transform:'translateX(0)'}
+      ],{duration:360,easing:'ease-in-out'});
+    }
+
+    /* Substitui os listeners originais do btn-do-login */
+    const newBtn = btnLogin.cloneNode(true);
+    btnLogin.parentNode.replaceChild(newBtn, btnLogin);
+    newBtn.addEventListener('click', doLoginMultiTenant);
+    newBtn.addEventListener('touchstart', e=>{ e.preventDefault(); doLoginMultiTenant(); },{passive:false});
+    if(lPass) lPass.addEventListener('keydown', e=>{ if(e.key==='Enter') doLoginMultiTenant(); });
+  });
+})();
+</script>
 </body>
 </html>
