@@ -1,0 +1,495 @@
+<!-- ═══════════════════════════════════════════════════════════
+     LUMIN — Combustível / Logística — Fragmentos HTML
+     
+     INSTRUÇÕES DE INTEGRAÇÃO:
+     ─────────────────────────
+     1. Adicione o botão de navegação (Bloco A) dentro do <nav>
+        da sidebar, após o botão "Compra Papelão".
+     2. Adicione o botão da bottom nav (Bloco B) dentro do 
+        #t-bottom-nav, substituindo ou adicionando.
+     3. Cole a <section id="v-combustivel"> (Bloco C) após a
+        seção #v-papelao no HTML principal.
+     4. Cole o <div id="comb-modal-add"> (Bloco D) antes do 
+        fechamento do #app-shell-wrapper.
+     5. Adicione o <style> (Bloco E) ao seu CSS global.
+     6. Adicione o <script type="module"> (Bloco F) antes do 
+        </body>.
+     7. Atualize os títulos do switchV() no tenant-controller.js
+        adicionando: 'v-combustivel':'Logística / KM'
+     8. Para o Admin Master, adicione o Bloco G ao painel admin.
+═══════════════════════════════════════════════════════════ -->
+
+
+<!-- ─────────────────────────────────────────────────────────
+     BLOCO A: Botão Sidebar (adicionar após btn data-view="v-papelao")
+───────────────────────────────────────────────────────────── -->
+<button class="t-nav-item" data-view="v-combustivel">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 22V8a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v14"/>
+    <path d="M16 8h2a2 2 0 0 1 2 2v4a2 2 0 0 0 2 2h0"/>
+    <line x1="3" y1="22" x2="16" y2="22"/>
+    <line x1="8" y1="6" x2="8" y2="2"/>
+    <line x1="11" y1="6" x2="11" y2="2"/>
+  </svg>
+  Logística / KM
+</button>
+
+
+<!-- ─────────────────────────────────────────────────────────
+     BLOCO B: Botão Bottom Navigation (mobile)
+───────────────────────────────────────────────────────────── -->
+<button class="t-bn-item" data-view="v-combustivel">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 22V8a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v14"/>
+    <path d="M16 8h2a2 2 0 0 1 2 2v4a2 2 0 0 0 2 2h0"/>
+    <line x1="3" y1="22" x2="16" y2="22"/>
+  </svg>
+  Logística
+</button>
+
+
+<!-- ─────────────────────────────────────────────────────────
+     BLOCO C: View Principal — Cole após <section id="v-papelao">
+───────────────────────────────────────────────────────────── -->
+<section id="v-combustivel" class="t-view">
+
+  <!-- Cabeçalho -->
+  <div style="margin-bottom:28px;display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+    <div>
+      <h3 style="font-size:clamp(24px,4vw,36px);font-weight:900;margin-bottom:10px;letter-spacing:-.02em;">
+        ⛽ Logística / KM
+      </h3>
+      <p style="color:var(--muted);font-size:16px;max-width:480px;">
+        Registre viagens, controle o consumo de combustível e acompanhe o custo por quilômetro.
+      </p>
+    </div>
+    <button id="btn-open-comb-modal" class="btn-primary" style="font-size:16px;padding:0 28px;min-height:56px;border-radius:16px;gap:12px;flex-shrink:0;background:linear-gradient(135deg,#00d4ff,#0099cc);color:#000;border:none;cursor:pointer;font-weight:800;display:flex;align-items:center;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Nova Viagem
+    </button>
+  </div>
+
+  <!-- Card Destaque: Gasto Total do Mês (herói visual) -->
+  <div class="glass comb-hero-card" style="
+    border-radius:28px;
+    padding:clamp(24px,4vw,40px);
+    margin-bottom:28px;
+    border:1px solid rgba(0,212,255,.15);
+    background:linear-gradient(135deg,rgba(0,212,255,.05),rgba(0,153,204,.03));
+    position:relative;
+    overflow:hidden;
+  ">
+    <!-- Anel decorativo de fundo -->
+    <div style="position:absolute;right:-60px;top:-60px;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(0,212,255,.08) 0%,transparent 70%);pointer-events:none;"></div>
+
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:20px;position:relative;z-index:1;">
+      <div>
+        <p style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.15em;margin-bottom:10px;">
+          💸 Gasto Total · Mês Atual
+        </p>
+        <div id="comb-hero-gasto" style="
+          font-family:'DM Mono',monospace;
+          font-size:clamp(36px,7vw,64px);
+          font-weight:700;
+          color:var(--accent);
+          line-height:1;
+          letter-spacing:-.02em;
+          margin-bottom:8px;
+        ">R$ 0,00</div>
+        <div id="comb-hero-sub" style="font-size:14px;color:var(--muted);">
+          0 viagens · 0 km · 0,0 L
+        </div>
+      </div>
+
+      <!-- Mini stats -->
+      <div style="display:flex;flex-direction:column;gap:12px;text-align:right;">
+        <div>
+          <div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:2px;">Custo/km</div>
+          <div id="comb-hero-cpkm" style="font-family:'DM Mono',monospace;font-size:20px;font-weight:700;color:var(--warning);">R$ —</div>
+        </div>
+        <div>
+          <div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:2px;">Combustível</div>
+          <div id="comb-hero-litros" style="font-family:'DM Mono',monospace;font-size:20px;font-weight:700;color:var(--success);">0,0 L</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div style="display:flex;gap:6px;background:rgba(255,255,255,.04);border-radius:16px;padding:6px;margin-bottom:24px;">
+    <button class="comb-tab-btn active" data-comb-tab="registrar" style="flex:1;padding:13px 8px;border-radius:12px;border:none;cursor:pointer;font-weight:700;font-size:14px;background:var(--bg2);color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,.3);transition:.2s;min-height:48px;">
+      🛣️ Registros
+    </button>
+    <button class="comb-tab-btn" data-comb-tab="dashboard" style="flex:1;padding:13px 8px;border-radius:12px;border:none;cursor:pointer;font-weight:700;font-size:14px;background:transparent;color:var(--muted);transition:.2s;min-height:48px;">
+      📊 Dashboard
+    </button>
+    <button class="comb-tab-btn" data-comb-tab="config" style="flex:0 0 auto;padding:13px 18px;border-radius:12px;border:none;cursor:pointer;font-weight:700;font-size:14px;background:transparent;color:var(--muted);transition:.2s;min-height:48px;" title="Configurações">
+      ⚙️
+    </button>
+  </div>
+
+  <!-- Painel Registros -->
+  <div id="comb-list-panel" style="display:block;">
+    <div id="comb-list">
+      <div style="text-align:center;padding:60px 20px;color:var(--muted);">
+        <div style="font-size:56px;margin-bottom:16px;">🛣️</div>
+        <div style="font-size:18px;font-weight:700;color:var(--text);margin-bottom:8px;">Nenhuma viagem registrada</div>
+        <div style="font-size:14px;">Clique em "Nova Viagem" para começar.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Painel Dashboard -->
+  <div id="comb-dash-panel" style="display:none;">
+    <!-- Cards de resumo -->
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:20px;">
+      <div class="glass stat-card" style="color:var(--accent);">
+        <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:10px;">Total Gasto</p>
+        <h3 id="comb-dash-gasto" style="font-family:'DM Mono',monospace;font-size:clamp(20px,3.5vw,28px);">R$ 0,00</h3>
+      </div>
+      <div class="glass stat-card" style="color:var(--success);">
+        <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:10px;">KM Rodado</p>
+        <h3 id="comb-dash-km" style="font-family:'DM Mono',monospace;font-size:clamp(20px,3.5vw,28px);">0 km</h3>
+      </div>
+      <div class="glass stat-card" style="color:var(--warning);">
+        <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:10px;">Custo por KM</p>
+        <h3 id="comb-dash-cpkm" style="font-family:'DM Mono',monospace;font-size:clamp(18px,3vw,24px);">R$ 0,000/km</h3>
+      </div>
+      <div class="glass stat-card" style="color:var(--purple);">
+        <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:10px;">Combustível</p>
+        <h3 id="comb-dash-litros" style="font-family:'DM Mono',monospace;font-size:clamp(20px,3.5vw,28px);">0 L</h3>
+      </div>
+    </div>
+
+    <!-- Filtros -->
+    <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;">
+      <button class="comb-filter-btn" data-comb-filter="week" style="padding:12px 22px;border-radius:30px;font-size:14px;font-weight:700;border:1.5px solid var(--border);background:transparent;color:var(--muted);min-height:48px;transition:.2s;cursor:pointer;">Esta Semana</button>
+      <button class="comb-filter-btn active" data-comb-filter="month" style="padding:12px 22px;border-radius:30px;font-size:14px;font-weight:700;border:1.5px solid var(--accent);background:rgba(0,212,255,.12);color:var(--accent);min-height:48px;transition:.2s;cursor:pointer;">Este Mês</button>
+      <button class="comb-filter-btn" data-comb-filter="all" style="padding:12px 22px;border-radius:30px;font-size:14px;font-weight:700;border:1.5px solid var(--border);background:transparent;color:var(--muted);min-height:48px;transition:.2s;cursor:pointer;">Todos</button>
+    </div>
+
+    <!-- Lista do período -->
+    <div class="glass" style="border-radius:20px;padding:24px 28px;">
+      <h4 style="font-size:15px;font-weight:800;margin-bottom:16px;">Histórico de Viagens</h4>
+      <div id="comb-dash-list">
+        <p style="color:var(--muted);font-size:15px;">Nenhuma viagem no período.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Painel Configurações (injetado pelo JS) -->
+  <div id="comb-config-panel" style="display:none;"></div>
+
+</section>
+
+
+<!-- ─────────────────────────────────────────────────────────
+     BLOCO D: Modal Nova Viagem — Cole antes de </div><!--/app-shell-wrapper-->
+───────────────────────────────────────────────────────────── -->
+<div id="comb-modal-add" style="
+  display:none;
+  position:fixed;inset:0;z-index:1000;
+  background:rgba(0,0,0,.75);backdrop-filter:blur(10px);
+  align-items:center;justify-content:center;padding:20px;
+">
+  <div class="glass" style="
+    width:100%;max-width:500px;border-radius:28px;
+    padding:32px;border:1px solid rgba(255,255,255,.08);
+    position:relative;max-height:90vh;overflow-y:auto;
+  ">
+    <!-- Fechar -->
+    <button id="comb-modal-close" style="
+      position:absolute;top:16px;right:16px;
+      background:rgba(255,255,255,.08);border:none;border-radius:10px;
+      width:38px;height:38px;cursor:pointer;font-size:18px;
+      color:var(--muted);display:grid;place-items:center;
+    ">✕</button>
+
+    <div style="font-size:22px;font-weight:800;margin-bottom:24px;">⛽ Nova Viagem</div>
+
+    <!-- Origem → Destino -->
+    <div style="display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;margin-bottom:18px;">
+      <div>
+        <label style="display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;font-weight:800;">Origem</label>
+        <input id="comb-origem" type="text" placeholder="De onde saiu?" style="width:100%;padding:13px 14px;border-radius:12px;background:var(--bg2);border:1.5px solid var(--border);color:var(--text);font-size:15px;outline:none;box-sizing:border-box;transition:.2s;">
+      </div>
+      <div style="font-size:20px;color:var(--muted);margin-top:22px;">→</div>
+      <div>
+        <label style="display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;font-weight:800;">Destino</label>
+        <input id="comb-destino" type="text" placeholder="Para onde foi?" style="width:100%;padding:13px 14px;border-radius:12px;background:var(--bg2);border:1.5px solid var(--border);color:var(--text);font-size:15px;outline:none;box-sizing:border-box;transition:.2s;">
+      </div>
+    </div>
+
+    <!-- KM + Data -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:18px;">
+      <div>
+        <label style="display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;font-weight:800;">KM Rodado</label>
+        <input id="comb-km" type="number" min="0.1" step="0.1" placeholder="0,0" style="width:100%;padding:13px 14px;border-radius:12px;background:var(--bg2);border:1.5px solid var(--border);color:var(--text);font-size:16px;outline:none;box-sizing:border-box;transition:.2s;">
+      </div>
+      <div>
+        <label style="display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;font-weight:800;">Data</label>
+        <input id="comb-data" type="date" style="width:100%;padding:13px 14px;border-radius:12px;background:var(--bg2);border:1.5px solid var(--border);color:var(--text);font-size:15px;outline:none;box-sizing:border-box;transition:.2s;">
+      </div>
+    </div>
+
+    <!-- Litros abastecidos (opcional) -->
+    <div style="margin-bottom:18px;">
+      <label style="display:block;font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;font-weight:800;">
+        Litros Abastecidos <span style="font-weight:400;text-transform:none;letter-spacing:0;">(opcional — estimado automaticamente)</span>
+      </label>
+      <input id="comb-litros" type="number" min="0.1" step="0.1" placeholder="Deixe vazio para estimar" style="width:100%;padding:13px 14px;border-radius:12px;background:var(--bg2);border:1.5px solid var(--border);color:var(--text);font-size:16px;outline:none;box-sizing:border-box;transition:.2s;">
+      <div id="comb-litros-est" style="display:none;font-size:12px;color:var(--warning);margin-top:5px;"></div>
+    </div>
+
+    <!-- Preço customizado do combustível -->
+    <div style="padding:16px 18px;border-radius:14px;background:rgba(255,179,71,.05);border:1px solid rgba(255,179,71,.15);margin-bottom:20px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:2px;">Preço do Combustível</div>
+          <div style="font-size:12px;color:var(--muted);">
+            Padrão: <span id="comb-modal-price-label" style="color:var(--warning);">R$ 6,19/L</span>
+            — deixe vazio para usar o padrão
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;">
+          <span style="color:var(--muted);font-size:13px;">R$</span>
+          <input id="comb-preco-custom" type="number" min="0.01" step="0.01" placeholder="Opcional"
+            style="width:96px;padding:10px 12px;border-radius:10px;background:var(--bg2);border:1.5px solid rgba(255,179,71,.3);color:var(--warning);font-family:'DM Mono',monospace;font-size:15px;font-weight:700;text-align:center;outline:none;transition:.2s;box-sizing:border-box;">
+          <span style="color:var(--muted);font-size:13px;">/L</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Total Preview — Card Destaque -->
+    <div style="
+      border-radius:20px;padding:22px 24px;margin-bottom:22px;
+      background:linear-gradient(135deg,rgba(0,212,255,.08),rgba(0,153,204,.04));
+      border:1px solid rgba(0,212,255,.2);
+      display:flex;align-items:center;justify-content:space-between;
+    ">
+      <div>
+        <div style="font-size:12px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">Total Estimado</div>
+        <div style="font-size:12px;color:var(--muted);">KM × Litros × R$/L</div>
+      </div>
+      <div id="comb-total-preview" style="font-family:'DM Mono',monospace;font-size:clamp(24px,5vw,36px);font-weight:700;color:var(--accent);">
+        R$ 0,00
+      </div>
+    </div>
+
+    <!-- Botão Registrar -->
+    <button id="btn-registrar-comb" style="
+      width:100%;padding:18px;border-radius:14px;border:none;cursor:pointer;
+      font-weight:800;font-size:16px;
+      background:linear-gradient(135deg,#00d4ff,#0099cc);
+      color:#000;box-shadow:0 4px 20px rgba(0,212,255,.3);transition:.2s;
+    ">
+      ⛽ Registrar Viagem
+    </button>
+  </div>
+</div>
+
+
+<!-- ─────────────────────────────────────────────────────────
+     BLOCO E: CSS Extra — Cole no seu <style> global
+───────────────────────────────────────────────────────────── -->
+<style>
+/* Modal combustível: ativo quando tem classe 'active' */
+#comb-modal-add.active {
+  display: flex !important;
+}
+
+/* Focus nos inputs do modal */
+#comb-modal-add input:focus {
+  border-color: var(--accent, #00d4ff) !important;
+  box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);
+}
+
+#comb-preco-custom:focus {
+  border-color: var(--warning, #ffb347) !important;
+  box-shadow: 0 0 0 3px rgba(255, 179, 71, 0.1);
+}
+
+/* Card hero animado */
+.comb-hero-card {
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+/* Cards de viagem */
+.comb-card {
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.comb-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+}
+
+/* Tab hover */
+.comb-tab-btn:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: var(--text) !important;
+}
+
+/* Scroll suave no modal */
+#comb-modal-add > div {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,.1) transparent;
+}
+</style>
+
+
+<!-- ─────────────────────────────────────────────────────────
+     BLOCO F: Import do módulo — Cole antes de </body>
+───────────────────────────────────────────────────────────── -->
+<script type="module" src="combustivel-controller.js"></script>
+
+<!-- 
+     Também atualize o switchV() no tenant-controller.js:
+     Adicione 'v-combustivel':'Logística / KM' ao objeto titles:
+     
+     const titles = {
+       'v-home':        'Dashboard',
+       'v-cal':         'Calendário',
+       'v-obrig':       'Obrigações',
+       'v-rep':         'Relatórios',
+       'v-papelao':     'Compra Papelão',
+       'v-combustivel': 'Logística / KM',   // ← NOVO
+       'v-users':       'Segurança'
+     };
+-->
+
+
+<!-- ─────────────────────────────────────────────────────────
+     BLOCO G: Painel Admin Master — Consolidado de Combustível
+     Cole dentro do painel admin existente (admin-controller.js
+     já gerencia a renderização; este HTML é a estrutura base
+     que o admin-controller popula via lumin:admin-ready).
+───────────────────────────────────────────────────────────── -->
+<div id="admin-comb-panel" style="padding:0;">
+
+  <div style="margin-bottom:28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;">
+    <div>
+      <h3 style="font-size:22px;font-weight:900;margin-bottom:6px;">⛽ Consolidado de Combustível</h3>
+      <p style="color:var(--muted);font-size:14px;">Visão agregada de gastos de logística de todos os tenants.</p>
+    </div>
+    <button id="admin-comb-refresh" style="padding:12px 22px;border-radius:12px;background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.2);color:var(--accent);font-weight:700;font-size:14px;cursor:pointer;display:flex;align-items:center;gap:8px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.27"/></svg>
+      Atualizar
+    </button>
+  </div>
+
+  <!-- Resumo Geral -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:24px;">
+    <div class="glass stat-card" style="color:var(--accent);">
+      <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:10px;">Gasto Total</p>
+      <h3 id="admin-comb-total" style="font-family:'DM Mono',monospace;">R$ 0,00</h3>
+    </div>
+    <div class="glass stat-card" style="color:var(--success);">
+      <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:10px;">Total KM</p>
+      <h3 id="admin-comb-km" style="font-family:'DM Mono',monospace;">0 km</h3>
+    </div>
+    <div class="glass stat-card" style="color:var(--warning);">
+      <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:10px;">Custo/KM Médio</p>
+      <h3 id="admin-comb-cpkm" style="font-family:'DM Mono',monospace;">R$ —</h3>
+    </div>
+    <div class="glass stat-card" style="color:var(--purple);">
+      <p style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:10px;">Viagens</p>
+      <h3 id="admin-comb-count" style="font-family:'DM Mono',monospace;">0</h3>
+    </div>
+  </div>
+
+  <!-- Filtro período -->
+  <div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap;">
+    <button class="admin-comb-filter active" data-period="month" style="padding:10px 20px;border-radius:20px;font-size:13px;font-weight:700;border:1.5px solid var(--accent);background:rgba(0,212,255,.12);color:var(--accent);cursor:pointer;transition:.2s;">Este Mês</button>
+    <button class="admin-comb-filter" data-period="all" style="padding:10px 20px;border-radius:20px;font-size:13px;font-weight:700;border:1.5px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:.2s;">Todos</button>
+  </div>
+
+  <!-- Tabela por tenant -->
+  <div class="glass" style="border-radius:20px;overflow:hidden;">
+    <div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+      <h4 style="font-size:15px;font-weight:800;">Detalhamento por Empresa</h4>
+      <span id="admin-comb-period-label" style="font-size:12px;color:var(--muted);font-weight:600;">Mês atual</span>
+    </div>
+    <div id="admin-comb-list" style="padding:16px 24px;">
+      <p style="color:var(--muted);font-size:15px;padding:20px 0;">Carregando dados...</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- 
+     INSTRUÇÃO para admin-controller.js:
+     ─────────────────────────────────────
+     No evento 'lumin:admin-ready', adicione o carregamento
+     do consolidado de combustível:
+     
+     window.addEventListener('lumin:admin-ready', async ({ detail }) => {
+       // ... código existente ...
+       await loadAdminCombustivel(); // ← NOVO
+     });
+     
+     async function loadAdminCombustivel(period = 'month') {
+       const now = new Date();
+       const listEl = document.getElementById('admin-comb-list');
+       if (!listEl) return;
+       
+       // Busca todos os tenants
+       const companiesSnap = await getDocs(collection(db, 'companies'));
+       let grandTotal = 0, grandKm = 0, grandViagens = 0;
+       let rows = '';
+       
+       for (const compDoc of companiesSnap.docs) {
+         const cId = compDoc.id;
+         const cData = compDoc.data();
+         
+         // Busca viagens desta empresa
+         const viajensSnap = await getDocs(
+           query(collection(db, `companies/${cId}/combustivel`), orderBy('createdAt','desc'))
+         );
+         
+         let viagens = viajensSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+         
+         // Filtra por período
+         if (period === 'month') {
+           viagens = viagens.filter(v => {
+             if (!v.data) return false;
+             const [y, m] = v.data.split('-').map(Number);
+             return y === now.getFullYear() && m - 1 === now.getMonth();
+           });
+         }
+         
+         if (!viagens.length) continue;
+         
+         const total  = viagens.reduce((a, v) => a + (v.total || 0), 0);
+         const km     = viagens.reduce((a, v) => a + (v.km || 0), 0);
+         const cpkm   = km > 0 ? total / km : 0;
+         
+         grandTotal  += total;
+         grandKm     += km;
+         grandViagens += viagens.length;
+         
+         const fmt = v => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+         rows += `
+           <div style="display:flex;align-items:center;gap:16px;padding:14px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;">
+             <div style="width:40px;height:40px;border-radius:12px;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.15);display:grid;place-items:center;font-size:18px;flex-shrink:0;">⛽</div>
+             <div style="flex:1;min-width:0;">
+               <div style="font-weight:700;font-size:15px;">${cData.name || cId}</div>
+               <div style="font-size:12px;color:var(--muted);">${viagens.length} viagem(ns) · ${Number(km).toFixed(0)} km</div>
+             </div>
+             <div style="text-align:right;">
+               <div style="font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--accent);">${fmt(total)}</div>
+               <div style="font-size:11px;color:var(--muted);">R$ ${Number(cpkm).toFixed(3)}/km</div>
+             </div>
+           </div>`;
+       }
+       
+       if (listEl) listEl.innerHTML = rows || '<p style="color:var(--muted);padding:20px 0;">Nenhum dado encontrado.</p>';
+       
+       // Atualiza totalizadores
+       const fmt = v => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+       document.getElementById('admin-comb-total')?.textContent = fmt(grandTotal);
+       document.getElementById('admin-comb-km')?.textContent    = Number(grandKm).toFixed(0) + ' km';
+       document.getElementById('admin-comb-count')?.textContent = grandViagens;
+       const cpkmEl = document.getElementById('admin-comb-cpkm');
+       if (cpkmEl) cpkmEl.textContent = grandKm > 0 ? `R$ ${(grandTotal/grandKm).toFixed(3)}/km` : 'R$ —';
+     }
+-->

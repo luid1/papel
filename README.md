@@ -1,160 +1,191 @@
-# Lumin SaaS — Multi-tenant Finance Bot
+# Lumin SaaS v2 — Guia de Configuração (Admin-First)
 
-Arquitetura **Multi-tenant SaaS** com Node.js, WhatsApp-web.js (Baileys) e Firebase Firestore.
-
----
-
-## Estrutura de Diretórios
+## Estrutura de Arquivos
 
 ```
-lumin-saas/
-├── .env                    ← Credenciais (não commitar)
-├── .env.example            ← Template
-├── server.js               ← Entry point (Express + BotManager)
-├── package.json
-│
-├── config/
-│   ├── firebase.js         ← Inicialização Firebase Admin
-│   └── groq.js             ← Cliente Groq/Llama IA
-│
-├── admin/
-│   ├── companies.js        ← CRUD de empresas (Firestore /companies)
-│   └── router.js           ← API REST do painel Master
-│
-├── bot/
-│   ├── instance.js         ← Instância individual de bot (por empresa)
-│   ├── manager.js          ← Orquestrador: um bot por empresa ativa
-│   ├── ai.js               ← Análise financeira via Groq (Llama)
-│   └── financeiro.js       ← Persistência multi-tenant no Firestore
-│
-├── public/
-│   └── index.html          ← Frontend (design original preservado)
-│
-└── scripts/
-    └── seed-company.js     ← Cria empresa de exemplo
+lumin-v2/
+├── index.html              # Shell principal (Preloader + Login + Admin)
+├── firebase-config.js      # Inicialização Firebase V10 Modular
+├── auth-manager.js         # Gerenciador de Sessão e Route Guard
+├── admin-controller.js     # CRUD Admin (Companies + Users)
+├── login-controller.js     # Captura eventos do formulário de login
+└── README.md               # Este arquivo
 ```
 
 ---
 
-## Configuração
+## Passo 1 — Configurar Firebase
 
-### 1. Instalar dependências
-```bash
-npm install
-```
+1. Acesse [console.firebase.google.com](https://console.firebase.google.com)
+2. Crie um projeto (ex: `lumin-saas`)
+3. Ative **Authentication → Email/Password**
+4. Ative **Firestore Database**
+5. Em **Configurações do Projeto → Seus apps → Web**, copie o `firebaseConfig`
+6. Cole as credenciais em `firebase-config.js`
 
-### 2. Configurar `.env`
-```
-FIREBASE_PROJECT_ID=lumin-a5b29
-FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n"
-FIREBASE_CLIENT_EMAIL=firebase-adminsdk-...@lumin-a5b29.iam.gserviceaccount.com
+---
 
-GROQ_API_KEY=gsk_...
+## Passo 2 — Criar o Usuário Admin Master no Firebase Auth
 
-ADMIN_USER=luidoliver
-ADMIN_PASS=luid@
+Como o Auth Manager usa `signInWithEmailAndPassword`, o usuário Master precisa existir no Firebase Auth. Execute este script **uma única vez** no console do seu projeto (Cloud Functions, ou temporariamente no frontend em desenvolvimento):
 
-PORT=3000
-SESSION_BASE_PATH=./sessions
-```
+```javascript
+// Executar apenas UMA VEZ para criar o Admin Master
+import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
+import { getFirestore, doc, setDoc, serverTimestamp } from "firebase/firestore";
 
-### 3. Iniciar
-```bash
-npm start
+const auth = getAuth();
+const db   = getFirestore();
+
+const email    = "luidoliver@lumin.internal";
+const password = "SUA_SENHA_SEGURA_AQUI"; // mínimo 6 caracteres
+
+const cred = await createUserWithEmailAndPassword(auth, email, password);
+const uid  = cred.user.uid;
+
+await setDoc(doc(db, "users", uid), {
+  username:    "luidoliver",
+  displayName: "Admin Master",
+  email,
+  role:        "master",
+  companyId:   null,
+  active:      true,
+  createdAt:   serverTimestamp()
+});
+
+console.log("Admin Master criado! UID:", uid);
 ```
 
 ---
 
-## Acesso Admin Master
+## Passo 3 — Regras de Segurança do Firestore
 
-- **URL:** `http://localhost:3000`
-- **Usuário:** `luidoliver`
-- **Senha:** `luid@`
+Cole estas regras em **Firestore → Regras**:
 
-O painel Admin permite:
-- Cadastrar novas empresas (nome, login, senha, número bot, cor)
-- Listar e ativar/desativar empresas
-- Ver extrato financeiro de cada tenant via API
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
 
----
+    // Função auxiliar: verifica se o usuário logado é Master
+    function isMaster() {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'master';
+    }
 
-## API Admin REST
+    // Função auxiliar: verifica se o usuário é tenant ativo
+    function isTenant() {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'tenant' &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.active == true;
+    }
 
-Todas as rotas exigem Basic Auth (`ADMIN_USER:ADMIN_PASS`).
+    // Coleção users
+    match /users/{userId} {
+      // Leitura: o próprio usuário ou o Master
+      allow read:   if request.auth.uid == userId || isMaster();
+      // Criação: apenas o Master
+      allow create: if isMaster();
+      // Atualização: o próprio (campos limitados) ou o Master (full)
+      allow update: if isMaster() ||
+        (request.auth.uid == userId &&
+         request.resource.data.role == resource.data.role &&
+         request.resource.data.active == resource.data.active);
+      // Deleção: apenas o Master
+      allow delete: if isMaster();
+    }
 
-| Método | Rota | Descrição |
-|--------|------|-----------|
-| `POST`   | `/admin/companies`         | Criar empresa |
-| `GET`    | `/admin/companies`         | Listar empresas |
-| `GET`    | `/admin/companies/:id`     | Buscar empresa |
-| `PUT`    | `/admin/companies/:id`     | Atualizar empresa |
-| `DELETE` | `/admin/companies/:id`     | Desativar empresa |
-| `GET`    | `/admin/companies/:id/financeiro` | Extrato do tenant |
-| `GET`    | `/admin/status`            | Status dos bots |
+    // Coleção companies
+    match /companies/{companyId} {
+      // Leitura: qualquer tenant ativo ou o Master
+      allow read:   if isTenant() || isMaster();
+      // Escrita: apenas o Master
+      allow write:  if isMaster();
+    }
 
-### Exemplo: criar empresa via cURL
-```bash
-curl -X POST http://localhost:3000/admin/companies \
-  -u "luidoliver:luid@" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Eco Mix",
-    "login": "ecomix",
-    "password": "eco@123",
-    "botPhone": "5511999990001",
-    "themeColor": "#00d4ff"
-  }'
+    // Bloquear tudo que não foi declarado
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
 ```
 
 ---
 
-## Estrutura Firestore (Multi-tenant)
+## Fluxo de Segurança (Route Guard)
 
 ```
-/companies/{companyId}
-  name:        "Eco Mix Ltda"
-  login:       "ecomix"
-  password:    "eco@123"
-  botPhone:    "5511999990001"
-  themeColor:  "#00d4ff"
-  active:      true
-  createdAt:   1234567890000
-
-  /financeiro/{docId}        ← dados ISOLADOS por empresa
-    amount:      1500.00
-    category:    "saida-fixa"
-    description: "aluguel"
-    date:        "2025-01-15"
-    companyId:   "abc123"
-    createdBy:   "5511988887777"
-    ...
-```
-
-**Isolamento garantido:** A Empresa A lê apenas `/companies/companyA/financeiro`. A Empresa B nunca acessa dados da Empresa A.
-
----
-
-## Bot Multi-tenant
-
-- Ao iniciar, o `BotManager` lê todas as empresas ativas no Firestore
-- Cria uma instância `BotInstance` por empresa
-- Cada instância tem sua própria pasta de sessão: `./sessions/{companyId}/`
-- O `companyId` é identificado pelo número do bot (`client.info.wid.user`)
-- Lançamentos são gravados em `/companies/{companyId}/financeiro`
-
-### Iniciar bot para nova empresa (sem reiniciar servidor)
-```bash
-curl -X POST http://localhost:3000/api/bot/{companyId}/start
+Carrega index.html
+      │
+      ▼
+  PRELOADER (3s animação)
+      │
+      ▼
+  auth-manager.js → onAuthStateChanged()
+      │
+      ├─ Sem sessão ──────────────────► LOGIN SCREEN
+      │                                     │
+      │                              Usuário digita credenciais
+      │                                     │
+      │                              LuminAuth.login()
+      │                              signInWithEmailAndPassword()
+      │                              getDoc(users/{uid})
+      │                                     │
+      └─ Sessão ativa                        │
+            │                               │
+            ▼                               ▼
+      getDoc(users/{uid})          ← Valida role + active
+            │
+            ├─ role: "master" ──► ADMIN PANEL + evento lumin:admin-ready
+            │                          │
+            │                    admin-controller.js carrega CRUD
+            │
+            ├─ role: "tenant"   ──► APP SHELL WRAPPER (Fase 2)
+            │   active: true
+            │
+            └─ role inválida    ──► _securityBreach()
+               active: false         signOut() + LOGIN SCREEN + aviso
 ```
 
 ---
 
-## themeColor
+## Estrutura do Firestore
 
-O campo `themeColor` da empresa é lido no login e aplicado via CSS:
-```css
---accent:  #RRGGBB   /* cor principal */
---accent2: versão mais escura (calculada automaticamente)
+### Coleção `/users/{uid}`
+```json
+{
+  "username":    "ecomix",
+  "displayName": "Eco Mix Ltda",
+  "email":       "ecomix@lumin.internal",
+  "role":        "tenant",
+  "companyId":   "eco-mix-ltda-abc123",
+  "active":      true,
+  "createdAt":   Timestamp
+}
 ```
 
-Apenas botões, bordas e destaques assumem a cor do tenant. O layout base permanece intacto.
+### Coleção `/companies/{companyId}`
+```json
+{
+  "name":       "Eco Mix Ltda",
+  "phone":      "5511999990001",
+  "themeColor": "#00d4ff",
+  "active":     true,
+  "createdAt":  Timestamp
+}
+```
+
+---
+
+## Segurança: O que foi implementado
+
+| Proteção | Implementação |
+|----------|--------------|
+| Nenhuma view renderizada sem sessão | `showLayer()` controla visibilidade por CSS class, nunca injeta HTML antes da validação |
+| Acesso admin verificado no backend | `getDoc(users/{uid})` valida `role === "master"` no Firestore, não só no frontend |
+| Tentativa de acesso não autorizado | `_securityBreach()` → `signOut()` → limpa estado → LOGIN com aviso |
+| Tenant com conta suspensa | `active === false` → breach de segurança + logout forçado |
+| Dupla verificação no Admin | `requireRole("master")` em toda operação CRUD sensível |
+| Regras Firestore | Master-only write em `/companies` e `/users` |
+| Sem localStorage de sessão | Sessão gerenciada exclusivamente pelo Firebase Auth SDK |
