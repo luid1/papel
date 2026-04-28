@@ -702,12 +702,36 @@ function initLuminLog() {
       }
     });
   });
+
+  // Preço fixo por cor: Preta → R$20 | Branca → R$28
+  document.getElementById("ll-add-cor")?.addEventListener("change", function() {
+    const preco   = LL_PRECOS_COR[this.value];
+    const unitEl  = document.getElementById("ll-add-vl-unit");
+    const totalEl = document.getElementById("ll-add-vl-total");
+    if (preco && unitEl) {
+      unitEl.value = preco.toFixed(2);
+      // Recalcula total se quantidade já estiver preenchida
+      const qtd = parseFloat(document.getElementById("ll-add-quantidade")?.value) || 0;
+      if (qtd > 0 && totalEl && !totalEl._manuallyEdited) {
+        totalEl.value = (qtd * preco).toFixed(2);
+      }
+    } else if (unitEl && !preco) {
+      // "Outra" — limpa o preço para o usuário digitar
+      unitEl.value = "";
+    }
+  });
   document.getElementById("ll-add-vl-total")?.addEventListener("input", function() {
     this._manuallyEdited = this.value !== "";
   });
 }
 
-// ─── MODAL ADD: ABRIR / FECHAR ────────────────────────────────
+// Tabela de preços fixos por cor de caixa
+const LL_PRECOS_COR = {
+  "Preta":  20,
+  "Branca": 28,
+};
+
+
 function openLLAddModal() {
   const modal = document.getElementById("ll-modal-add");
   if (!modal) return;
@@ -718,8 +742,9 @@ function openLLAddModal() {
    "ll-add-conferente"].forEach(id => {
     const el = document.getElementById(id);
     if (!el) return;
-    if (el.tagName === "SELECT") el.value = "ENTRADA";
-    else el.value = "";
+    if (id === "ll-add-tipo") { el.value = "ENTRADA"; return; }
+    if (id === "ll-add-cor")  { el.value = ""; return; }
+    el.value = "";
     if (id === "ll-add-vl-total") el._manuallyEdited = false;
   });
 
