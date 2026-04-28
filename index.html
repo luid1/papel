@@ -15,6 +15,8 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+  <!-- SheetJS — Exportação Excel -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
   <link rel="stylesheet" href="style.css">
 </head>
@@ -115,6 +117,9 @@
     </button>
     <button class="admin-tab" data-tab="tab-combustivel">
       ⛽ Logística
+    </button>
+    <button class="admin-tab" data-tab="tab-luminlog">
+      📦 Lumin Log
     </button>
   </div>
 
@@ -357,8 +362,176 @@
       </div>
     </div><!-- /tab-combustivel -->
 
+    <!-- ── ABA: LUMIN LOG ── -->
+    <div class="admin-tab-panel" id="tab-luminlog">
+      <div class="admin-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:24px;">
+          <div>
+            <h3 style="margin-bottom:4px;">📦 Lumin Log — Caixas Hetros</h3>
+            <p style="font-size:13px;color:var(--muted);margin:0;">Movimentações registradas via WhatsApp (voz ou texto).</p>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+            <button class="ll-filter-btn active" data-ll-filter="all" style="padding:10px 20px;border-radius:20px;font-size:13px;font-weight:700;border:1.5px solid var(--accent);background:rgba(0,212,255,.12);color:var(--accent);cursor:pointer;transition:.2s;">Todos</button>
+            <button class="ll-filter-btn" data-ll-filter="ENTRADA" style="padding:10px 20px;border-radius:20px;font-size:13px;font-weight:700;border:1.5px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:.2s;">Entradas</button>
+            <button class="ll-filter-btn" data-ll-filter="SAÍDA" style="padding:10px 20px;border-radius:20px;font-size:13px;font-weight:700;border:1.5px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:.2s;">Saídas</button>
+            <button id="ll-refresh" style="padding:10px 18px;border-radius:20px;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.2);color:var(--accent);font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.27"/></svg>
+              Atualizar
+            </button>
+            <button id="ll-export-excel" style="padding:10px 18px;border-radius:20px;background:rgba(0,229,160,.08);border:1px solid rgba(0,229,160,.25);color:var(--success);font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;" title="Exportar tabela atual para Excel">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Exportar Excel
+            </button>
+            <button id="ll-btn-add" style="padding:10px 20px;border-radius:20px;background:var(--accent);border:1px solid transparent;color:#000;font-weight:800;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:7px;" title="Adicionar registro manualmente">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Novo
+            </button>
+          </div>
+        </div>
+
+        <!-- Totalizadores -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:24px;">
+          <div class="glass" style="padding:20px;border-radius:16px;border:1px solid rgba(0,229,160,.15);">
+            <p style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;">Total Entradas</p>
+            <div id="ll-total-entrada" style="font-family:'DM Mono',monospace;font-size:22px;font-weight:700;color:var(--success);">0 cx</div>
+          </div>
+          <div class="glass" style="padding:20px;border-radius:16px;border:1px solid rgba(255,91,112,.15);">
+            <p style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;">Total Saídas</p>
+            <div id="ll-total-saida" style="font-family:'DM Mono',monospace;font-size:22px;font-weight:700;color:var(--alert);">0 cx</div>
+          </div>
+          <div class="glass" style="padding:20px;border-radius:16px;border:1px solid rgba(0,212,255,.15);">
+            <p style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;">Valor Total</p>
+            <div id="ll-total-valor" style="font-family:'DM Mono',monospace;font-size:22px;font-weight:700;color:var(--accent);">R$ 0,00</div>
+          </div>
+          <div class="glass" style="padding:20px;border-radius:16px;border:1px solid rgba(255,179,71,.15);">
+            <p style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;">Registros</p>
+            <div id="ll-total-count" style="font-family:'DM Mono',monospace;font-size:22px;font-weight:700;color:var(--warning);">0</div>
+          </div>
+        </div>
+
+        <!-- Status REVISAR -->
+        <div id="ll-revisar-banner" style="display:none;padding:14px 18px;border-radius:12px;background:rgba(255,179,71,.1);border:1px solid rgba(255,179,71,.3);color:var(--warning);font-size:13px;font-weight:700;margin-bottom:18px;">
+          ⚠ <span id="ll-revisar-count">0</span> registro(s) precisam de conferência manual.
+        </div>
+
+        <!-- Tabela -->
+        <div class="adm-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Data</th>
+                <th>Tipo</th>
+                <th>Cliente</th>
+                <th>Qtd CX</th>
+                <th>Cor</th>
+                <th>Valor Unit.</th>
+                <th>Total</th>
+                <th>Conferente</th>
+                <th>Status</th>
+                <th style="text-align:right;">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="ll-tbody">
+              <tr><td colspan="10" style="text-align:center;color:var(--muted);padding:28px;">Carregando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div><!-- /tab-luminlog -->
+
   </div><!-- /admin-content -->
 </div><!-- /admin-panel -->
+
+<!-- ════════════════════════════════════════════════════════════
+     MODAL — NOVO REGISTRO LUMIN LOG (Caixas Hetros)
+════════════════════════════════════════════════════════════ -->
+<div id="ll-modal-add" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);place-items:center;padding:20px;">
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:24px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;box-shadow:0 32px 80px rgba(0,0,0,.5);animation:sheetUp .28s var(--ease,cubic-bezier(.2,.8,.4,1));">
+
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:24px 28px 0;">
+      <div>
+        <h3 style="font-family:'Montserrat',sans-serif;font-size:1.1rem;font-weight:800;margin-bottom:2px;">Novo Registro</h3>
+        <p style="font-size:12px;color:var(--muted);">Adição manual · caixas_hetros</p>
+      </div>
+      <button id="ll-modal-close" style="width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--muted);display:grid;place-items:center;font-size:18px;cursor:pointer;flex-shrink:0;">✕</button>
+    </div>
+
+    <!-- Form -->
+    <div style="padding:20px 28px 28px;display:grid;gap:16px;">
+
+      <!-- Tipo + Data -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div>
+          <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:8px;">Tipo *</label>
+          <select id="ll-add-tipo" class="input-field" style="cursor:pointer;">
+            <option value="ENTRADA">ENTRADA</option>
+            <option value="SAÍDA">SAÍDA</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:8px;">Data *</label>
+          <input type="date" id="ll-add-data" class="input-field">
+        </div>
+      </div>
+
+      <!-- Cliente -->
+      <div>
+        <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:8px;">Cliente *</label>
+        <input type="text" id="ll-add-cliente" class="input-field" placeholder="Nome do cliente">
+      </div>
+
+      <!-- Fornecedor -->
+      <div>
+        <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:8px;">Fornecedor</label>
+        <input type="text" id="ll-add-fornecedor" class="input-field" placeholder="Nome do fornecedor">
+      </div>
+
+      <!-- Qtd + Cor -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div>
+          <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:8px;">Qtd. Caixas *</label>
+          <input type="number" id="ll-add-quantidade" class="input-field" placeholder="0" min="0" inputmode="numeric">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:8px;">Cor</label>
+          <input type="text" id="ll-add-cor" class="input-field" placeholder="Ex: Azul, Branco…">
+        </div>
+      </div>
+
+      <!-- Valor Unit + Total -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div>
+          <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:8px;">Valor Unitário (R$)</label>
+          <input type="number" id="ll-add-vl-unit" class="input-field" placeholder="0,00" min="0" step="0.01" inputmode="decimal">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:8px;">Valor Total (R$)</label>
+          <input type="number" id="ll-add-vl-total" class="input-field" placeholder="0,00" min="0" step="0.01" inputmode="decimal">
+        </div>
+      </div>
+
+      <!-- Conferente -->
+      <div>
+        <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:8px;">Conferente</label>
+        <input type="text" id="ll-add-conferente" class="input-field" placeholder="Nome do conferente">
+      </div>
+
+      <!-- Mensagem de erro -->
+      <div id="ll-add-msg" style="display:none;padding:12px 16px;border-radius:10px;font-size:13px;font-weight:600;"></div>
+
+      <!-- Ações -->
+      <div style="display:flex;gap:10px;margin-top:4px;">
+        <button id="ll-modal-cancel" style="flex:1;padding:14px;border-radius:12px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--muted);font-size:14px;font-weight:600;cursor:pointer;">Cancelar</button>
+        <button id="ll-btn-save-add" class="btn-primary" style="flex:2;font-size:15px;padding:14px;display:flex;align-items:center;justify-content:center;gap:8px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Salvar Registro
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
 
 <!-- ════════════════════════════════════════════════════════════
      MODAL — EDITAR USUÁRIO

@@ -538,3 +538,338 @@ function bindFeatEvents() {
 }
 
 
+
+
+// ═══════════════════════════════════════════════════════════════
+//  LUMIN LOG — Dashboard de Caixas Hetros (Admin Master)
+// ═══════════════════════════════════════════════════════════════
+
+import {
+  collection as fsCollection,
+  onSnapshot as fsOnSnapshot,
+  query as fsQuery,
+  orderBy as fsOrderBy,
+  deleteDoc as fsDeleteDoc,
+  doc as fsDoc,
+  addDoc as fsAddDoc,
+  serverTimestamp as fsServerTimestamp
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+let _llCache = [];
+let _llFilter = "all";
+let _llUnsub = null;
+
+const llFmt = v => Number(v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const llEl  = id => document.getElementById(id);
+
+function renderLuminLog() {
+  const tbody = llEl("ll-tbody");
+  if (!tbody) return;
+
+  const data = _llFilter === "all"
+    ? _llCache
+    : _llCache.filter(r => (r.tipo || "").toUpperCase() === _llFilter.toUpperCase());
+
+  // Totalizadores
+  const entradas = _llCache.filter(r => (r.tipo || "").toUpperCase() === "ENTRADA");
+  const saidas   = _llCache.filter(r => (r.tipo || "").toUpperCase() === "SAÍDA");
+  const revisares = _llCache.filter(r => r.status_processamento === "REVISAR");
+
+  const totalQtdEntrada = entradas.reduce((a, r) => a + (Number(r.quantidade_cx) || 0), 0);
+  const totalQtdSaida   = saidas.reduce((a, r) => a + (Number(r.quantidade_cx) || 0), 0);
+  const totalValor      = _llCache.reduce((a, r) => a + (Number(r.valor_total) || 0), 0);
+
+  if (llEl("ll-total-entrada")) llEl("ll-total-entrada").textContent = totalQtdEntrada + " cx";
+  if (llEl("ll-total-saida"))   llEl("ll-total-saida").textContent   = totalQtdSaida + " cx";
+  if (llEl("ll-total-valor"))   llEl("ll-total-valor").textContent   = llFmt(totalValor);
+  if (llEl("ll-total-count"))   llEl("ll-total-count").textContent   = _llCache.length;
+
+  const banner = llEl("ll-revisar-banner");
+  const bannerCount = llEl("ll-revisar-count");
+  if (banner) banner.style.display = revisares.length ? "block" : "none";
+  if (bannerCount) bannerCount.textContent = revisares.length;
+
+  if (!data.length) {
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:28px;font-size:13px;">Nenhum registro encontrado.</td></tr>`;
+    return;
+  }
+
+  const esc = s => String(s || "—").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  tbody.innerHTML = data.map(r => {
+    const isEntrada  = (r.tipo || "").toUpperCase() === "ENTRADA";
+    const isRevisar  = r.status_processamento === "REVISAR";
+    const tipoColor  = isEntrada ? "var(--success)" : "var(--alert)";
+    const tipoBg     = isEntrada ? "rgba(0,229,160,.1)" : "rgba(255,91,112,.1)";
+    const tipoBorder = isEntrada ? "rgba(0,229,160,.25)" : "rgba(255,91,112,.25)";
+
+    return `<tr data-ll-id="${r.id}" ${isRevisar ? 'style="background:rgba(255,179,71,.04);"' : ""}>
+      <td style="font-family:'DM Mono',monospace;font-size:13px;">${esc(r.data)}</td>
+      <td>
+        <span style="font-size:11px;font-weight:800;padding:4px 10px;border-radius:20px;background:${tipoBg};color:${tipoColor};border:1px solid ${tipoBorder};text-transform:uppercase;letter-spacing:.5px;">
+          ${esc(r.tipo)}
+        </span>
+      </td>
+      <td style="font-weight:700;">${esc(r.cliente)}</td>
+      <td style="font-family:'DM Mono',monospace;text-align:center;">
+        ${r.quantidade_cx === null || r.quantidade_cx === undefined
+          ? '<span style="color:var(--warning);font-weight:700;">?</span>'
+          : r.quantidade_cx}
+      </td>
+      <td>${esc(r.cor)}</td>
+      <td style="font-family:'DM Mono',monospace;">${r.valor_unitario ? llFmt(r.valor_unitario) : "—"}</td>
+      <td style="font-family:'DM Mono',monospace;font-weight:700;color:${tipoColor};">${llFmt(r.valor_total)}</td>
+      <td>${esc(r.conferente)}</td>
+      <td>
+        ${isRevisar
+          ? '<span style="font-size:11px;font-weight:800;padding:3px 8px;border-radius:20px;background:rgba(255,179,71,.1);color:var(--warning);border:1px solid rgba(255,179,71,.3);">REVISAR</span>'
+          : '<span style="font-size:11px;font-weight:800;padding:3px 8px;border-radius:20px;background:rgba(0,229,160,.1);color:var(--success);border:1px solid rgba(0,229,160,.2);">✓</span>'}
+      </td>
+      <td style="text-align:right;">
+        <button class="btn-act del" data-ll-del="${r.id}" title="Excluir">✕</button>
+      </td>
+    </tr>`;
+  }).join("");
+
+  // Bind delete
+  tbody.querySelectorAll("[data-ll-del]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      if (!confirm("Excluir este registro?")) return;
+      try {
+        await fsDeleteDoc(fsDoc(db, "lumin-log", btn.dataset.llDel));
+        toast("Registro excluído.");
+      } catch (err) {
+        toast("Erro ao excluir.", "err");
+      }
+    });
+  });
+}
+
+function initLuminLog() {
+  if (_llUnsub) return; // já inicializado
+
+  _llUnsub = fsOnSnapshot(
+    fsQuery(fsCollection(db, "lumin-log"), fsOrderBy("createdAt", "desc")),
+    snap => {
+      _llCache = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      if (document.getElementById("tab-luminlog")?.classList.contains("active")) {
+        renderLuminLog();
+      }
+    },
+    err => console.error("[LuminLog]", err)
+  );
+
+  // Filtros
+  document.querySelectorAll(".ll-filter-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      document.querySelectorAll(".ll-filter-btn").forEach(b => {
+        b.classList.remove("active");
+        b.style.borderColor = "var(--border)";
+        b.style.background  = "transparent";
+        b.style.color       = "var(--muted)";
+      });
+      btn.classList.add("active");
+      btn.style.borderColor = "var(--accent)";
+      btn.style.background  = "rgba(0,212,255,.12)";
+      btn.style.color       = "var(--accent)";
+      _llFilter = btn.dataset.llFilter;
+      renderLuminLog();
+    });
+  });
+
+  document.getElementById("ll-refresh")?.addEventListener("click", renderLuminLog);
+  document.getElementById("ll-export-excel")?.addEventListener("click", exportLuminLogExcel);
+
+  // ── Botão + Novo ──────────────────────────────────────────────
+  document.getElementById("ll-btn-add")?.addEventListener("click", openLLAddModal);
+  document.getElementById("ll-modal-close")?.addEventListener("click", closeLLAddModal);
+  document.getElementById("ll-modal-cancel")?.addEventListener("click", closeLLAddModal);
+  document.getElementById("ll-btn-save-add")?.addEventListener("click", saveLLRecord);
+
+  // Fechar clicando no backdrop
+  document.getElementById("ll-modal-add")?.addEventListener("click", e => {
+    if (e.target === document.getElementById("ll-modal-add")) closeLLAddModal();
+  });
+
+  // Auto-calcula valor total ao mudar qtd ou valor unitário
+  ["ll-add-quantidade", "ll-add-vl-unit"].forEach(id => {
+    document.getElementById(id)?.addEventListener("input", () => {
+      const qtd  = parseFloat(document.getElementById("ll-add-quantidade")?.value) || 0;
+      const unit = parseFloat(document.getElementById("ll-add-vl-unit")?.value)    || 0;
+      if (qtd > 0 && unit > 0) {
+        const totalEl = document.getElementById("ll-add-vl-total");
+        if (totalEl && !totalEl._manuallyEdited) totalEl.value = (qtd * unit).toFixed(2);
+      }
+    });
+  });
+  document.getElementById("ll-add-vl-total")?.addEventListener("input", function() {
+    this._manuallyEdited = this.value !== "";
+  });
+}
+
+// ─── MODAL ADD: ABRIR / FECHAR ────────────────────────────────
+function openLLAddModal() {
+  const modal = document.getElementById("ll-modal-add");
+  if (!modal) return;
+
+  // Limpa campos
+  ["ll-add-tipo","ll-add-data","ll-add-cliente","ll-add-fornecedor",
+   "ll-add-quantidade","ll-add-cor","ll-add-vl-unit","ll-add-vl-total",
+   "ll-add-conferente"].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (el.tagName === "SELECT") el.value = "ENTRADA";
+    else el.value = "";
+    if (id === "ll-add-vl-total") el._manuallyEdited = false;
+  });
+
+  // Pré-preenche data de hoje
+  const dataEl = document.getElementById("ll-add-data");
+  if (dataEl) dataEl.valueAsDate = new Date();
+
+  // Oculta msg de erro
+  const msg = document.getElementById("ll-add-msg");
+  if (msg) msg.style.display = "none";
+
+  modal.style.display = "grid";
+  setTimeout(() => document.getElementById("ll-add-cliente")?.focus(), 200);
+}
+
+function closeLLAddModal() {
+  const modal = document.getElementById("ll-modal-add");
+  if (modal) modal.style.display = "none";
+}
+
+// ─── MODAL ADD: SALVAR NO FIRESTORE ──────────────────────────
+async function saveLLRecord() {
+  const get   = id => document.getElementById(id);
+  const setMsg = (msg, ok) => {
+    const el = get("ll-add-msg");
+    if (!el) return;
+    el.style.display    = msg ? "block" : "none";
+    el.textContent      = msg;
+    el.style.background = ok ? "rgba(0,229,160,.1)"            : "rgba(255,91,112,.1)";
+    el.style.border     = ok ? "1px solid rgba(0,229,160,.25)" : "1px solid rgba(255,91,112,.25)";
+    el.style.color      = ok ? "var(--success)"                : "var(--alert)";
+  };
+
+  const tipo      = get("ll-add-tipo")?.value?.trim();
+  const data      = get("ll-add-data")?.value?.trim();
+  const cliente   = get("ll-add-cliente")?.value?.trim();
+  const fornecedor= get("ll-add-fornecedor")?.value?.trim() || "";
+  const qtd       = get("ll-add-quantidade")?.value;
+  const cor       = get("ll-add-cor")?.value?.trim() || "";
+  const vlUnit    = get("ll-add-vl-unit")?.value;
+  const vlTotal   = get("ll-add-vl-total")?.value;
+  const conferente= get("ll-add-conferente")?.value?.trim() || "";
+
+  // Validações mínimas
+  if (!tipo || !data || !cliente) {
+    setMsg("Preencha ao menos: Tipo, Data e Cliente.", false);
+    return;
+  }
+
+  const btn = get("ll-btn-save-add");
+  if (btn) { btn.disabled = true; btn.style.opacity = ".6"; }
+
+  try {
+    await fsAddDoc(fsCollection(db, "caixas_hetros"), {
+      tipo,
+      data,
+      cliente,
+      fornecedor,
+      quantidade_cx:  qtd    !== "" ? Number(qtd)    : null,
+      cor,
+      valor_unitario: vlUnit  !== "" ? Number(vlUnit)  : null,
+      valor_total:    vlTotal !== "" ? Number(vlTotal) : null,
+      conferente,
+      status_processamento: "OK",
+      origem: "manual_admin",
+      createdAt: fsServerTimestamp()
+    });
+
+    toast("✓ Registro salvo com sucesso!");
+    closeLLAddModal();
+  } catch (err) {
+    console.error("[LuminLog] Erro ao salvar:", err);
+    setMsg("Erro ao salvar: " + err.message, false);
+  } finally {
+    if (btn) { btn.disabled = false; btn.style.opacity = "1"; }
+  }
+}
+
+// ─── EXPORTAR PARA EXCEL ──────────────────────────────────────
+function exportLuminLogExcel() {
+  // Respeita o filtro de tipo ativo no momento da exportação
+  const data = _llFilter === "all"
+    ? _llCache
+    : _llCache.filter(r => (r.tipo || "").toUpperCase() === _llFilter.toUpperCase());
+
+  if (!data.length) {
+    toast("Nenhum dado para exportar.", "err");
+    return;
+  }
+
+  // Monta as linhas no formato desejado para edição no Excel
+  const rows = data.map(r => ({
+    "Data":            r.data            || "",
+    "Tipo":            r.tipo            || "",
+    "Cliente":         r.cliente         || "",
+    "Quantidade CX":   r.quantidade_cx   ?? "",
+    "Cor":             r.cor             || "",
+    "Valor Unitário":  r.valor_unitario  ?? "",
+    "Valor Total":     r.valor_total     ?? "",
+    "Conferente":      r.conferente      || "",
+    "Fornecedor":      r.fornecedor      || "",
+    "Status":          r.status_processamento || "OK",
+    "ID Documento":    r.id              || ""
+  }));
+
+  // Cria workbook e worksheet via SheetJS
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(rows);
+
+  // Larguras de coluna automáticas (estimada pelo conteúdo)
+  const colWidths = [
+    { wch: 12 }, // Data
+    { wch: 10 }, // Tipo
+    { wch: 22 }, // Cliente
+    { wch: 14 }, // Qtd CX
+    { wch: 12 }, // Cor
+    { wch: 16 }, // Vl. Unitário
+    { wch: 16 }, // Vl. Total
+    { wch: 18 }, // Conferente
+    { wch: 22 }, // Fornecedor
+    { wch: 10 }, // Status
+    { wch: 28 }, // ID
+  ];
+  ws["!cols"] = colWidths;
+
+  XLSX.utils.book_append_sheet(wb, ws, "Caixas Hetros");
+
+  // Nome do arquivo com data/hora atual
+  const now      = new Date();
+  const stamp    = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}_${String(now.getHours()).padStart(2,"0")}${String(now.getMinutes()).padStart(2,"0")}`;
+  const fileName = `caixas_hetros_${_llFilter}_${stamp}.xlsx`;
+
+  XLSX.writeFile(wb, fileName);
+  toast(`✓ Exportado: ${fileName}`);
+}
+
+// Ativa ao clicar na aba
+document.addEventListener("DOMContentLoaded", () => {
+  document.querySelectorAll(".admin-tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      if (tab.dataset.tab === "tab-luminlog") {
+        initLuminLog();
+        setTimeout(renderLuminLog, 100);
+      }
+    });
+  });
+});
+
+// Ativa automaticamente quando o admin estiver pronto
+window.addEventListener("lumin:admin-ready", () => {
+  // Pré-carrega em background para ter dados prontos
+  setTimeout(initLuminLog, 1000);
+});
