@@ -496,12 +496,7 @@ async function initTenantDashboard(user){
       where('companyId', '==', s.companyId) // 🔥 Trava na empresa do usuário logado
     ),
     snap => {
-      const todasDaEmpresa = snap.docs.map(d => ({id: d.id, ...d.data()}));
-      
-      // 2. Opcional: Se quiser que dentro da Eco Mix o Wallace não veja o da Ana, 
-      // mantenha o filtro de username abaixo. Se quiser que eles vejam tudo da empresa, remova o .filter
-      s.txs = todasDaEmpresa.filter(t => t.userId === s.user.username || t.createdBy === s.user.username);
-      
+      s.txs = snap.docs.map(d => ({id: d.id, ...d.data()}));
       render();
     },
     err => console.error('[Tenant] txs:', err)
@@ -514,8 +509,7 @@ async function initTenantDashboard(user){
       where('companyId', '==', s.companyId) // 🔥 Trava na empresa do usuário logado
     ),
     snap => {
-      const todasObs = snap.docs.map(d => ({id: d.id, ...d.data()}));
-      s.obs = todasObs.filter(o => o.userId === s.user.username || o.createdBy === s.user.username);
+      s.obs = snap.docs.map(d => ({id: d.id, ...d.data()}));
       if(s.view === 'v-obrig') render();
     },
     err => console.error('[Tenant] obrig:', err)
