@@ -485,18 +485,33 @@ async function initTenantDashboard(user){
     }
   }catch(e){}
 
-// Subscriptions — filtra por companyId
+// ─── FILTRO RIGOROSO POR UTILIZADOR ───
   if(_unsubTxs) _unsubTxs();
   if(_unsubObs) _unsubObs();
 
   _unsubTxs=onSnapshot(
     query(collection(db,'transactions'),orderBy('date','desc')),
-    snap=>{s.txs=snap.docs.map(d=>({id:d.id,...d.data()})).filter(t=>!t.companyId||t.companyId===s.companyId);render();},
+    snap=>{
+      const todas = snap.docs.map(d=>({id:d.id,...d.data()}));
+      
+      // O SEGREDO ESTÁ AQUI: Bloqueia tudo o que não seja do utilizador logado
+      s.txs = todas.filter(t => t.userId === s.user.username || t.createdBy === s.user.username);
+      
+      console.log("🔐 Utilizador logado:", s.user.username);
+      console.log("✅ Transações isoladas:", s.txs);
+      
+      render();
+    },
     err=>console.error('[Tenant] txs:',err)
   );
+
   _unsubObs=onSnapshot(
     collection(db,'obrigacoes'),
-    snap=>{s.obs=snap.docs.map(d=>({id:d.id,...d.data()})).filter(o=>!o.companyId||o.companyId===s.companyId);if(s.view==='v-obrig')render();},
+    snap=>{
+      const todasObs = snap.docs.map(d=>({id:d.id,...d.data()}));
+      s.obs = todasObs.filter(o => o.userId === s.user.username || o.createdBy === s.user.username);
+      if(s.view==='v-obrig') render();
+    },
     err=>console.error('[Tenant] obrig:',err)
   );
   bindEvents();
@@ -587,4 +602,7 @@ window.addEventListener('lumin:tenant-ready',async e=>{
   const user=e.detail?.user;
   if(!user||!user.companyId){console.error('[Tenant] Sem companyId');return;}
   await initTenantDashboard(user);
+
+
+
 });
