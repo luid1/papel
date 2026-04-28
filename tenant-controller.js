@@ -485,7 +485,7 @@ async function initTenantDashboard(user){
     }
   }catch(e){}
 
-  // Subscriptions — filtra por companyId
+// Subscriptions — filtra por companyId
   if(_unsubTxs) _unsubTxs();
   if(_unsubObs) _unsubObs();
 
@@ -499,7 +499,6 @@ async function initTenantDashboard(user){
     snap=>{s.obs=snap.docs.map(d=>({id:d.id,...d.data()})).filter(o=>!o.companyId||o.companyId===s.companyId);if(s.view==='v-obrig')render();},
     err=>console.error('[Tenant] obrig:',err)
   );
-
   bindEvents();
   switchV('v-home');
 }
