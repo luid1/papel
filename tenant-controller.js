@@ -523,6 +523,7 @@ async function initTenantDashboard(user){
 
   bindEvents();
   switchV('v-home');
+}
 
 // ─── BIND EVENTOS ─────────────────────────────────────────────
 function bindEvents(){
