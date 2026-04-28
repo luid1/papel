@@ -486,37 +486,43 @@ async function initTenantDashboard(user){
   }catch(e){}
 
 // ─── FILTRO RIGOROSO POR UTILIZADOR ───
-  if(_unsubTxs) _unsubTxs();
+ if(_unsubTxs) _unsubTxs();
   if(_unsubObs) _unsubObs();
 
-  _unsubTxs=onSnapshot(
-    query(collection(db,'transactions'),orderBy('date','desc')),
-    snap=>{
-      const todas = snap.docs.map(d=>({id:d.id,...d.data()}));
+  // 1. Transações: Filtra primeiro pela EMPRESA (companyId)
+  _unsubTxs = onSnapshot(
+    query(
+      collection(db, 'transactions'),
+      where('companyId', '==', s.companyId) // 🔥 Trava na empresa do usuário logado
+    ),
+    snap => {
+      const todasDaEmpresa = snap.docs.map(d => ({id: d.id, ...d.data()}));
       
-      // O SEGREDO ESTÁ AQUI: Bloqueia tudo o que não seja do utilizador logado
-      s.txs = todas.filter(t => t.userId === s.user.username || t.createdBy === s.user.username);
-      
-      console.log("🔐 Utilizador logado:", s.user.username);
-      console.log("✅ Transações isoladas:", s.txs);
+      // 2. Opcional: Se quiser que dentro da Eco Mix o Wallace não veja o da Ana, 
+      // mantenha o filtro de username abaixo. Se quiser que eles vejam tudo da empresa, remova o .filter
+      s.txs = todasDaEmpresa.filter(t => t.userId === s.user.username || t.createdBy === s.user.username);
       
       render();
     },
-    err=>console.error('[Tenant] txs:',err)
+    err => console.error('[Tenant] txs:', err)
   );
 
-  _unsubObs=onSnapshot(
-    collection(db,'obrigacoes'),
-    snap=>{
-      const todasObs = snap.docs.map(d=>({id:d.id,...d.data()}));
+  // 3. Obrigações: Mesmo filtro por EMPRESA
+  _unsubObs = onSnapshot(
+    query(
+      collection(db, 'obrigacoes'),
+      where('companyId', '==', s.companyId) // 🔥 Trava na empresa do usuário logado
+    ),
+    snap => {
+      const todasObs = snap.docs.map(d => ({id: d.id, ...d.data()}));
       s.obs = todasObs.filter(o => o.userId === s.user.username || o.createdBy === s.user.username);
-      if(s.view==='v-obrig') render();
+      if(s.view === 'v-obrig') render();
     },
-    err=>console.error('[Tenant] obrig:',err)
+    err => console.error('[Tenant] obrig:', err)
   );
+
   bindEvents();
   switchV('v-home');
-}
 
 // ─── BIND EVENTOS ─────────────────────────────────────────────
 function bindEvents(){
