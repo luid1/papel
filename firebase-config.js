@@ -14,7 +14,7 @@ import { getAuth }        from "https://www.gstatic.com/firebasejs/10.12.2/fireb
 // ─── SUBSTITUA COM SUAS CREDENCIAIS ───────────────────────────
 const firebaseConfig = {
   apiKey:            "AIzaSyAeAOjFZSHy28uZFgH1PyoJaxPRyS-N1Kw",
-  authDomain:        "lumin-a5b29.firebaseapp.com",
+  authDomain:        "luminmkt.shop",   // ← MUDE AQUI
   projectId:         "lumin-a5b29",
   storageBucket:     "lumin-a5b29.firebasestorage.app",
   messagingSenderId: "413860601418",
