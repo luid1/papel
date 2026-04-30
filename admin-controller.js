@@ -180,7 +180,10 @@ function renderUsersTable(users) {
 
 // ─── FILTRO INSTANTÂNEO ───────────────────────────────────────
 function filterUsers(query) {
-  const q = query.toLowerCase().trim();
+  // ✅ CORREÇÃO BUG BUSCA: (query || "") evita crash quando o valor
+  //    chega como undefined. Com campo vazio, reseta para todos os
+  //    registros originais em vez de exibir "nenhum encontrado".
+  const q = (query || "").toLowerCase().trim();
   if (!q) { renderUsersTable(_allUsers); return; }
   const filtered = _allUsers.filter(u => {
     const name    = (u.displayName || u.username || "").toLowerCase();
@@ -659,7 +662,7 @@ function initLuminLog() {
     err => console.error("[LuminLog]", err)
   );
 
-  // Filtros
+  // Filtros rápidos de tipo
   document.querySelectorAll(".ll-filter-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       document.querySelectorAll(".ll-filter-btn").forEach(b => {
@@ -681,6 +684,10 @@ function initLuminLog() {
   document.getElementById("ll-export-excel")?.addEventListener("click", exportLuminLogExcel);
 
   // ── Botão + Novo ──────────────────────────────────────────────
+  // ✅ CORREÇÃO BOTÃO NOVO: openLLAddModal garante display:grid e
+  //    limpeza dos campos antes de exibir o modal. Os listeners do
+  //    modal ficam AQUI (admin-controller.js) para evitar conflito
+  //    com luminlog-controller.js caso ambos sejam carregados.
   document.getElementById("ll-btn-add")?.addEventListener("click", openLLAddModal);
   document.getElementById("ll-modal-close")?.addEventListener("click", closeLLAddModal);
   document.getElementById("ll-modal-cancel")?.addEventListener("click", closeLLAddModal);

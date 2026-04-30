@@ -16,7 +16,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
   <!-- SheetJS — Exportação Excel -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <!-- ExcelJS: exportação fiel ao Pasta1.xlsx (fórmulas, merges, cores) -->
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
 
   <link rel="stylesheet" href="style.css">
 </head>
@@ -90,41 +91,61 @@
 ═════════════════════════════════════════════════════════════ -->
 <div id="admin-panel">
 
-  <!-- Topbar -->
-  <div id="admin-topbar">
-    <div style="display:flex;align-items:center;gap:16px;">
-      <div style="font-family:'Comfortaa',cursive;font-size:1.125rem;font-weight:700;color:var(--text);">Lumin</div>
-      <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.2em;color:var(--accent);background:rgba(0,212,255,.1);padding:4px 12px;border-radius:20px;border:1px solid rgba(0,212,255,.2);">
-        Admin Master
-      </span>
+  <!-- Overlay sidebar mobile -->
+  <div id="adm-sb-overlay"></div>
+
+  <!-- ── SIDEBAR ── -->
+  <aside id="adm-sidebar">
+    <div style="padding:28px 24px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;">
+      <div style="font-family:'Comfortaa',cursive;font-size:26px;font-weight:700;color:var(--text);letter-spacing:-.5px;line-height:1;">Lumin</div>
+      <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.15em;color:var(--accent);background:rgba(0,212,255,.1);padding:4px 10px;border-radius:20px;border:1px solid rgba(0,212,255,.2);white-space:nowrap;">Master</span>
+      <button id="adm-btn-sb-close" style="width:36px;height:36px;border-radius:10px;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--muted);display:none;place-items:center;font-size:18px;cursor:pointer;flex-shrink:0;">✕</button>
     </div>
-    <div style="display:flex;align-items:center;gap:12px;">
-      <span style="font-size:12px;color:var(--muted);">@luidoliver · Administrador</span>
-      <button id="btn-admin-logout"
-        style="padding:8px 16px;border-radius:20px;background:rgba(255,91,112,.1);border:1px solid rgba(255,91,112,.25);color:var(--alert);font-size:12px;font-weight:700;min-height:36px;">
-        Sair
+
+    <nav style="flex:1;padding:16px 14px;display:flex;flex-direction:column;gap:4px;">
+      <button class="adm-nav-item active" data-adm-tab="tab-companies">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+        Empresas
+      </button>
+      <button class="adm-nav-item" data-adm-tab="tab-users">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Usuários
+      </button>
+      <button class="adm-nav-item" data-adm-tab="tab-combustivel">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 22V8a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v14"/><path d="M16 8h2a2 2 0 0 1 2 2v4a2 2 0 0 0 2 2h0"/><line x1="3" y1="22" x2="16" y2="22"/><line x1="8" y1="6" x2="8" y2="2"/><line x1="11" y1="6" x2="11" y2="2"/></svg>
+        Logística
+      </button>
+      <button class="adm-nav-item" data-adm-tab="tab-luminlog">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/><line x1="12" y1="12" x2="12" y2="17"/><line x1="9.5" y1="14.5" x2="14.5" y2="14.5"/></svg>
+        Lumin Log
+      </button>
+    </nav>
+
+    <div style="padding:16px 14px;border-top:1px solid var(--border);">
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px;padding:0 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">@luidoliver · Administrador</div>
+      <button id="btn-admin-logout" style="width:100%;padding:14px 20px;min-height:52px;border-radius:12px;background:rgba(255,91,112,.1);color:var(--alert);display:flex;align-items:center;justify-content:center;gap:10px;font-weight:700;font-size:14px;border:1px solid rgba(255,91,112,.2);cursor:pointer;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Encerrar Sessão
       </button>
     </div>
-  </div>
+  </aside>
 
-  <!-- Abas de navegação -->
-  <div id="admin-tabs">
-    <button class="admin-tab active" data-tab="tab-companies">
-      🏢 Empresas
-    </button>
-    <button class="admin-tab" data-tab="tab-users">
-      👤 Usuários
-    </button>
-    <button class="admin-tab" data-tab="tab-combustivel">
-      ⛽ Logística
-    </button>
-    <button class="admin-tab" data-tab="tab-luminlog">
-      📦 Lumin Log
-    </button>
-  </div>
+  <!-- ── MAIN ── -->
+  <main id="adm-main">
 
-  <!-- Conteúdo -->
-  <div id="admin-content">
+    <!-- Topbar -->
+    <header id="admin-topbar">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <button id="adm-btn-menu" aria-label="Menu" style="width:40px;height:40px;border-radius:10px;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--text);display:none;place-items:center;cursor:pointer;flex-shrink:0;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div style="font-family:'Comfortaa',cursive;font-size:1.125rem;font-weight:700;color:var(--text);">Lumin</div>
+        <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.2em;color:var(--accent);background:rgba(0,212,255,.1);padding:4px 12px;border-radius:20px;border:1px solid rgba(0,212,255,.2);">Admin Master</span>
+      </div>
+    </header>
+
+    <!-- Conteúdo das abas -->
+    <div id="admin-content">
 
     <!-- ── ABA: EMPRESAS ── -->
     <div class="admin-tab-panel active" id="tab-companies">
@@ -365,32 +386,123 @@
     <!-- ── ABA: LUMIN LOG ── -->
     <div class="admin-tab-panel" id="tab-luminlog">
       <div class="admin-card">
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:24px;">
+
+        <!-- ── CABEÇALHO + AÇÕES ─────────────────────────────── -->
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;margin-bottom:20px;">
           <div>
             <h3 style="margin-bottom:4px;">📦 Lumin Log — Caixas Hetros</h3>
             <p style="font-size:13px;color:var(--muted);margin:0;">Movimentações registradas via WhatsApp (voz ou texto).</p>
           </div>
-          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-            <button class="ll-filter-btn active" data-ll-filter="all" style="padding:10px 20px;border-radius:20px;font-size:13px;font-weight:700;border:1.5px solid var(--accent);background:rgba(0,212,255,.12);color:var(--accent);cursor:pointer;transition:.2s;">Todos</button>
-            <button class="ll-filter-btn" data-ll-filter="ENTRADA" style="padding:10px 20px;border-radius:20px;font-size:13px;font-weight:700;border:1.5px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:.2s;">Entradas</button>
-            <button class="ll-filter-btn" data-ll-filter="SAÍDA" style="padding:10px 20px;border-radius:20px;font-size:13px;font-weight:700;border:1.5px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:.2s;">Saídas</button>
-            <button id="ll-refresh" style="padding:10px 18px;border-radius:20px;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.2);color:var(--accent);font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.27"/></svg>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <!-- Filtros rápidos de tipo -->
+            <button class="ll-filter-btn active" data-ll-filter="all"
+              style="padding:9px 18px;border-radius:20px;font-size:13px;font-weight:700;border:1.5px solid var(--accent);background:rgba(0,212,255,.12);color:var(--accent);cursor:pointer;transition:.2s;">
+              Todos
+            </button>
+            <button class="ll-filter-btn" data-ll-filter="ENTRADA"
+              style="padding:9px 18px;border-radius:20px;font-size:13px;font-weight:700;border:1.5px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:.2s;">
+              Entradas
+            </button>
+            <button class="ll-filter-btn" data-ll-filter="SAÍDA"
+              style="padding:9px 18px;border-radius:20px;font-size:13px;font-weight:700;border:1.5px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:.2s;">
+              Saídas
+            </button>
+            <div style="width:1px;height:28px;background:var(--border);margin:0 2px;"></div>
+            <button id="ll-refresh"
+              style="padding:9px 16px;border-radius:20px;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.2);color:var(--accent);font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.27"/></svg>
               Atualizar
             </button>
-            <button id="ll-export-excel" style="padding:10px 18px;border-radius:20px;background:rgba(0,229,160,.08);border:1px solid rgba(0,229,160,.25);color:var(--success);font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;" title="Exportar tabela atual para Excel">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            <button id="ll-export-excel"
+              style="padding:9px 16px;border-radius:20px;background:rgba(0,229,160,.08);border:1px solid rgba(0,229,160,.25);color:var(--success);font-weight:700;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;"
+              title="Exportar para Excel (espelho do Pasta1.xlsx)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
               Exportar Excel
             </button>
-            <button id="ll-btn-add" style="padding:10px 20px;border-radius:20px;background:var(--accent);border:1px solid transparent;color:#000;font-weight:800;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:7px;" title="Adicionar registro manualmente">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <button id="ll-btn-add"
+              style="padding:9px 18px;border-radius:20px;background:var(--accent);border:1px solid transparent;color:#000;font-weight:800;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:7px;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
               Novo
             </button>
           </div>
         </div>
 
-        <!-- Totalizadores -->
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:24px;">
+        <!-- ── BARRA DE FILTROS AVANÇADOS ─────────────────────── -->
+        <div class="glass" style="padding:18px 20px;border-radius:16px;border:1px solid var(--border);margin-bottom:20px;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+            <span style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:flex;align-items:center;gap:6px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+              Filtros
+              <span id="ll-filter-badge" style="display:none;background:var(--accent);color:#000;font-size:9px;font-weight:900;padding:2px 6px;border-radius:20px;line-height:1.4;">0</span>
+            </span>
+            <button id="ll-filter-reset"
+              style="display:none;padding:5px 12px;border-radius:20px;background:rgba(255,91,112,.1);border:1px solid rgba(255,91,112,.2);color:var(--alert);font-size:11px;font-weight:700;cursor:pointer;align-items:center;gap:5px;">
+              ✕ Limpar filtros
+            </button>
+          </div>
+
+          <!-- Grid de filtros: 2 linhas -->
+          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;">
+
+            <!-- Data início -->
+            <div>
+              <label style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:6px;">De</label>
+              <input type="date" id="ll-f-data-ini" class="input-field"
+                style="font-size:13px;padding:10px 12px;border-radius:10px;width:100%;box-sizing:border-box;">
+            </div>
+
+            <!-- Data fim -->
+            <div>
+              <label style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:6px;">Até</label>
+              <input type="date" id="ll-f-data-fim" class="input-field"
+                style="font-size:13px;padding:10px 12px;border-radius:10px;width:100%;box-sizing:border-box;">
+            </div>
+
+            <!-- Tipo -->
+            <div>
+              <label style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:6px;">Tipo</label>
+              <select id="ll-f-tipo" class="input-field"
+                style="font-size:13px;padding:10px 12px;border-radius:10px;width:100%;box-sizing:border-box;cursor:pointer;">
+                <option value="all">Todos</option>
+                <option value="ENTRADA">ENTRADA</option>
+                <option value="SAÍDA">SAÍDA</option>
+              </select>
+            </div>
+
+            <!-- Cor -->
+            <div>
+              <label style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:6px;">Cor</label>
+              <select id="ll-f-cor" class="input-field"
+                style="font-size:13px;padding:10px 12px;border-radius:10px;width:100%;box-sizing:border-box;cursor:pointer;">
+                <option value="all">Todas</option>
+                <option value="pret">⬛ Preta</option>
+                <option value="branc">⬜ Branca</option>
+              </select>
+            </div>
+
+            <!-- Cliente -->
+            <div>
+              <label style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:6px;">Cliente</label>
+              <input type="text" id="ll-f-cliente" class="input-field"
+                list="ll-clientes-list" placeholder="Buscar cliente…"
+                style="font-size:13px;padding:10px 12px;border-radius:10px;width:100%;box-sizing:border-box;">
+              <datalist id="ll-clientes-list"></datalist>
+            </div>
+
+            <!-- Motorista -->
+            <div>
+              <label style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:6px;">Motorista</label>
+              <input type="text" id="ll-f-motorista" class="input-field"
+                list="ll-motoristas-list" placeholder="Buscar motorista…"
+                style="font-size:13px;padding:10px 12px;border-radius:10px;width:100%;box-sizing:border-box;">
+              <datalist id="ll-motoristas-list"></datalist>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ── TOTALIZADORES (base total) ─────────────────────── -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:16px;">
           <div class="glass" style="padding:20px;border-radius:16px;border:1px solid rgba(0,229,160,.15);">
             <p style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;">Total Entradas</p>
             <div id="ll-total-entrada" style="font-family:'DM Mono',monospace;font-size:22px;font-weight:700;color:var(--success);">0 cx</div>
@@ -409,43 +521,53 @@
           </div>
         </div>
 
-        <!-- Status REVISAR -->
-        <div id="ll-revisar-banner" style="display:none;padding:14px 18px;border-radius:12px;background:rgba(255,179,71,.1);border:1px solid rgba(255,179,71,.3);color:var(--warning);font-size:13px;font-weight:700;margin-bottom:18px;">
+        <!-- ── RESUMO DO FILTRO ATIVO (aparece só quando há filtros) -->
+        <div id="ll-filt-row" style="display:none;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px;
+          padding:14px 18px;border-radius:14px;background:rgba(0,212,255,.04);border:1px solid rgba(0,212,255,.12);">
+          <div>
+            <p style="font-size:9px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">🔍 Filtrado — Entradas</p>
+            <div id="ll-filt-entrada" style="font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:var(--success);">0 cx</div>
+          </div>
+          <div>
+            <p style="font-size:9px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">🔍 Filtrado — Saídas</p>
+            <div id="ll-filt-saida" style="font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:var(--alert);">0 cx</div>
+          </div>
+          <div>
+            <p style="font-size:9px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">🔍 Filtrado — Valor</p>
+            <div id="ll-filt-valor" style="font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:var(--accent);">R$ 0,00</div>
+          </div>
+          <div>
+            <p style="font-size:9px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">🔍 Filtrado — Total</p>
+            <div id="ll-filt-count" style="font-family:'DM Mono',monospace;font-size:16px;font-weight:700;color:var(--muted);">0 reg.</div>
+          </div>
+        </div>
+
+        <!-- ── BANNER REVISAR ──────────────────────────────────── -->
+        <div id="ll-revisar-banner"
+          style="display:none;padding:14px 18px;border-radius:12px;background:rgba(255,179,71,.1);border:1px solid rgba(255,179,71,.3);color:var(--warning);font-size:13px;font-weight:700;margin-bottom:18px;">
           ⚠ <span id="ll-revisar-count">0</span> registro(s) precisam de conferência manual.
         </div>
 
-        <!-- Tabela -->
-        <div class="adm-table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Data</th>
-                <th>Tipo</th>
-                <th>Cliente</th>
-                <th>Qtd CX</th>
-                <th>Cor</th>
-                <th>Valor Unit.</th>
-                <th>Total</th>
-                <th>Conferente</th>
-                <th>Status</th>
-                <th style="text-align:right;">Ações</th>
-              </tr>
-            </thead>
-            <tbody id="ll-tbody">
-              <tr><td colspan="10" style="text-align:center;color:var(--muted);padding:28px;">Carregando...</td></tr>
-            </tbody>
-          </table>
+        <!-- ── CARDS ───────────────────────────────────────────── -->
+        <div id="ll-tbody" style="display:flex;flex-direction:column;gap:10px;padding:4px 0;">
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;gap:12px;color:var(--muted);">
+            <div style="font-size:32px;opacity:.3;">📦</div>
+            <div style="font-size:14px;">Carregando registros...</div>
+          </div>
         </div>
+
       </div>
     </div><!-- /tab-luminlog -->
 
-  </div><!-- /admin-content -->
+
+    </div><!-- /admin-content -->
+  </main><!-- /adm-main -->
 </div><!-- /admin-panel -->
 
 <!-- ════════════════════════════════════════════════════════════
      MODAL — NOVO REGISTRO LUMIN LOG (Caixas Hetros)
 ════════════════════════════════════════════════════════════ -->
-<div id="ll-modal-add" style="display:none;position:fixed;inset:0;z-index:600;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);place-items:center;padding:20px;">
+<div id="ll-modal-add" style="position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);place-items:center;padding:20px;">
   <div style="background:var(--bg2);border:1px solid var(--border);border-radius:24px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;box-shadow:0 32px 80px rgba(0,0,0,.5);animation:sheetUp .28s var(--ease,cubic-bezier(.2,.8,.4,1));">
 
     <!-- Header -->
@@ -478,7 +600,8 @@
       <!-- Cliente -->
       <div>
         <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:8px;">Cliente *</label>
-        <input type="text" id="ll-add-cliente" class="input-field" placeholder="Nome do cliente">
+        <input type="text" id="ll-add-cliente" class="input-field" list="ll-add-clientes-list" placeholder="Nome do cliente" autocomplete="off">
+        <datalist id="ll-add-clientes-list"></datalist>
       </div>
 
       <!-- Fornecedor -->
@@ -519,7 +642,8 @@
       <!-- Conferente -->
       <div>
         <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:8px;">Conferente</label>
-        <input type="text" id="ll-add-conferente" class="input-field" placeholder="Nome do conferente">
+        <input type="text" id="ll-add-conferente" class="input-field" list="ll-add-motoristas-list" placeholder="Nome do motorista / conferente" autocomplete="off">
+        <datalist id="ll-add-motoristas-list"></datalist>
       </div>
 
       <!-- Mensagem de erro -->
@@ -531,6 +655,117 @@
         <button id="ll-btn-save-add" class="btn-primary" style="flex:2;font-size:15px;padding:14px;display:flex;align-items:center;justify-content:center;gap:8px;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
           Salvar Registro
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     MODAL — EDITAR REGISTRO LUMIN LOG (Caixas Hetros)
+     Aberto via botão "✎ Editar" na tabela da aba Lumin Log.
+     Controlado inteiramente por luminlog-controller.js.
+════════════════════════════════════════════════════════════ -->
+<div id="ll-modal-edit" style="position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);place-items:center;padding:20px;">
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:24px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;box-shadow:0 32px 80px rgba(0,0,0,.5);animation:sheetUp .28s var(--ease,cubic-bezier(.2,.8,.4,1));">
+
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:24px 28px 0;">
+      <div>
+        <h3 style="font-family:'Montserrat',sans-serif;font-size:1.1rem;font-weight:800;margin-bottom:2px;">Editar Registro</h3>
+        <p style="font-size:12px;color:var(--muted);">Alterações salvas direto no Firestore · controle_caixas</p>
+      </div>
+      <button id="ll-edit-modal-close" style="width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--muted);display:grid;place-items:center;font-size:18px;cursor:pointer;flex-shrink:0;">✕</button>
+    </div>
+
+    <!-- Form -->
+    <div style="padding:20px 28px 28px;display:grid;gap:16px;">
+
+      <!-- Tipo + Data -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div>
+          <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:8px;">Tipo *</label>
+          <select id="ll-edit-tipo" class="input-field" style="cursor:pointer;">
+            <option value="ENTRADA">ENTRADA</option>
+            <option value="SAÍDA">SAÍDA</option>
+          </select>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:8px;">Data *</label>
+          <input type="date" id="ll-edit-data" class="input-field">
+        </div>
+      </div>
+
+      <!-- Cliente -->
+      <div>
+        <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:8px;">Cliente *</label>
+        <input type="text" id="ll-edit-cliente" class="input-field" list="ll-edit-clientes-list" placeholder="Nome do cliente" autocomplete="off">
+        <datalist id="ll-edit-clientes-list"></datalist>
+      </div>
+
+      <!-- Fornecedor -->
+      <div>
+        <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:8px;">Fornecedor</label>
+        <input type="text" id="ll-edit-fornecedor" class="input-field" placeholder="Nome do fornecedor">
+      </div>
+
+      <!-- Qtd + Cor -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div>
+          <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:8px;">Qtd. Caixas *</label>
+          <input type="number" id="ll-edit-quantidade" class="input-field" placeholder="0" min="0" inputmode="numeric">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:8px;">Cor</label>
+          <select id="ll-edit-cor" class="input-field" style="cursor:pointer;">
+            <option value="">— Selecione —</option>
+            <option value="Preta">⬛ Preta — R$ 20,00/cx</option>
+            <option value="Branca">⬜ Branca — R$ 28,00/cx</option>
+            <option value="Outra">Outra cor</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Valor Unit + Total -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div>
+          <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:8px;">Valor Unitário (R$)</label>
+          <input type="number" id="ll-edit-vl-unit" class="input-field" placeholder="0,00" min="0" step="0.01" inputmode="decimal">
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:8px;">
+            Valor Total (R$) <span style="color:var(--accent);font-size:9px;font-weight:800;">AUTO</span>
+          </label>
+          <input type="number" id="ll-edit-vl-total" class="input-field" placeholder="0,00" min="0" step="0.01" inputmode="decimal">
+        </div>
+      </div>
+
+      <!-- Motorista -->
+      <div>
+        <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:8px;">Motorista / Conferente</label>
+        <input type="text" id="ll-edit-motorista" class="input-field" list="ll-edit-motoristas-list" placeholder="Nome do motorista" autocomplete="off">
+        <datalist id="ll-edit-motoristas-list"></datalist>
+      </div>
+
+      <!-- Status -->
+      <div>
+        <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:8px;">Status</label>
+        <select id="ll-edit-status" class="input-field" style="cursor:pointer;">
+          <option value="OK">✅ OK — Conferido</option>
+          <option value="REVISAR">⚠ REVISAR — Pendente conferência</option>
+        </select>
+      </div>
+
+      <!-- Mensagem de feedback -->
+      <div id="ll-edit-msg" style="display:none;padding:12px 16px;border-radius:10px;font-size:13px;font-weight:600;"></div>
+
+      <!-- Ações -->
+      <div style="display:flex;gap:10px;margin-top:4px;">
+        <button id="ll-edit-modal-cancel" style="flex:1;padding:14px;border-radius:12px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--muted);font-size:14px;font-weight:600;cursor:pointer;">Cancelar</button>
+        <button id="ll-btn-save-edit" class="btn-primary" style="flex:2;font-size:15px;padding:14px;display:flex;align-items:center;justify-content:center;gap:8px;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+          Salvar Alterações
         </button>
       </div>
 
@@ -1092,6 +1327,7 @@
 <script type="module" src="tenant-controller.js"></script>
 <script type="module" src="papelao-controller.js"></script>
 <script type="module" src="combustivel-controller.js"></script>
+<script type="module" src="luminlog-controller.js"></script>
 
 <style>
 /* ── Combustível: modal visível quando .active ── */
@@ -1109,20 +1345,43 @@
 ════════════════════════════════════════════════════════════ -->
 <script>
 document.addEventListener("DOMContentLoaded", () => {
-  // Navegação entre abas
-  document.querySelectorAll(".admin-tab").forEach(tab => {
+  // ✅ PADRONIZAÇÃO: Navegação via sidebar (.adm-nav-item) — idêntico ao Tenant
+  document.querySelectorAll(".adm-nav-item").forEach(tab => {
     tab.addEventListener("click", () => {
-      const target = tab.dataset.tab;
+      const target = tab.dataset.admTab;
 
-      document.querySelectorAll(".admin-tab").forEach(t => t.classList.remove("active"));
+      document.querySelectorAll(".adm-nav-item").forEach(t => t.classList.remove("active"));
       document.querySelectorAll(".admin-tab-panel").forEach(p => p.classList.remove("active"));
 
       tab.classList.add("active");
       document.getElementById(target)?.classList.add("active");
 
+      // Fecha sidebar mobile ao navegar
+      document.getElementById("adm-sidebar")?.classList.remove("open");
+      document.getElementById("adm-sb-overlay")?.classList.remove("active");
+
       // Carrega consolidado ao abrir aba
       if (target === "tab-combustivel") loadAdminCombustivel(_adminCombPeriod);
+
+      // Ativa luminlog quando aba é aberta
+      if (target === "tab-luminlog") {
+        if (typeof initLuminLog === "function") { initLuminLog(); setTimeout(renderLuminLog, 100); }
+      }
     });
+  });
+
+  // ── Sidebar mobile: hamburger e overlay ──────────────────────
+  document.getElementById("adm-btn-menu")?.addEventListener("click", () => {
+    document.getElementById("adm-sidebar")?.classList.add("open");
+    document.getElementById("adm-sb-overlay")?.classList.add("active");
+  });
+  document.getElementById("adm-btn-sb-close")?.addEventListener("click", () => {
+    document.getElementById("adm-sidebar")?.classList.remove("open");
+    document.getElementById("adm-sb-overlay")?.classList.remove("active");
+  });
+  document.getElementById("adm-sb-overlay")?.addEventListener("click", () => {
+    document.getElementById("adm-sidebar")?.classList.remove("open");
+    document.getElementById("adm-sb-overlay")?.classList.remove("active");
   });
 
   // ── Consolidado de Combustível (Admin Master) ──────────────

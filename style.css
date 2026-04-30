@@ -966,3 +966,171 @@ tr:hover td { background: rgba(255,255,255,.025); }
 .pap-tab-btn:hover:not(.active) { background: rgba(255,255,255,.05) !important; color: var(--text) !important; }
 .ob-item { display: flex; align-items: center; transition: transform .15s, box-shadow .15s; }
 .ob-item:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,.2); }
+
+/* ═══════════════════════════════════════════════════════════════
+   ADMIN PANEL — Sidebar Layout (espelho do Tenant)
+   Substituição do layout topbar+tabs por sidebar+main responsiva
+═══════════════════════════════════════════════════════════════ */
+
+/* Reset do admin-panel para flex-row (igual ao app-shell-wrapper) */
+#admin-panel {
+  flex-direction: row !important;
+  overflow: hidden;
+}
+
+/* Overlay sidebar mobile */
+#adm-sb-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.6);
+  backdrop-filter: blur(4px);
+  z-index: 590;
+  touch-action: none;
+}
+#adm-sb-overlay.active { display: block; }
+
+/* Sidebar do Admin — espelho exato do #t-sidebar */
+#adm-sidebar {
+  width: var(--sidebar-w);
+  flex-shrink: 0;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0; left: 0;
+  height: 100svh;
+  z-index: 600;
+  overflow-y: auto;
+  transition: transform .3s var(--ease);
+}
+
+/* Nav items do Admin — idênticos ao .t-nav-item */
+.adm-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  border-radius: var(--r-md);
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: color .2s, background .2s;
+  text-align: left;
+  width: 100%;
+  min-height: 52px;
+  touch-action: manipulation;
+}
+.adm-nav-item svg { flex-shrink: 0; }
+.adm-nav-item:hover { background: rgba(255,255,255,.05); color: var(--text); }
+.adm-nav-item.active { background: rgba(0,212,255,.1); color: var(--accent); font-weight: 700; }
+.adm-nav-item.active svg { stroke: var(--accent); }
+
+/* Main do Admin */
+#adm-main {
+  flex: 1;
+  margin-left: var(--sidebar-w);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  height: 100svh;
+  overflow: hidden;
+}
+
+/* Topbar do Admin — sticky */
+#admin-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 400;
+  flex-shrink: 0;
+  background: rgba(5,13,18,.97);
+  border-bottom: 1px solid var(--border);
+  padding: 0 var(--sp-xl);
+  height: var(--topbar-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  backdrop-filter: blur(20px);
+}
+
+/* Conteúdo scrollável */
+#admin-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sp-xl);
+}
+#admin-content > .admin-tab-panel { max-width: var(--content-max); margin: 0 auto; }
+
+/* ── Tablet: sidebar off-canvas (≤ 1024px) ── */
+@media (max-width: 1024px) {
+  #adm-sidebar {
+    transform: translateX(-100%);
+    z-index: 620;
+    width: 100vw;
+    max-width: 100%;
+  }
+  #adm-sidebar.open {
+    transform: translateX(0);
+    background: rgba(5,13,18,.97);
+    backdrop-filter: blur(28px);
+  }
+  #adm-sidebar.open #adm-btn-sb-close { display: grid !important; }
+  #adm-main { margin-left: 0; }
+  #adm-btn-menu { display: grid !important; }
+  #admin-topbar  { padding: 0 var(--sp-md); }
+  #admin-content { padding: var(--sp-lg) var(--sp-md); }
+}
+
+/* ── Mobile (≤ 768px) ── */
+@media (max-width: 768px) {
+  #adm-sidebar.open nav {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 20px 32px;
+  }
+  #adm-sidebar.open .adm-nav-item {
+    font-size: clamp(0.9375rem, 2.5vw, 1.125rem);
+    font-weight: 700;
+    justify-content: center;
+    text-align: center;
+    max-width: 420px;
+    width: 100%;
+    border-radius: 14px;
+    min-height: 52px;
+    padding: 12px 24px;
+    gap: 14px;
+  }
+  #adm-sidebar.open .adm-nav-item svg { width: 22px; height: 22px; }
+  #admin-content { padding: var(--sp-md); }
+  .admin-card { padding: var(--sp-4); border-radius: var(--r-lg); margin-bottom: 14px; }
+  .admin-form-grid { grid-template-columns: 1fr; gap: var(--sp-sm); }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   LUMIN LOG — Modais Adicionar e Editar
+   Usa o mesmo padrão .active dos outros modais do sistema
+══════════════════════════════════════════════════════════════ */
+#ll-modal-add,
+#ll-modal-edit {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: rgba(0,0,0,.6);
+  backdrop-filter: blur(6px);
+  place-items: center;
+  padding: 20px;
+}
+#ll-modal-add.active,
+#ll-modal-edit.active {
+  display: grid !important;
+  animation: fadeOverlay .2s var(--ease);
+}
