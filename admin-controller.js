@@ -488,17 +488,16 @@ async function loadCompanyFeatures(companyId) {
   const list = el("adm-feat-list");
   if (list) list.style.display = "block";
 
-  // Pagamento de Funcionário: activo por defeito (true) se não definido
+  // Todas as features: refletem exatamente o que está salvo no Firestore.
+  // Se o campo não existir (empresa nova), assume false — sem defaults ocultos.
   const featFuncionario = el("feat-funcionario");
-  if (featFuncionario) featFuncionario.checked = _featData.funcionario !== false;
-  updateToggleUI("funcionario", _featData.funcionario !== false);
+  if (featFuncionario) featFuncionario.checked = _featData.funcionario === true;
+  updateToggleUI("funcionario", _featData.funcionario === true);
 
-  // Compra de Papelão: desativado por defeito (false) se não definido
   const featPapelao = el("feat-papelao");
   if (featPapelao) featPapelao.checked = _featData.papelao === true;
   updateToggleUI("papelao", _featData.papelao === true);
 
-  // Logística KM: desativado por defeito (false) se não definido
   const featLogisticaKm = el("feat-logistica_km");
   if (featLogisticaKm) featLogisticaKm.checked = _featData.logistica_km === true;
   updateToggleUI("logistica_km", _featData.logistica_km === true);
@@ -522,7 +521,7 @@ function updateToggleUI(feat, active) {
 async function saveFeatConfig() {
   if (!_featCompanyId) return;
   const features = {
-    funcionario:  el("feat-funcionario")?.checked  !== false,
+    funcionario:  el("feat-funcionario")?.checked  === true,
     papelao:      el("feat-papelao")?.checked       === true,
     logistica_km: el("feat-logistica_km")?.checked  === true
   };

@@ -151,7 +151,7 @@ function buildPills(){
 
 // ─── CATEGORIAS ACTIVAS (respeita feature flags) ──────────────
 function activeCats() {
-  const hasFuncionario = s.features?.funcionario !== false;
+  const hasFuncionario = s.features?.funcionario === true;
   return Object.fromEntries(
     Object.entries(CATS).filter(([k]) => k !== 'funcionario' || hasFuncionario)
   );
@@ -175,7 +175,7 @@ function applyFeatures() {
   // Solução: remove/reinsere o elemento do DOM conforme a feature.
   const sel = document.getElementById('t-a-cat');
   if (sel) {
-    const hasFuncionario = features.funcionario !== false;
+    const hasFuncionario = features.funcionario === true;
     const optExistente   = sel.querySelector('option[value="funcionario"]');
 
     if (hasFuncionario && !optExistente) {
