@@ -29,7 +29,7 @@ const s = {
   cM:new Date().getMonth()+1, cY:new Date().getFullYear(),
   repFilter:'semanal', features:{}
 };
-let charts={}, _unsubTxs=null, _unsubObs=null, _unsubPag=null;
+let charts={}, _unsubTxs=null, _unsubObs=null, _unsubPag=null, _unsubCompany=null;
 
 // ─── HELPERS ──────────────────────────────────────────────────
 const $   = id  => document.getElementById(id);
@@ -501,19 +501,28 @@ function compressImage(file,maxPx=300,quality=0.78){
 async function initTenantDashboard(user){
   s.user=user; s.companyId=user.companyId;
 
-  // Carrega empresa
-  try{
-    const snap=await getDoc(doc(db,'companies',user.companyId));
-    s.company=snap.exists()?snap.data():null;
-    s.features=s.company?.features||{};
-    applyFeatures(); // aplica visibilidade de features na UI
-  }catch(e){console.error('[Tenant] empresa:',e);}
+  // Ouve empresa em tempo real — features/cor actualizadas pelo admin
+  // reflectem imediatamente no tenant sem precisar recarregar.
+  if(_unsubCompany) _unsubCompany();
+  await new Promise(resolve => {
+    let firstCall = true;
+    _unsubCompany = onSnapshot(doc(db,'companies',user.companyId), snap => {
+      s.company  = snap.exists() ? snap.data() : null;
+      s.features = s.company?.features || {};
 
-  // Aplica cor da empresa
-  if(s.company?.themeColor){
-    document.documentElement.style.setProperty('--accent',s.company.themeColor);
-    document.documentElement.style.setProperty('--accent2',s.company.themeColor+'cc');
-  }
+      // Aplica cor da empresa
+      if(s.company?.themeColor){
+        document.documentElement.style.setProperty('--accent', s.company.themeColor);
+        document.documentElement.style.setProperty('--accent2', s.company.themeColor+'cc');
+      }
+
+      // Aplica features (mostra/oculta opções e nav items)
+      applyFeatures();
+
+      if(firstCall){ firstCall=false; resolve(); }
+      else { render(); } // mudança em tempo real → rerenderiza
+    }, e => { console.error('[Tenant] empresa:', e); resolve(); });
+  });
 
   // Preenche UI
   const displayName=user.displayName||user.username;
