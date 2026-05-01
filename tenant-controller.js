@@ -97,12 +97,8 @@ function toggleModal(open){
   if(open){
     o.classList.add('active');
     $('t-a-date').valueAsDate=new Date();
-    // Mostra/oculta a opção "Funcionário" conforme feature
-    const optFun=o.querySelector('option[value="funcionario"]');
-    if(optFun) optFun.style.display = s.features?.funcionario!==false ? '' : 'none';
-    // Se a opção estava seleccionada e foi desactivada, volta ao padrão
-    const sel=$('t-a-cat');
-    if(sel&&sel.value==='funcionario'&&s.features?.funcionario===false) sel.value='entrada';
+    // Aplica feature flags (mostra/oculta opção funcionário e outros)
+    applyFeatures();
     setTimeout(()=>$('t-a-desc').focus(),320);
   } else {
     o.classList.remove('active');
@@ -145,6 +141,30 @@ function activeCats() {
   return Object.fromEntries(
     Object.entries(CATS).filter(([k]) => k !== 'funcionario' || hasFuncionario)
   );
+}
+
+// ─── APLICAR FEATURES (nav + bottom nav + modal) ─────────────
+// Mostra/oculta elementos com data-feature="X" conforme features
+// carregadas da empresa. Também filtra a opção do modal.
+function applyFeatures() {
+  const features = s.features || {};
+
+  // Itens com data-feature="papelao|logistica_km|..." (padrão existente)
+  document.querySelectorAll('[data-feature]').forEach(el => {
+    const feat = el.dataset.feature;
+    const active = features[feat] === true;
+    el.style.display = active ? '' : 'none';
+  });
+
+  // Opção "Funcionário" no select do modal de transação
+  const optFun = document.querySelector('option[value="funcionario"]');
+  if (optFun) optFun.style.display = features.funcionario !== false ? '' : 'none';
+
+  // Se a opção estiver seleccionada e for desactivada, volta ao padrão
+  const sel = document.getElementById('t-a-cat');
+  if (sel && sel.value === 'funcionario' && features.funcionario === false) {
+    sel.value = 'entrada';
+  }
 }
 
 // ─── DASHBOARD ────────────────────────────────────────────────
@@ -231,7 +251,8 @@ function openCalDayModal(ds,txs){
 
 // ─── OBRIGAÇÕES ───────────────────────────────────────────────
 function renderOb(){
-  const rec=s.txs.filter(t=>t.isRecorrente);
+  const cats=activeCats();
+  const rec=s.txs.filter(t=>t.isRecorrente&&(t.category!=='funcionario'||cats['funcionario']));
   const list=$('t-ob-list'); if(!list) return;
   if(!rec.length){list.innerHTML=`<div style="text-align:center;padding:60px;color:var(--muted);">Nenhuma obrigação recorrente cadastrada.</div>`;return;}
   list.innerHTML=rec.map(t=>{
@@ -290,7 +311,8 @@ function renderRep(){
 // ─── ABA A PAGAR ──────────────────────────────────────────────
 function renderPagar(){
   // Calcula obrigações pendentes do mês actual
-  const rec=s.txs.filter(t=>t.isRecorrente);
+  const cats=activeCats();
+  const rec=s.txs.filter(t=>t.isRecorrente&&(t.category!=='funcionario'||cats['funcionario']));
   let totalPendente=0, totalPago=0;
 
   const items=rec.map(t=>{
@@ -458,6 +480,7 @@ async function initTenantDashboard(user){
     const snap=await getDoc(doc(db,'companies',user.companyId));
     s.company=snap.exists()?snap.data():null;
     s.features=s.company?.features||{};
+    applyFeatures(); // aplica visibilidade de features na UI
   }catch(e){console.error('[Tenant] empresa:',e);}
 
   // Aplica cor da empresa
