@@ -171,13 +171,25 @@ function applyFeatures() {
   });
 
   // Opção "Funcionário" no select do modal de transação
-  const optFun = document.querySelector('option[value="funcionario"]');
-  if (optFun) optFun.style.display = features.funcionario !== false ? '' : 'none';
-
-  // Se a opção estiver seleccionada e for desactivada, volta ao padrão
+  // display:none em <option> não funciona em mobile (iOS/Android ignoram).
+  // Solução: remove/reinsere o elemento do DOM conforme a feature.
   const sel = document.getElementById('t-a-cat');
-  if (sel && sel.value === 'funcionario' && features.funcionario === false) {
-    sel.value = 'entrada';
+  if (sel) {
+    const hasFuncionario = features.funcionario !== false;
+    const optExistente   = sel.querySelector('option[value="funcionario"]');
+
+    if (hasFuncionario && !optExistente) {
+      // Reinsere entre saida-fixa e variavel
+      const optVariavel = sel.querySelector('option[value="variavel"]');
+      const opt = document.createElement('option');
+      opt.value       = 'funcionario';
+      opt.textContent = 'Pagamento Funcionário';
+      sel.insertBefore(opt, optVariavel);
+    } else if (!hasFuncionario && optExistente) {
+      // Se estava seleccionado, volta para entrada antes de remover
+      if (sel.value === 'funcionario') sel.value = 'entrada';
+      optExistente.remove();
+    }
   }
 }
 
