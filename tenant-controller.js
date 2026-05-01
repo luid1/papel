@@ -119,6 +119,10 @@ function render(){
 
 function buildPills(){
   const months=new Set();
+  // Garante que o mês actual SEMPRE aparece, mesmo sem transações
+  const now=new Date();
+  const nowYM=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  months.add(nowYM);
   s.txs.forEach(t=>{if(t.date) months.add(t.date.slice(0,7));});
   const sorted=[...months].sort().reverse();
   const pills=$('t-filter-pills'); if(!pills) return;
