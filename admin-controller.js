@@ -546,12 +546,25 @@ function bindFeatEvents() {
   });
 
   document.querySelectorAll(".feat-toggle").forEach(toggle => {
-    toggle.addEventListener("click", () => {
-      const feat    = toggle.dataset.feat;
-      const input   = el(`feat-${feat}`);
+    toggle.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const feat  = toggle.dataset.feat;
+      const input = el(`feat-${feat}`);
       if (!input) return;
+      // Inverte manualmente — impede o browser de processar o
+      // checkbox nativo por baixo (evita duplo-toggle).
       input.checked = !input.checked;
       updateToggleUI(feat, input.checked);
+    });
+  });
+
+  // Impede que cliques no próprio <input> (invisível mas clicável)
+  // disparem um segundo toggle além do listener acima.
+  ["feat-funcionario","feat-papelao","feat-logistica_km"].forEach(id => {
+    el(id)?.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
     });
   });
 

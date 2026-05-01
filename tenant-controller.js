@@ -119,6 +119,7 @@ function toggleModal(open){
 
 // ─── RENDER PRINCIPAL ─────────────────────────────────────────
 function render(){
+  applyFeatures(); // garante DOM sincronizado com features antes de qualquer render
   buildPills();
   if(s.view==='v-home')  renderHome();
   if(s.view==='v-cal')   renderCal();
@@ -163,11 +164,17 @@ function activeCats() {
 function applyFeatures() {
   const features = s.features || {};
 
-  // Itens com data-feature="papelao|logistica_km|..." (padrão existente)
+  // Itens com data-feature="papelao|logistica_km|..." (sidebar + bottom nav)
+  // A classe feat-hidden usa display:none !important — por isso removemos/
+  // adicionamos a classe em vez de usar style.display (que seria sobrescrito).
   document.querySelectorAll('[data-feature]').forEach(el => {
     const feat = el.dataset.feature;
     const active = features[feat] === true;
-    el.style.display = active ? '' : 'none';
+    if (active) {
+      el.classList.remove('feat-hidden');
+    } else {
+      el.classList.add('feat-hidden');
+    }
   });
 
   // Opção "Funcionário" no select do modal de transação
@@ -520,7 +527,12 @@ async function initTenantDashboard(user){
       applyFeatures();
 
       if(firstCall){ firstCall=false; resolve(); }
-      else { render(); } // mudança em tempo real → rerenderiza
+      else {
+        // Atualização em tempo real vinda do admin master:
+        // applyFeatures primeiro (DOM), depois render (dados)
+        applyFeatures();
+        render();
+      }
     }, e => { console.error('[Tenant] empresa:', e); resolve(); });
   });
 
