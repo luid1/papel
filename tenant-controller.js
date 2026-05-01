@@ -99,11 +99,21 @@ function toggleModal(open){
     $('t-a-date').valueAsDate=new Date();
     // Aplica feature flags (mostra/oculta opção funcionário e outros)
     applyFeatures();
-    setTimeout(()=>$('t-a-desc').focus(),320);
+    // ❌ Sem focus automático — teclado só sobe quando o utilizador
+    //    toca num campo de texto (desc ou valor) manualmente.
+    // Blur explícito nos inputs para garantir que o teclado não
+    // reaparece por foco residual de interação anterior.
+    setTimeout(()=>{
+      const desc=$('t-a-desc'), val=$('t-a-val');
+      if(desc&&document.activeElement===desc) desc.blur();
+      if(val &&document.activeElement===val)  val.blur();
+    }, 50);
   } else {
     o.classList.remove('active');
     const b=$('t-btn-save');
     if(b){b._editId=null;b.textContent='✓ Registrar no Sistema';}
+    // Garante que o teclado fecha ao fechar o modal
+    if(document.activeElement instanceof HTMLElement) document.activeElement.blur();
   }
 }
 
