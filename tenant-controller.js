@@ -170,7 +170,8 @@ function renderHome(){
   const cEl=$('t-tx-count'); if(cEl) cEl.textContent=`${f.length} registro${f.length!==1?'s':''}`;
 
   const txList=$('t-tx-list'); if(!txList) return;
-  txList.innerHTML=f.slice(0,15).map(t=>{
+  const fSorted = [...f].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  txList.innerHTML=fSorted.slice(0,15).map(t=>{
     const cat=cats[t.category]||CATS.variavel, isIn=t.category==='entrada', vc=isIn?'var(--success)':'var(--alert)';
     return `<tr style="--card-accent:${cat.color};">
       <td data-label="Data" style="color:var(--muted);font-family:'DM Mono',monospace;font-size:13px;white-space:nowrap;">${fD(t.date)}</td>

@@ -492,6 +492,16 @@ async function loadCompanyFeatures(companyId) {
   const featFuncionario = el("feat-funcionario");
   if (featFuncionario) featFuncionario.checked = _featData.funcionario !== false;
   updateToggleUI("funcionario", _featData.funcionario !== false);
+
+  // Compra de Papelão: desativado por defeito (false) se não definido
+  const featPapelao = el("feat-papelao");
+  if (featPapelao) featPapelao.checked = _featData.papelao === true;
+  updateToggleUI("papelao", _featData.papelao === true);
+
+  // Logística KM: desativado por defeito (false) se não definido
+  const featLogisticaKm = el("feat-logistica_km");
+  if (featLogisticaKm) featLogisticaKm.checked = _featData.logistica_km === true;
+  updateToggleUI("logistica_km", _featData.logistica_km === true);
 }
 
 function updateToggleUI(feat, active) {
@@ -500,12 +510,21 @@ function updateToggleUI(feat, active) {
   toggle.style.background = active ? "var(--accent)" : "rgba(255,255,255,.12)";
   const knob = toggle.querySelector("div");
   if (knob) knob.style.left = active ? "23px" : "3px";
+
+  // Atualiza o label de status ao lado da chavinha
+  const label = el(`feat-${feat}-label`);
+  if (label) {
+    label.textContent = active ? "Ativado" : "Desativado";
+    label.style.color = active ? "var(--success)" : "var(--muted)";
+  }
 }
 
 async function saveFeatConfig() {
   if (!_featCompanyId) return;
   const features = {
-    funcionario: el("feat-funcionario")?.checked !== false
+    funcionario:  el("feat-funcionario")?.checked  !== false,
+    papelao:      el("feat-papelao")?.checked       === true,
+    logistica_km: el("feat-logistica_km")?.checked  === true
   };
 
   btn("btn-adm-feat-save", true);

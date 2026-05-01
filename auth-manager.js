@@ -232,6 +232,7 @@ async function _doLogin(email, password) {
 // ─── LOGOUT ───────────────────────────────────────────────────
 async function _doLogout() {
   showLoading("Encerrando sessão...");
+  window.dispatchEvent(new CustomEvent("lumin:logout"));
   _currentUser  = null;
   _authResolved = false;
   sessionStorage.clear();

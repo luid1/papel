@@ -1134,3 +1134,8 @@ tr:hover td { background: rgba(255,255,255,.025); }
   display: grid !important;
   animation: fadeOverlay .2s var(--ease);
 }
+
+/* ── Feature flags — oculta itens de nav desactivados ─────── */
+.feat-hidden {
+  display: none !important;
+}
