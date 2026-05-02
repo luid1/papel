@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#050d12">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Lumin Log — Motorista</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Montserrat:wght@700;800;900&family=Comfortaa:wght@700&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<style>
+:root {
+  --bg:#050d12; --bg2:#08141d;
+  --accent:#00d4ff; --accent2:#008fb5;
+  --success:#00e5a0; --alert:#ff5b70; --warning:#ffb347;
+  --text:#e4f0f6; --muted:rgba(228,240,246,.45);
+  --glass:rgba(255,255,255,.04); --border:rgba(255,255,255,.08);
+  --ease:cubic-bezier(.4,0,.2,1);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{font-size:100%;-webkit-text-size-adjust:100%}
+body{font-family:'Inter',sans-serif;font-size:1.05rem;line-height:1.55;background:var(--bg);
+  color:var(--text);min-height:100svh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+button{cursor:pointer;border:none;background:transparent;font-family:inherit;color:inherit}
+a{text-decoration:none;color:inherit}
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-thumb{background:rgba(0,212,255,.18);border-radius:4px}
+.orb{position:fixed;border-radius:50%;filter:blur(130px);z-index:0;opacity:.1;pointer-events:none}
+.glass-card{background:var(--glass);border:1px solid var(--border);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:20px}
+
+/* ---- BOTOES ---- */
+.btn-giant{width:100%;min-height:90px;background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:var(--bg);font-family:'Montserrat',sans-serif;font-size:1.45rem;font-weight:900;
+  letter-spacing:.02em;border-radius:22px;display:flex;align-items:center;justify-content:center;
+  gap:14px;box-shadow:0 6px 32px rgba(0,212,255,.35);
+  transition:transform .12s var(--ease),box-shadow .12s,opacity .12s;
+  padding:0 28px;user-select:none}
+.btn-giant:active{transform:scale(.965);opacity:.88;box-shadow:0 2px 12px rgba(0,212,255,.15)}
+.btn-giant:disabled{opacity:.35;cursor:not-allowed;transform:none}
+.btn-sec{width:100%;min-height:68px;background:rgba(255,255,255,.06);
+  border:1.5px solid var(--border);color:var(--text);
+  font-family:'Montserrat',sans-serif;font-size:1.2rem;font-weight:700;
+  border-radius:18px;display:flex;align-items:center;justify-content:center;gap:10px;
+  transition:background .15s,transform .1s;user-select:none}
+.btn-sec:active{background:rgba(255,255,255,.1);transform:scale(.98)}
+
+/* ---- CONTADORES ---- */
+.counter-wrap{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px}
+.counter-btn{min-height:88px;border-radius:18px;display:flex;align-items:center;
+  justify-content:center;font-size:3rem;font-weight:900;
+  transition:transform .08s,background .12s,opacity .12s;user-select:none;-webkit-user-select:none}
+.counter-btn:active{transform:scale(.93)}
+.counter-minus{background:rgba(255,255,255,.07);border:1.5px solid var(--border);color:var(--text)}
+.counter-minus:active{background:rgba(255,255,255,.14)}
+.counter-plus{background:linear-gradient(135deg,var(--accent),var(--accent2));color:var(--bg);
+  box-shadow:0 4px 22px rgba(0,212,255,.3)}
+.counter-plus:active{opacity:.85}
+.counter-num{font-family:'Montserrat',sans-serif;font-size:4.2rem;font-weight:900;
+  color:var(--text);text-align:center;min-width:88px;line-height:1}
+
+/* ---- INPUT ---- */
+.input-field{width:100%;background:rgba(255,255,255,.05);border:1.5px solid var(--border);
+  border-radius:14px;padding:0 20px;color:var(--text);font-family:'Inter',sans-serif;
+  font-size:1.2rem;font-weight:500;outline:none;min-height:64px;
+  transition:border-color .2s,box-shadow .2s;-webkit-appearance:none}
+.input-field:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,212,255,.12)}
+.input-field::placeholder{color:rgba(228,240,246,.28)}
+
+/* ---- UTILITARIOS ---- */
+.label-section{font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.2em;color:var(--muted)}
+.label-box{font-family:'Montserrat',sans-serif;font-size:1.45rem;font-weight:800;color:var(--text)}
+.wordmark{font-family:'Comfortaa',cursive;font-size:1.45rem;font-weight:700;color:var(--text);letter-spacing:-.02em}
+.sep{height:1px;background:var(--border);margin:22px 0}
+.step-dot-row{display:flex;gap:6px;align-items:center}
+.step-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.15);
+  transition:background .3s,width .3s,border-radius .3s}
+.step-dot.on{background:var(--accent);width:22px;border-radius:4px}
+.step-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(0,212,255,.1);
+  border:1px solid rgba(0,212,255,.2);border-radius:100px;padding:7px 18px;
+  font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.18em;color:var(--accent)}
+.truck-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.06);
+  border:1px solid var(--border);border-radius:100px;padding:8px 18px;
+  font-size:.9rem;font-weight:700;color:var(--text)}
+.truck-badge b{color:var(--accent);font-weight:900}
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);
+  background:rgba(5,13,18,.96);border:1px solid var(--border);backdrop-filter:blur(20px);
+  color:var(--text);font-size:1.05rem;font-weight:600;padding:14px 28px;
+  border-radius:100px;z-index:9999;white-space:nowrap;transition:opacity .35s;
+  box-shadow:0 8px 32px rgba(0,0,0,.55);pointer-events:none}
+.toast.hide{opacity:0}
+.tx-item{background:rgba(255,255,255,.03);border:1px solid var(--border);
+  border-radius:14px;padding:16px 18px;margin-bottom:10px}
+.tx-client{font-size:1.2rem;font-weight:700;color:var(--text);margin-bottom:10px}
+.tx-chips{display:flex;flex-wrap:wrap;gap:8px}
+.tx-chip{display:inline-flex;align-items:center;gap:5px;background:rgba(255,255,255,.07);
+  border:1px solid var(--border);border-radius:100px;padding:6px 16px;
+  font-size:.9rem;font-weight:700}
+.tx-chip.del{border-color:rgba(0,212,255,.3);color:var(--accent)}
+.tx-chip.col{border-color:rgba(0,229,160,.3);color:var(--success)}
+.icon-box{width:44px;height:44px;border-radius:12px;display:flex;
+  align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0}
+.big-num{font-family:'Montserrat',sans-serif;font-size:3.2rem;font-weight:900;color:var(--text);line-height:1}
+.big-num-label{font-size:.9rem;color:var(--muted);margin-top:5px}
+#driver-wrap{max-width:540px;margin:0 auto;padding:28px 20px 80px;position:relative;z-index:1}
+.empty{color:var(--muted);font-size:.9rem;font-weight:500;padding:6px 0}
+.fade-in{animation:fadein .22s var(--ease)}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+</style>
+</head>
+<body>
+<div class="orb" style="width:520px;height:520px;background:#00d4ff;top:-200px;left:30px;"></div>
+<div class="orb" style="width:400px;height:400px;background:#b085f5;bottom:-130px;right:-60px;"></div>
+<div id="app"></div>
+<script>
+/* ═══════════════ FIREBASE ═══════════════ */
+firebase.initializeApp({
+  apiKey:"AIzaSyAeAOjFZSHy28uZFgH1PyoJaxPRyS-N1Kw",
+  authDomain:"luminmkt.shop",
+  projectId:"lumin-a5b29",
+  storageBucket:"lumin-a5b29.firebasestorage.app",
+  messagingSenderId:"413860601418",
+  appId:"1:413860601418:web:0b5cce923491e50fdf50b3"
+});
+const db  = firebase.firestore();
+const TS  = () => firebase.firestore.FieldValue.serverTimestamp();
+const nn  = v  => Math.max(0, v || 0);
+const $   = id => document.getElementById(id);
+
+/* ─── Preços das caixas ─── */
+const PRICE_PRETA  = 20.00;
+const PRICE_BRANCA = 28.00;
+
+function toast(msg, ms = 2800) {
+  document.querySelectorAll('.toast').forEach(e => e.remove());
+  const el = document.createElement('div');
+  el.className = 'toast'; el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => { el.classList.add('hide'); setTimeout(() => el.remove(), 400); }, ms);
+}
+
+const ico = (d, s = 20) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+
+/* ─── Roteamento ─── */
+const params     = new URLSearchParams(location.search);
+const driverName = params.get('user') ? decodeURIComponent(params.get('user')) : null;
+
+if (!driverName) {
+  document.getElementById('app').innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
+      min-height:100svh;padding:40px 20px;text-align:center;">
+      <div style="font-family:'Comfortaa',cursive;font-size:2rem;font-weight:700;
+        color:var(--text);margin-bottom:12px;">Lumin Log</div>
+      <p style="color:var(--muted);font-size:1.1rem;max-width:320px;line-height:1.6;">
+        Este link é exclusivo para motoristas.<br>
+        Acesse pelo link gerado pelo administrador.
+      </p>
+    </div>`;
+} else {
+  initDriver(driverName);
+}
+
+/* ══════════════════════════════════════════════════════════
+   INTERFACE DO MOTORISTA
+══════════════════════════════════════════════════════════ */
+function initDriver(name) {
+  const S = {
+    step: 'departure',
+    truckBlack: 0, truckWhite: 0,
+    clientName: '',
+    delBlack: 0, delWhite: 0,
+    colBlack: 0, colWhite: 0,
+    transactions: [],
+    saving: false,
+  };
+
+  /* Carrega saldo atual do caminhão */
+  db.collection('ll_drivers').doc(name).get().then(doc => {
+    if (doc.exists) {
+      S.truckBlack = nn(doc.data().truckBlack);
+      S.truckWhite = nn(doc.data().truckWhite);
+    }
+    render();
+  }).catch(() => render());
+
+  function render() {
+    ({ departure: vDeparture, client: vClient,
+       summary: vSummary, done: vDone }[S.step] || vDeparture)();
+  }
+
+  function dots(a) {
+    return [1,2,3].map(i => `<div class="step-dot ${i===a?'on':''}"></div>`).join('');
+  }
+
+  function truckBar() {
+    return `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:22px;">
+      <div class="truck-badge">Caminhao</div>
+      <div class="truck-badge">Pretas: <b>${S.truckBlack}</b></div>
+      <div class="truck-badge">Brancas: <b>${S.truckWhite}</b></div>
+    </div>`;
+  }
+
+  function cBlock(label, emoji, key, elId) {
+    return `<div style="margin-bottom:26px;">
+      <div style="display:flex;align-items:center;margin-bottom:14px;">
+        <span class="label-box">${emoji} ${label}</span>
+      </div>
+      <div class="counter-wrap">
+        <button class="counter-btn counter-minus" onclick="adj('${key}',-1,'${elId}')">-</button>
+        <div class="counter-num" id="${elId}">${S[key]}</div>
+        <button class="counter-btn counter-plus"  onclick="adj('${key}', 1,'${elId}')">+</button>
+      </div>
+    </div>`;
+  }
+
+  /* PASSO 1 */
+  function vDeparture() {
+    $('app').innerHTML = `<div id="driver-wrap" class="fade-in">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+        <span class="wordmark">Lumin Log</span>
+        <div class="step-dot-row">${dots(1)}</div>
+      </div>
+      <div class="step-badge" style="margin-bottom:18px;">Passo 1 de 3 - Saida do CD</div>
+      <h1 style="font-family:'Montserrat',sans-serif;font-size:1.85rem;font-weight:900;
+        color:var(--text);margin-bottom:8px;line-height:1.1;">Ola, ${name}!</h1>
+      <p style="color:var(--muted);font-size:1.2rem;margin-bottom:28px;line-height:1.55;">
+        Quantas caixas voce esta levando agora?
+      </p>
+      <div class="glass-card" style="padding:30px;margin-bottom:22px;">
+        ${cBlock('CAIXAS PRETAS','', 'truckBlack','c-depB')}
+        <div class="sep"></div>
+        ${cBlock('CAIXAS BRANCAS','','truckWhite','c-depW')}
+      </div>
+      <button onclick="confirmDeparture()" class="btn-giant">
+        ${ico('<polyline points="20 6 9 17 4 12"/>',24)} Confirmar Saida do CD
+      </button>
+    </div>`;
+  }
+
+  /* PASSO 2 */
+  function vClient() {
+    $('app').innerHTML = `<div id="driver-wrap" class="fade-in">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+        <span class="wordmark">Lumin Log</span>
+        <div class="step-dot-row">${dots(2)}</div>
+      </div>
+      <div class="step-badge" style="margin-bottom:14px;">Passo 2 de 3 - Lancamento</div>
+      ${truckBar()}
+      <div class="glass-card" style="padding:22px;margin-bottom:16px;">
+        <div class="label-section" style="margin-bottom:12px;">Nome do Cliente</div>
+        <input id="clientInput" type="text" class="input-field"
+          placeholder="Ex: Padaria do Joao"
+          value="${S.clientName}" oninput="S.clientName=this.value"
+          autocomplete="off" autocorrect="off" spellcheck="false"/>
+      </div>
+      <div class="glass-card" style="padding:28px;margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:22px;">
+          <div class="icon-box" style="background:rgba(0,212,255,.12);">&#128230;</div>
+          <div>
+            <div style="font-family:'Montserrat',sans-serif;font-size:1.2rem;font-weight:800;">ENTREGOU</div>
+            <div style="font-size:.78rem;color:var(--muted);">Saiu do caminhao para o cliente</div>
+          </div>
+        </div>
+        ${cBlock('Pretas','','delBlack','c-dB')}
+        <div class="sep"></div>
+        ${cBlock('Brancas','','delWhite','c-dW')}
+      </div>
+      <div class="glass-card" style="padding:28px;margin-bottom:24px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:22px;">
+          <div class="icon-box" style="background:rgba(0,229,160,.1);">&#128260;</div>
+          <div>
+            <div style="font-family:'Montserrat',sans-serif;font-size:1.2rem;font-weight:800;">COLETOU</div>
+            <div style="font-size:.78rem;color:var(--muted);">Entrou no caminhao</div>
+          </div>
+        </div>
+        ${cBlock('Pretas','','colBlack','c-cB')}
+        <div class="sep"></div>
+        ${cBlock('Brancas','','colWhite','c-cW')}
+      </div>
+      <button id="regBtn" onclick="registerClient()" class="btn-giant" style="margin-bottom:14px;">
+        ${ico('<polyline points="20 6 9 17 4 12"/>',24)} Registrar Cliente
+      </button>
+      <button onclick="goSummary()" class="btn-sec">Ver Resumo e Finalizar</button>
+    </div>`;
+  }
+
+  /* PASSO 3 */
+  function vSummary() {
+    const txHtml = S.transactions.length ? S.transactions.map(tx => `
+      <div class="tx-item">
+        <div class="tx-client">${tx.clientName}</div>
+        <div class="tx-chips">
+          ${tx.delBlack ? `<span class="tx-chip del">Pretas entregues: ${tx.delBlack}</span>` : ''}
+          ${tx.delWhite ? `<span class="tx-chip del">Brancas entregues: ${tx.delWhite}</span>` : ''}
+          ${tx.colBlack ? `<span class="tx-chip col">Pretas coletadas: ${tx.colBlack}</span>` : ''}
+          ${tx.colWhite ? `<span class="tx-chip col">Brancas coletadas: ${tx.colWhite}</span>` : ''}
+        </div>
+      </div>`).join('') : '<p class="empty">Nenhum cliente lancado ainda.</p>';
+
+    $('app').innerHTML = `<div id="driver-wrap" class="fade-in">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
+        <span class="wordmark">Lumin Log</span>
+        <div class="step-dot-row">${dots(3)}</div>
+      </div>
+      <div class="step-badge" style="margin-bottom:18px;">Passo 3 de 3 - Resumo</div>
+      <h2 style="font-family:'Montserrat',sans-serif;font-size:1.85rem;font-weight:900;
+        color:var(--text);margin-bottom:24px;line-height:1.1;">Resumo do Dia</h2>
+      <div class="glass-card" style="padding:28px;margin-bottom:16px;">
+        <div class="label-section" style="margin-bottom:18px;">No Caminhao Agora</div>
+        <div style="display:flex;gap:36px;">
+          <div><div class="big-num">${S.truckBlack}</div><div class="big-num-label">Pretas</div></div>
+          <div><div class="big-num">${S.truckWhite}</div><div class="big-num-label">Brancas</div></div>
+          <div><div class="big-num" style="color:var(--accent);">${S.truckBlack+S.truckWhite}</div><div class="big-num-label">Total</div></div>
+        </div>
+      </div>
+      <div class="glass-card" style="padding:22px;margin-bottom:24px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+          <div class="label-section">${S.transactions.length} cliente${S.transactions.length!==1?'s':''} lancado${S.transactions.length!==1?'s':''}</div>
+          <button onclick="backToClient()" style="font-size:.78rem;font-weight:700;color:var(--accent);
+            padding:7px 14px;border:1px solid rgba(0,212,255,.2);border-radius:8px;
+            background:rgba(0,212,255,.06);">+ Novo Cliente</button>
+        </div>
+        <div style="max-height:300px;overflow-y:auto;">${txHtml}</div>
+      </div>
+      <button id="finalBtn" onclick="finalize()" class="btn-giant" style="margin-bottom:14px;">
+        Finalizar o Dia
+      </button>
+      <button onclick="backToClient()" class="btn-sec">Voltar e Adicionar Mais</button>
+    </div>`;
+  }
+
+  /* DONE */
+  function vDone() {
+    $('app').innerHTML = `<div id="driver-wrap" class="fade-in"
+      style="display:flex;flex-direction:column;align-items:center;justify-content:center;
+      min-height:85svh;text-align:center;padding:40px 20px;">
+      <div style="font-size:88px;line-height:1;margin-bottom:24px;
+        filter:drop-shadow(0 0 30px rgba(0,229,160,.4));">&#9989;</div>
+      <h1 style="font-family:'Montserrat',sans-serif;font-size:2.4rem;font-weight:900;
+        color:var(--text);margin-bottom:12px;line-height:1.1;">Dia Finalizado!</h1>
+      <p style="color:var(--muted);font-size:1.2rem;margin-bottom:6px;">Tudo salvo com sucesso.</p>
+      <p style="color:var(--muted);font-size:1.05rem;margin-bottom:48px;">
+        Obrigado, <span style="color:var(--text);font-weight:700;">${name}</span>. Bom descanso!
+      </p>
+      <button onclick="newDay()" class="btn-giant" style="max-width:320px;">Novo Lancamento</button>
+    </div>`;
+  }
+
+  /* ── ACOES ── */
+  window.S = S;
+
+  window.adj = function(key, delta, elId) {
+    S[key] = Math.max(0, S[key] + delta);
+    const el = $(elId); if (el) el.textContent = S[key];
+  };
+
+  window.confirmDeparture = async function() {
+    if (S.saving) return; S.saving = true;
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const batch = db.batch();
+      batch.set(db.collection('ll_drivers').doc(name),
+        { name, truckBlack: S.truckBlack, truckWhite: S.truckWhite, lastUpdated: TS() },
+        { merge: true });
+      batch.set(db.collection('ll_events').doc(), {
+        type: 'cd_departure', driverName: name,
+        truckBlack: S.truckBlack, truckWhite: S.truckWhite, timestamp: TS()
+      });
+      await batch.commit();
+      S.step = 'client'; render();
+    } catch(e) { toast('Erro ao salvar. Verifique a conexao.'); }
+    finally { S.saving = false; }
+  };
+
+  window.registerClient = async function() {
+    const inputEl = $('clientInput');
+    const cn = (inputEl ? inputEl.value : S.clientName).trim().toUpperCase();
+    if (!cn) { toast('Digite o nome do cliente!'); return; }
+    const { delBlack, delWhite, colBlack, colWhite } = S;
+    if (!delBlack && !delWhite && !colBlack && !colWhite) { toast('Informe ao menos uma caixa!'); return; }
+    if (S.saving) return; S.saving = true;
+
+    const btn = $('regBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Salvando...'; }
+
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const newTB = Math.max(0, S.truckBlack - delBlack + colBlack);
+      const newTW = Math.max(0, S.truckWhite - delWhite + colWhite);
+
+      const cRef  = db.collection('ll_clients').doc(cn);
+      const cSnap = await cRef.get();
+      const cur   = cSnap.exists ? cSnap.data() : { balanceBlack: 0, balanceWhite: 0 };
+
+      const batch = db.batch();
+
+      /* 1. Atualiza saldo do caminhao */
+      batch.update(db.collection('ll_drivers').doc(name), {
+        truckBlack: newTB, truckWhite: newTW, lastUpdated: TS()
+      });
+
+      /* 2. Atualiza saldo do cliente */
+      batch.set(cRef, {
+        name: cn,
+        balanceBlack: Math.max(0, nn(cur.balanceBlack) + delBlack - colBlack),
+        balanceWhite: Math.max(0, nn(cur.balanceWhite) + delWhite - colWhite),
+        lastUpdated: TS()
+      }, { merge: true });
+
+      /* 3. Loga o evento */
+      batch.set(db.collection('ll_events').doc(), {
+        type: 'client_transaction', driverName: name, clientName: cn,
+        delBlack, delWhite, colBlack, colWhite,
+        truckBefore: { black: S.truckBlack, white: S.truckWhite },
+        truckAfter:  { black: newTB, white: newTW },
+        timestamp: TS()
+      });
+
+      /* 4. Grava em controle_caixas (aparece no Lumin Log do admin)
+            Uma linha por tipo de caixa entregue/coletada */
+      if (delBlack > 0) {
+        batch.set(db.collection('controle_caixas').doc(), {
+          tipo: 'SAIDA', data: today, cliente: cn,
+          fornecedor: name, motorista: name,
+          quantidadeCx: delBlack, cor: 'Preta',
+          valorUnitario: 20.00, valorTotal: delBlack * 20.00,
+          status: 'OK', origem: 'motorista',
+          createdAt: TS()
+        });
+      }
+      if (delWhite > 0) {
+        batch.set(db.collection('controle_caixas').doc(), {
+          tipo: 'SAIDA', data: today, cliente: cn,
+          fornecedor: name, motorista: name,
+          quantidadeCx: delWhite, cor: 'Branca',
+          valorUnitario: 28.00, valorTotal: delWhite * 28.00,
+          status: 'OK', origem: 'motorista',
+          createdAt: TS()
+        });
+      }
+      if (colBlack > 0) {
+        batch.set(db.collection('controle_caixas').doc(), {
+          tipo: 'ENTRADA', data: today, cliente: cn,
+          fornecedor: name, motorista: name,
+          quantidadeCx: colBlack, cor: 'Preta',
+          valorUnitario: 20.00, valorTotal: colBlack * 20.00,
+          status: 'OK', origem: 'motorista',
+          createdAt: TS()
+        });
+      }
+      if (colWhite > 0) {
+        batch.set(db.collection('controle_caixas').doc(), {
+          tipo: 'ENTRADA', data: today, cliente: cn,
+          fornecedor: name, motorista: name,
+          quantidadeCx: colWhite, cor: 'Branca',
+          valorUnitario: 28.00, valorTotal: colWhite * 28.00,
+          status: 'OK', origem: 'motorista',
+          createdAt: TS()
+        });
+      }
+
+      await batch.commit();
+
+      S.transactions.push({ clientName: cn, delBlack, delWhite, colBlack, colWhite });
+      S.truckBlack = newTB; S.truckWhite = newTW;
+      S.clientName = '';
+      S.delBlack = S.delWhite = S.colBlack = S.colWhite = 0;
+      render();
+      toast(`${cn} registrado!`);
+
+    } catch(e) {
+      console.error(e);
+      toast('Erro ao salvar. Tente novamente.');
+      if (btn) { btn.disabled = false; btn.textContent = 'Registrar Cliente'; }
+    } finally { S.saving = false; }
+  };
+
+  window.goSummary    = function() { S.step = 'summary'; render(); };
+  window.backToClient = function() {
+    S.clientName = '';
+    S.delBlack = S.delWhite = S.colBlack = S.colWhite = 0;
+    S.step = 'client'; render();
+  };
+
+  window.finalize = async function() {
+    if (S.saving) return; S.saving = true;
+    const btn = $('finalBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Salvando...'; }
+    try {
+      await db.collection('ll_events').add({
+        type: 'day_finalized', driverName: name,
+        truckBlack: S.truckBlack, truckWhite: S.truckWhite,
+        totalClients: S.transactions.length,
+        transactions: S.transactions, timestamp: TS()
+      });
+      S.step = 'done'; render();
+    } catch(e) {
+      toast('Erro ao finalizar. Tente novamente.');
+      if (btn) { btn.disabled = false; btn.textContent = 'Finalizar o Dia'; }
+    } finally { S.saving = false; }
+  };
+
+  window.newDay = function() {
+    Object.assign(S, {
+      step: 'departure', transactions: [],
+      clientName: '', delBlack: 0, delWhite: 0, colBlack: 0, colWhite: 0
+    });
+    render();
+  };
+}
+</script>
+</body>
+</html>

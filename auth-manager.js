@@ -36,16 +36,26 @@ const show = (id, display = "flex") => { const e = el(id); if (e) e.style.displa
 const hide = (id)  => { const e = el(id); if (e) e.style.display = "none"; };
 
 // ─── CAMADAS DE TELA ──────────────────────────────────────────
+// Display correto de cada camada quando visível
+const LAYER_DISPLAY = {
+  "preloader":         "flex",
+  "login-screen":      "flex",
+  "admin-panel":       "flex",
+  "app-shell-wrapper": "flex"
+};
+
 function showLayer(name) {
   // Garante que apenas UMA camada seja visível por vez.
-  // Nenhuma camada é injetada — todas existem no DOM mas ocultas por CSS.
-  ["preloader", "login-screen", "admin-panel", "app-shell-wrapper"].forEach(id => {
+  // Força display via JS como fallback caso o CSS não carregue.
+  Object.keys(LAYER_DISPLAY).forEach(id => {
     const e = el(id);
     if (!e) return;
     if (id === name) {
       e.classList.add("active");
+      e.style.display = LAYER_DISPLAY[id]; // fallback se CSS falhar
     } else {
       e.classList.remove("active");
+      e.style.display = "none";            // garante que fica oculto
     }
   });
 }
@@ -103,7 +113,7 @@ async function _securityBreach(reason = "Acesso não autorizado") {
   // Remove todas as views ativas
   ["admin-panel", "app-shell-wrapper"].forEach(id => {
     const e = el(id);
-    if (e) e.classList.remove("active");
+    if (e) { e.classList.remove("active"); e.style.display = "none"; }
   });
 }
 
@@ -245,7 +255,7 @@ async function _doLogout() {
   // Limpa views ativas
   ["admin-panel", "app-shell-wrapper"].forEach(id => {
     const e = el(id);
-    if (e) e.classList.remove("active");
+    if (e) { e.classList.remove("active"); e.style.display = "none"; }
   });
 
   showLayer("login-screen");
