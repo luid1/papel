@@ -205,13 +205,31 @@ function atualizarAutocompleteLists() {
   [dlM, dlMa, dlMe].forEach(dl => { if (dl) dl.innerHTML = optsM; });
 }
 
-// ─── RENDER CARDS ──────────────────────────────────────────────
-function renderTabela() {
-  // Suporta tanto <tbody id="ll-tbody"> quanto <div id="ll-tbody">
-  const tbody = $('ll-tbody'); if (!tbody) return;
-  const dados = aplicarFiltros();
+// ─── CAIXAS NO CAMINHÃO POR MOTORISTA ─────────────────────────
+// Calcula quantas caixas cada motorista ainda tem no caminhão:
+// ENTRADA carregou, SAÍDA entregou. Saldo = entradas - saídas.
+function calcCaixasNoCaminhao() {
+  const saldo = {}; // motorista → { total, porCliente: { cliente → cx } }
+  _registros.forEach(r => {
+    if (!r.motorista) return;
+    const mot = r.motorista.trim().toUpperCase();
+    const cli = (r.cliente || '—').trim().toUpperCase();
+    const cx  = r.quantidadeCx || 0;
+    if (!saldo[mot]) saldo[mot] = { total: 0, porCliente: {} };
+    if (!saldo[mot].porCliente[cli]) saldo[mot].porCliente[cli] = 0;
+    if (r.tipo === 'ENTRADA') {
+      saldo[mot].total += cx;
+      saldo[mot].porCliente[cli] += cx;
+    } else {
+      saldo[mot].total -= cx;
+      saldo[mot].porCliente[cli] -= cx;
+    }
+  });
+  return saldo;
+}
 
-  // ── Totalizadores globais ──────────────────────────────────────
+// ─── RENDER KPIs TOPO ─────────────────────────────────────────
+function renderKpis() {
   const totEntrada = _registros.filter(r => r.tipo === 'ENTRADA').reduce((a, r) => a + (r.quantidadeCx || 0), 0);
   const totSaida   = _registros.filter(r => r.tipo === 'SAÍDA').reduce((a, r)   => a + (r.quantidadeCx || 0), 0);
   const totValor   = _registros.reduce((a, r) => a + (r.valorTotal || 0), 0);
@@ -221,6 +239,45 @@ function renderTabela() {
   const el_sai = $('ll-total-saida');   if (el_sai) el_sai.textContent = `${totSaida} cx`;
   const el_val = $('ll-total-valor');   if (el_val) el_val.textContent = fmt(totValor);
   const el_cnt = $('ll-total-count');   if (el_cnt) el_cnt.textContent = totCount;
+
+  // ── Painel: caixas no caminhão por motorista ───────────────────
+  const saldoMot = calcCaixasNoCaminhao();
+  const motPanel  = $('ll-motoristas-panel');
+  if (motPanel) {
+    const motoristas = Object.entries(saldoMot).filter(([, v]) => v.total > 0);
+    if (!motoristas.length) {
+      motPanel.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:12px 0;">Nenhuma caixa em trânsito no momento.</div>`;
+    } else {
+      motPanel.innerHTML = motoristas.map(([mot, v]) => {
+        const clientesComSaldo = Object.entries(v.porCliente)
+          .filter(([, cx]) => cx > 0)
+          .sort((a, b) => b[1] - a[1]);
+        const clientesHtml = clientesComSaldo.map(([cli, cx]) =>
+          `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:13px;">
+            <span style="color:var(--muted);">${esc(cli)}</span>
+            <span style="font-family:'DM Mono',monospace;font-weight:700;color:var(--text);">${cx} cx</span>
+          </div>`
+        ).join('');
+        return `
+          <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:16px 20px;min-width:220px;flex:1;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+              <div style="font-size:14px;font-weight:800;">🚚 ${esc(mot)}</div>
+              <div style="font-family:'DM Mono',monospace;font-size:20px;font-weight:900;color:var(--warning);">${v.total} <span style="font-size:12px;font-weight:600;color:var(--muted);">cx</span></div>
+            </div>
+            ${clientesHtml || '<div style="font-size:12px;color:var(--muted);">Sem clientes pendentes</div>'}
+          </div>`;
+      }).join('');
+    }
+  }
+}
+
+// ─── RENDER CARDS ──────────────────────────────────────────────
+function renderTabela() {
+  const tbody = $('ll-tbody'); if (!tbody) return;
+  const dados = aplicarFiltros();
+
+  // KPIs sempre no topo
+  renderKpis();
 
   // ── Totalizadores filtrados ────────────────────────────────────
   const filtEntrada = dados.filter(r => r.tipo === 'ENTRADA').reduce((a, r) => a + (r.quantidadeCx || 0), 0);
@@ -234,6 +291,9 @@ function renderTabela() {
   const filtrosAtivos = $('ll-filt-row');
   if (filtrosAtivos) filtrosAtivos.style.display = temFiltroAtivo() ? 'grid' : 'none';
 
+  // ── Badge nos filtros colapsáveis ──────────────────────────────
+  atualizarBadgeFiltros();
+
   // ── Banner REVISAR ─────────────────────────────────────────────
   const pendentes = _registros.filter(r => r.status === 'REVISAR').length;
   const banner    = $('ll-revisar-banner');
@@ -244,14 +304,9 @@ function renderTabela() {
   // ── Estado vazio ───────────────────────────────────────────────
   if (!dados.length) {
     tbody.innerHTML = `
-      <div style="
-        display:flex;flex-direction:column;align-items:center;justify-content:center;
-        padding:60px 20px;gap:12px;color:var(--muted);
-      ">
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;gap:12px;color:var(--muted);">
         <div style="font-size:40px;opacity:.35;">${temFiltroAtivo() ? '🔍' : '📦'}</div>
-        <div style="font-size:15px;font-weight:600;">
-          ${temFiltroAtivo() ? 'Nenhum registro encontrado com os filtros atuais.' : 'Nenhum registro ainda.'}
-        </div>
+        <div style="font-size:15px;font-weight:600;">${temFiltroAtivo() ? 'Nenhum registro com esses filtros.' : 'Nenhum registro ainda.'}</div>
         ${temFiltroAtivo() ? `<div style="font-size:13px;opacity:.6;">Tente ajustar ou limpar os filtros.</div>` : ''}
       </div>`;
     return;
@@ -265,79 +320,74 @@ function renderTabela() {
       .ll-card {
         background: rgba(255,255,255,.04);
         border: 1px solid rgba(255,255,255,.08);
-        border-radius: 18px;
-        padding: 20px 22px;
+        border-radius: 16px;
+        padding: 16px 18px;
         display: grid;
         grid-template-columns: 1fr auto;
-        gap: 14px 20px;
+        gap: 10px 16px;
         transition: border-color .2s, transform .15s;
         position: relative;
         overflow: hidden;
       }
-      .ll-card:hover {
-        border-color: rgba(255,255,255,.16);
-        transform: translateY(-1px);
-      }
-      .ll-card.is-revisar {
-        border-color: rgba(255,179,71,.25);
-        background: rgba(255,179,71,.04);
-      }
+      .ll-card:hover { border-color: rgba(255,255,255,.16); transform: translateY(-1px); }
+      .ll-card.is-revisar { border-color: rgba(255,179,71,.25); background: rgba(255,179,71,.04); }
       .ll-card::before {
-        content: '';
-        position: absolute;
-        left: 0; top: 0; bottom: 0;
-        width: 3px;
-        border-radius: 18px 0 0 18px;
+        content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+        width: 3px; border-radius: 16px 0 0 16px;
       }
       .ll-card.is-entrada::before { background: var(--success); }
       .ll-card.is-saida::before   { background: var(--alert); }
       .ll-card.is-revisar::before { background: var(--warning); }
-      .ll-card-body   { display:flex; flex-direction:column; gap:10px; min-width:0; }
-      .ll-card-top    { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-      .ll-card-cliente{
-        font-size:16px; font-weight:800; letter-spacing:.2px;
-        white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
-        max-width: 280px;
+      .ll-card-body   { display:flex; flex-direction:column; gap:8px; min-width:0; }
+      .ll-card-top    { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+      .ll-card-nome   {
+        font-size:15px; font-weight:800; letter-spacing:.1px;
+        white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:260px;
       }
       .ll-card-badge  {
-        font-size:10px; font-weight:800; padding:3px 10px;
+        font-size:10px; font-weight:800; padding:3px 9px;
         border-radius:20px; text-transform:uppercase; letter-spacing:.5px;
         white-space:nowrap; flex-shrink:0;
       }
       .ll-card-meta   {
-        display:flex; gap:18px; flex-wrap:wrap; align-items:center;
-        font-size:13px; color:var(--muted);
+        display:flex; gap:14px; flex-wrap:wrap; align-items:center; font-size:12px; color:var(--muted);
       }
-      .ll-card-meta-item { display:flex; align-items:center; gap:5px; }
-      .ll-card-meta-label{ font-size:11px; text-transform:uppercase; letter-spacing:.4px; opacity:.55; }
+      .ll-card-meta-item { display:flex; align-items:center; gap:4px; }
+      .ll-card-meta-label{ font-size:10px; text-transform:uppercase; letter-spacing:.4px; opacity:.55; }
       .ll-card-meta-val  { font-weight:600; color:var(--text); }
-      .ll-card-valor  {
-        font-family:'DM Mono',monospace; font-size:22px; font-weight:800;
-        letter-spacing:-.5px;
+      .ll-card-cx-badge  {
+        display:inline-flex; align-items:center; gap:5px;
+        font-family:'DM Mono',monospace; font-size:13px; font-weight:800;
+        padding:4px 12px; border-radius:20px; white-space:nowrap;
       }
-      .ll-card-actions{ display:flex; gap:8px; }
+      .ll-card-valor  { font-family:'DM Mono',monospace; font-size:20px; font-weight:800; letter-spacing:-.5px; }
+      .ll-card-actions{ display:flex; gap:6px; }
       .ll-card-actions button {
-        padding:7px 16px; border-radius:10px; font-size:12px;
-        font-weight:700; cursor:pointer; transition:.15s; border-width:1px;
-        border-style:solid; white-space:nowrap;
+        padding:6px 14px; border-radius:9px; font-size:12px; font-weight:700;
+        cursor:pointer; transition:.15s; border-width:1px; border-style:solid; white-space:nowrap;
       }
       .ll-card-actions button:hover { opacity:.8; transform:scale(.97); }
       .ll-card-pill {
         display:inline-flex; align-items:center; gap:5px;
-        font-size:12px; font-weight:700; padding:4px 10px;
-        border-radius:20px; white-space:nowrap;
+        font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px; white-space:nowrap;
       }
-      #ll-tbody {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        padding: 4px 0;
-      }
+      /* Painel de caixas no caminhão */
+      #ll-motoristas-panel { display:flex; gap:10px; flex-wrap:wrap; }
+      /* Filtros colapsáveis */
+      #ll-filtros-body { overflow:hidden; transition: max-height .3s ease, opacity .3s ease; }
+      #ll-filtros-body.collapsed { max-height:0!important; opacity:0; pointer-events:none; }
+      #ll-filtros-body.expanded  { opacity:1; }
+      #ll-tbody { display:flex; flex-direction:column; gap:8px; padding:4px 0; }
     `;
     document.head.appendChild(style);
   }
 
   // ── Renderiza cada registro como card ─────────────────────────
+  // Para ENTRADA: mostra fornecedor (de onde veio) + motorista
+  // Para SAÍDA: mostra CLIENTE (para quem foi entregue) + caixas ainda
+  //             com esse motorista no caminhão
+  const saldoMot = calcCaixasNoCaminhao();
+
   tbody.innerHTML = dados.map(r => {
     const isEntrada  = r.tipo === 'ENTRADA';
     const isRevisar  = r.status === 'REVISAR';
@@ -353,7 +403,31 @@ function renderTabela() {
       ? `<span class="ll-card-pill" style="background:rgba(255,179,71,.15);border:1px solid rgba(255,179,71,.3);color:var(--warning);">⚠ REVISAR</span>`
       : `<span class="ll-card-pill" style="background:rgba(0,229,160,.1);border:1px solid rgba(0,229,160,.2);color:var(--success);">✓ OK</span>`;
 
-    const fornecedorHtml = r.fornecedor
+    // Para SAÍDA: exibe cliente em destaque + caixas ainda com esse motorista
+    let extraInfoHtml = '';
+    if (!isEntrada && r.motorista) {
+      const mot = r.motorista.trim().toUpperCase();
+      const saldo = saldoMot[mot];
+      const cxRestantes = saldo ? Math.max(0, saldo.total) : 0;
+      if (cxRestantes > 0) {
+        extraInfoHtml = `
+          <div class="ll-card-meta-item" style="margin-top:2px;">
+            <span class="ll-card-cx-badge" style="background:rgba(255,179,71,.12);border:1px solid rgba(255,179,71,.25);color:var(--warning);">
+              🚚 ${cxRestantes} cx ainda no caminhão
+            </span>
+          </div>`;
+      } else {
+        extraInfoHtml = `
+          <div class="ll-card-meta-item" style="margin-top:2px;">
+            <span class="ll-card-cx-badge" style="background:rgba(0,229,160,.08);border:1px solid rgba(0,229,160,.2);color:var(--success);">
+              ✓ Caminhão zerado
+            </span>
+          </div>`;
+      }
+    }
+
+    // Para ENTRADA: mostra fornecedor se existir
+    const fornecedorHtml = (isEntrada && r.fornecedor)
       ? `<div class="ll-card-meta-item">
            <span class="ll-card-meta-label">Fornec.</span>
            <span class="ll-card-meta-val">${esc(r.fornecedor)}</span>
@@ -367,30 +441,28 @@ function renderTabela() {
          </div>`
       : '';
 
-    return `
-      <div class="ll-card ${isEntrada ? 'is-entrada' : 'is-saida'} ${isRevisar ? 'is-revisar' : ''}"
-           data-ll-id="${r.id}">
+    // Nome principal: para SAÍDA mostra CLIENTE, para ENTRADA mostra CLIENTE também
+    // (o cliente é sempre quem recebeu/pediu — igual ao comportamento atual)
+    const nomePrincipal = r.cliente || '—';
 
-        <!-- Corpo: cliente + metadados -->
+    return `
+      <div class="ll-card ${isEntrada ? 'is-entrada' : 'is-saida'} ${isRevisar ? 'is-revisar' : ''}" data-ll-id="${r.id}">
         <div class="ll-card-body">
           <div class="ll-card-top">
-            <span class="ll-card-badge"
-              style="background:${tipoBg};border:1px solid ${tipoBorder};color:${tipoColor};">
+            <span class="ll-card-badge" style="background:${tipoBg};border:1px solid ${tipoBorder};color:${tipoColor};">
               ${tipoIcon} ${esc(r.tipo)}
             </span>
-            <span class="ll-card-cliente" title="${esc(r.cliente)}">${esc(r.cliente||'—')}</span>
+            <span class="ll-card-nome" title="${esc(nomePrincipal)}">${esc(nomePrincipal)}</span>
             ${statusBadge}
           </div>
-
           <div class="ll-card-meta">
             <div class="ll-card-meta-item">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" opacity=".5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-              <span style="font-family:'DM Mono',monospace;font-weight:600;color:var(--text);">${fmtDt(r.data)}</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" opacity=".5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              <span style="font-family:'DM Mono',monospace;font-weight:600;color:var(--text);font-size:12px;">${fmtDt(r.data)}</span>
             </div>
             <div class="ll-card-meta-item">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" opacity=".5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
               <span class="ll-card-meta-label">Qtd</span>
-              <span style="font-family:'DM Mono',monospace;font-size:15px;font-weight:800;color:var(--text);">${r.quantidadeCx ?? '—'} cx</span>
+              <span style="font-family:'DM Mono',monospace;font-size:14px;font-weight:800;color:var(--text);">${r.quantidadeCx ?? '—'} cx</span>
             </div>
             <div class="ll-card-meta-item">
               ${corIcon}
@@ -398,15 +470,14 @@ function renderTabela() {
             </div>
             <div class="ll-card-meta-item">
               <span class="ll-card-meta-label">Unit.</span>
-              <span style="font-family:'DM Mono',monospace;font-weight:600;color:var(--text);">${fmt(r.valorUnitario)}</span>
+              <span style="font-family:'DM Mono',monospace;font-weight:600;color:var(--text);font-size:12px;">${fmt(r.valorUnitario)}</span>
             </div>
             ${fornecedorHtml}
             ${motoristaHtml}
           </div>
+          ${extraInfoHtml}
         </div>
-
-        <!-- Valor + ações (coluna direita) -->
-        <div style="display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;gap:10px;flex-shrink:0;">
+        <div style="display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;gap:8px;flex-shrink:0;">
           <div class="ll-card-valor" style="color:${tipoColor};">${fmt(r.valorTotal)}</div>
           <div class="ll-card-actions">
             <button data-ll-action="edit" data-ll-id="${r.id}"
@@ -414,14 +485,40 @@ function renderTabela() {
               ✎ Editar
             </button>
             <button data-ll-action="del" data-ll-id="${r.id}"
-              style="background:rgba(255,91,112,.08);border-color:rgba(255,91,112,.2);color:var(--alert);padding:7px 10px;">
+              style="background:rgba(255,91,112,.08);border-color:rgba(255,91,112,.2);color:var(--alert);padding:6px 10px;">
               ✕
             </button>
           </div>
         </div>
-
       </div>`;
   }).join('');
+}
+
+// ─── TOGGLE FILTROS COLAPSÁVEL ─────────────────────────────────
+function initFiltrosColapsaveis() {
+  const btn  = $('ll-filtros-toggle');
+  const body = $('ll-filtros-body');
+  if (!btn || !body) return;
+
+  // Começa recolhido
+  body.classList.add('collapsed');
+  body.style.maxHeight = '0';
+  let aberto = false;
+
+  btn.addEventListener('click', () => {
+    aberto = !aberto;
+    if (aberto) {
+      body.classList.remove('collapsed');
+      body.classList.add('expanded');
+      body.style.maxHeight = body.scrollHeight + 'px';
+      btn.querySelector('.ll-filtros-arrow').style.transform = 'rotate(180deg)';
+    } else {
+      body.classList.remove('expanded');
+      body.classList.add('collapsed');
+      body.style.maxHeight = '0';
+      btn.querySelector('.ll-filtros-arrow').style.transform = 'rotate(0deg)';
+    }
+  });
 }
 
 // ─── LISTENER FIRESTORE ────────────────────────────────────────
@@ -1041,7 +1138,8 @@ window.addEventListener('lumin:admin-ready', async () => {
   const ok = await window.LuminAuth?.requireRole('master');
   if (!ok) return;
   bindEvents();
-  carregarFrequentes();   // carrega motoristas/clientes salvos
+  initFiltrosColapsaveis();  // filtros colapsáveis
+  carregarFrequentes();      // carrega motoristas/clientes salvos
   startListener();
 
   // Expõe renderTabela globalmente para o script inline do index.html
