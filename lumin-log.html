@@ -167,16 +167,132 @@ if (!driverName) {
 /* ══════════════════════════════════════════════════════════
    INTERFACE DO MOTORISTA
 ══════════════════════════════════════════════════════════ */
+
+/* ─── Utilitário de foto ─── */
+function tirarFoto() {
+  return new Promise(resolve => {
+    const inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = 'image/*';
+    inp.capture = 'environment';
+    inp.style.display = 'none';
+    document.body.appendChild(inp);
+
+    let done = false;
+    const finish = (val) => {
+      if (done) return; done = true;
+      try { document.body.removeChild(inp); } catch(_) {}
+      resolve(val);
+    };
+
+    inp.onchange = () => {
+      const file = inp.files[0];
+      if (!file) { finish(null); return; }
+      const reader = new FileReader();
+      reader.onload = e => {
+        const img = new Image();
+        img.onload = () => {
+          const maxW = 900, maxH = 900;
+          let { width: w, height: h } = img;
+          if (w > maxW || h > maxH) {
+            const r = Math.min(maxW / w, maxH / h);
+            w = Math.round(w * r); h = Math.round(h * r);
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          finish(canvas.toDataURL('image/jpeg', 0.65));
+        };
+        img.onerror = () => finish(null);
+        img.src = e.target.result;
+      };
+      reader.onerror = () => finish(null);
+      reader.readAsDataURL(file);
+    };
+
+    // fallback: se o usuário fechar sem escolher
+    window.addEventListener('focus', function onFocus() {
+      window.removeEventListener('focus', onFocus);
+      setTimeout(() => { if (!done) finish(null); }, 800);
+    });
+
+    inp.click();
+  });
+}
+
+function renderFotoBlock(fotoKey, labelText) {
+  const fotoData = window._S && window._S.fotos && window._S.fotos[fotoKey];
+  if (fotoData) {
+    return `<div id="foto-block-${fotoKey}" style="margin-top:14px;">
+      <div style="font-size:.75rem;font-weight:800;text-transform:uppercase;
+        letter-spacing:.14em;color:rgba(0,229,160,.7);margin-bottom:8px;">
+        ✓ ${labelText}
+      </div>
+      <div style="position:relative;display:inline-block;width:100%;max-width:340px;">
+        <img src="${fotoData}" style="width:100%;max-width:340px;border-radius:14px;
+          border:2px solid rgba(0,229,160,.4);display:block;" />
+        <button onclick="window.trocaFoto('${fotoKey}','${encodeURIComponent(labelText)}')"
+          style="position:absolute;bottom:10px;right:10px;
+          padding:8px 14px;border-radius:10px;font-size:.78rem;font-weight:700;
+          background:rgba(5,13,18,.85);border:1px solid rgba(255,255,255,.25);
+          color:var(--text);backdrop-filter:blur(8px);cursor:pointer;">
+          📷 Trocar
+        </button>
+      </div>
+    </div>`;
+  }
+  return `<div id="foto-block-${fotoKey}" style="margin-top:14px;">
+    <button onclick="window.tirarFotoUI('${fotoKey}','${encodeURIComponent(labelText)}')"
+      style="width:100%;min-height:76px;border-radius:16px;
+      border:2px dashed rgba(0,212,255,.35);background:rgba(0,212,255,.03);
+      color:var(--accent);font-size:.95rem;font-weight:700;
+      display:flex;align-items:center;justify-content:center;gap:10px;
+      transition:background .15s;cursor:pointer;">
+      📷 <span>Tirar foto <span style="font-weight:400;opacity:.6;">(opcional)</span></span>
+    </button>
+  </div>`;
+}
+
+window.tirarFotoUI = async function(key, encodedLabel) {
+  const label = decodeURIComponent(encodedLabel);
+  const btn = event && event.target ? event.target.closest('button') : null;
+  if (btn) { btn.disabled = true; btn.style.opacity = '.5'; btn.textContent = '⏳ Abrindo câmera...'; }
+  const data = await tirarFoto();
+  if (data) {
+    window._S.fotos[key] = data;
+    toast('📸 Foto salva!');
+    // Re-render somente o bloco da foto
+    const blk = document.getElementById('foto-block-' + key);
+    if (blk) blk.outerHTML = renderFotoBlock(key, label);
+  } else {
+    if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.innerHTML = '📷 <span>Tirar foto <span style="font-weight:400;opacity:.6;">(opcional)</span></span>'; }
+  }
+};
+
+window.trocaFoto = async function(key, encodedLabel) {
+  const label = decodeURIComponent(encodedLabel);
+  const data = await tirarFoto();
+  if (data) {
+    window._S.fotos[key] = data;
+    toast('📸 Foto atualizada!');
+    const blk = document.getElementById('foto-block-' + key);
+    if (blk) blk.outerHTML = renderFotoBlock(key, label);
+  }
+};
+
 function initDriver(name) {
   const S = {
-    step: 'departure',
+    step: 'choose',
+    mode: null,         // 'cd' | 'client'
     truckBlack: 0, truckWhite: 0,
     clientName: '',
     delBlack: 0, delWhite: 0,
     colBlack: 0, colWhite: 0,
     transactions: [],
     saving: false,
+    fotos: {},
   };
+  window._S = S;
 
   /* Carrega saldo atual do caminhão */
   db.collection('ll_drivers').doc(name).get().then(doc => {
@@ -188,12 +304,18 @@ function initDriver(name) {
   }).catch(() => render());
 
   function render() {
-    ({ departure: vDeparture, client: vClient,
-       summary: vSummary, done: vDone }[S.step] || vDeparture)();
+    ({
+      choose:    vChoose,
+      departure: vDeparture,
+      client:    vClient,
+      summary:   vSummary,
+      done:      vDone
+    }[S.step] || vChoose)();
   }
 
-  function dots(a) {
-    return [1,2,3].map(i => `<div class="step-dot ${i===a?'on':''}"></div>`).join('');
+  function dots(a, total) {
+    return Array.from({length: total||3}, (_,i) =>
+      `<div class="step-dot ${i+1===a?'on':''}"></div>`).join('');
   }
 
   function truckBar() {
@@ -204,11 +326,10 @@ function initDriver(name) {
     </div>`;
   }
 
-  function cBlock(label, emoji, key, elId) {
+  function cBlock(label, key, elId) {
     return `<div style="margin-bottom:26px;">
-      <div style="display:flex;align-items:center;margin-bottom:14px;">
-        <span class="label-box">${emoji} ${label}</span>
-      </div>
+      <div style="font-family:'Montserrat',sans-serif;font-size:1.1rem;font-weight:800;
+        margin-bottom:14px;">${label}</div>
       <div class="counter-wrap">
         <button class="counter-btn counter-minus" onclick="adj('${key}',-1,'${elId}')">-</button>
         <div class="counter-num" id="${elId}">${S[key]}</div>
@@ -217,39 +338,139 @@ function initDriver(name) {
     </div>`;
   }
 
-  /* PASSO 1 */
+  /* ══ TELA INICIAL: ESCOLHA DO MODO ══ */
+  function vChoose() {
+    $('app').innerHTML = `<div id="driver-wrap" class="fade-in">
+      <div style="text-align:center;padding:20px 0 32px;">
+        <span class="wordmark" style="font-size:1.8rem;">Lumin Log</span>
+        <div style="font-size:1rem;color:var(--muted);margin-top:6px;">Olá, <strong style="color:var(--text);">${name}</strong>!</div>
+      </div>
+
+      <div style="font-family:'Montserrat',sans-serif;font-size:1.5rem;font-weight:900;
+        text-align:center;margin-bottom:8px;line-height:1.2;">O que você vai fazer agora?</div>
+      <div style="color:var(--muted);text-align:center;font-size:1rem;margin-bottom:36px;line-height:1.5;">
+        Escolha uma opção abaixo para continuar
+      </div>
+
+      <!-- OPÇÃO 1: RETIRADA NO CD -->
+      <button onclick="window.escolherModo('cd')"
+        style="width:100%;margin-bottom:18px;padding:0;border:none;background:none;cursor:pointer;text-align:left;">
+        <div style="background:linear-gradient(135deg,rgba(0,212,255,.14),rgba(0,143,181,.08));
+          border:2px solid rgba(0,212,255,.35);border-radius:24px;padding:32px 28px;
+          transition:transform .12s,box-shadow .12s;active:transform:scale(.98);">
+          <div style="font-size:3.5rem;margin-bottom:16px;line-height:1;">🏭</div>
+          <div style="font-family:'Montserrat',sans-serif;font-size:1.55rem;font-weight:900;
+            color:var(--accent);margin-bottom:10px;line-height:1.1;">
+            Retirar no CD
+          </div>
+          <div style="font-size:1.05rem;color:rgba(228,240,246,.7);line-height:1.55;">
+            Você está no centro de distribuição<br>e vai retirar caixas agora.
+          </div>
+          <div style="margin-top:20px;display:inline-flex;align-items:center;gap:8px;
+            background:rgba(0,212,255,.12);border:1px solid rgba(0,212,255,.25);
+            border-radius:100px;padding:8px 18px;font-size:.85rem;font-weight:700;color:var(--accent);">
+            Tocar para selecionar →
+          </div>
+        </div>
+      </button>
+
+      <!-- OPÇÃO 2: ENTREGA NO CLIENTE -->
+      <button onclick="window.escolherModo('client')"
+        style="width:100%;margin-bottom:10px;padding:0;border:none;background:none;cursor:pointer;text-align:left;">
+        <div style="background:linear-gradient(135deg,rgba(0,229,160,.12),rgba(0,160,110,.06));
+          border:2px solid rgba(0,229,160,.35);border-radius:24px;padding:32px 28px;
+          transition:transform .12s,box-shadow .12s;">
+          <div style="font-size:3.5rem;margin-bottom:16px;line-height:1;">🚚</div>
+          <div style="font-family:'Montserrat',sans-serif;font-size:1.55rem;font-weight:900;
+            color:var(--success);margin-bottom:10px;line-height:1.1;">
+            Deixar Caixa no Cliente
+          </div>
+          <div style="font-size:1.05rem;color:rgba(228,240,246,.7);line-height:1.55;">
+            Você está na rota e vai entregar<br>ou coletar caixas num cliente.
+          </div>
+          <div style="margin-top:20px;display:inline-flex;align-items:center;gap:8px;
+            background:rgba(0,229,160,.1);border:1px solid rgba(0,229,160,.25);
+            border-radius:100px;padding:8px 18px;font-size:.85rem;font-weight:700;color:var(--success);">
+            Tocar para selecionar →
+          </div>
+        </div>
+      </button>
+    </div>`;
+
+    // Efeito press nos cards
+    document.querySelectorAll('#driver-wrap button > div').forEach(card => {
+      card.addEventListener('touchstart', () => { card.style.transform = 'scale(.98)'; }, {passive:true});
+      card.addEventListener('touchend', () => { card.style.transform = ''; }, {passive:true});
+    });
+  }
+
+  /* ══ RETIRADA NO CD ══ */
   function vDeparture() {
     $('app').innerHTML = `<div id="driver-wrap" class="fade-in">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
-        <span class="wordmark">Lumin Log</span>
-        <div class="step-dot-row">${dots(1)}</div>
+        <button onclick="window.voltarEscolha()"
+          style="display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;
+          background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+          font-size:.85rem;font-weight:700;color:rgba(228,240,246,.6);cursor:pointer;">
+          ← Voltar
+        </button>
+        <div class="step-dot-row">${dots(1,2)}</div>
       </div>
-      <div class="step-badge" style="margin-bottom:18px;">Passo 1 de 3 - Saida do CD</div>
-      <h1 style="font-family:'Montserrat',sans-serif;font-size:1.85rem;font-weight:900;
-        color:var(--text);margin-bottom:8px;line-height:1.1;">Ola, ${name}!</h1>
-      <p style="color:var(--muted);font-size:1.2rem;margin-bottom:28px;line-height:1.55;">
-        Quantas caixas voce esta levando agora?
-      </p>
+
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:22px;">
+        <div style="width:52px;height:52px;border-radius:14px;background:rgba(0,212,255,.12);
+          border:1.5px solid rgba(0,212,255,.25);display:flex;align-items:center;
+          justify-content:center;font-size:1.8rem;flex-shrink:0;">🏭</div>
+        <div>
+          <div style="font-family:'Montserrat',sans-serif;font-size:1.45rem;font-weight:900;line-height:1.1;">
+            Retirada no CD
+          </div>
+          <div style="font-size:.9rem;color:var(--muted);margin-top:3px;">
+            Quantas caixas você está levando?
+          </div>
+        </div>
+      </div>
+
       <div class="glass-card" style="padding:30px;margin-bottom:22px;">
-        ${cBlock('CAIXAS PRETAS','', 'truckBlack','c-depB')}
+        ${cBlock('📦 CAIXAS PRETAS', 'truckBlack', 'c-depB')}
         <div class="sep"></div>
-        ${cBlock('CAIXAS BRANCAS','','truckWhite','c-depW')}
+        ${cBlock('📦 CAIXAS BRANCAS', 'truckWhite', 'c-depW')}
+        <div class="sep" style="margin-top:4px;"></div>
+        ${renderFotoBlock('cd_saida', 'Foto da retirada')}
       </div>
+
       <button onclick="confirmDeparture()" class="btn-giant">
-        ${ico('<polyline points="20 6 9 17 4 12"/>',24)} Confirmar Saida do CD
+        ${ico('<polyline points="20 6 9 17 4 12"/>',24)} Confirmar Retirada do CD
       </button>
     </div>`;
   }
 
-  /* PASSO 2 */
+  /* ══ LANÇAMENTO NO CLIENTE ══ */
   function vClient() {
     $('app').innerHTML = `<div id="driver-wrap" class="fade-in">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
-        <span class="wordmark">Lumin Log</span>
-        <div class="step-dot-row">${dots(2)}</div>
+        <button onclick="window.voltarEscolha()"
+          style="display:flex;align-items:center;gap:6px;padding:8px 14px;border-radius:10px;
+          background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+          font-size:.85rem;font-weight:700;color:rgba(228,240,246,.6);cursor:pointer;">
+          ← Início
+        </button>
+        <div class="step-dot-row">${dots(1,2)}</div>
       </div>
-      <div class="step-badge" style="margin-bottom:14px;">Passo 2 de 3 - Lancamento</div>
+
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;">
+        <div style="width:52px;height:52px;border-radius:14px;background:rgba(0,229,160,.1);
+          border:1.5px solid rgba(0,229,160,.25);display:flex;align-items:center;
+          justify-content:center;font-size:1.8rem;flex-shrink:0;">🚚</div>
+        <div>
+          <div style="font-family:'Montserrat',sans-serif;font-size:1.45rem;font-weight:900;line-height:1.1;">
+            Lançamento no Cliente
+          </div>
+        </div>
+      </div>
+
       ${truckBar()}
+
       <div class="glass-card" style="padding:22px;margin-bottom:16px;">
         <div class="label-section" style="margin-bottom:12px;">Nome do Cliente</div>
         <input id="clientInput" type="text" class="input-field"
@@ -257,30 +478,37 @@ function initDriver(name) {
           value="${S.clientName}" oninput="S.clientName=this.value"
           autocomplete="off" autocorrect="off" spellcheck="false"/>
       </div>
+
       <div class="glass-card" style="padding:28px;margin-bottom:16px;">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:22px;">
-          <div class="icon-box" style="background:rgba(0,212,255,.12);">&#128230;</div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">
+          <div class="icon-box" style="background:rgba(0,212,255,.12);">📤</div>
           <div>
-            <div style="font-family:'Montserrat',sans-serif;font-size:1.2rem;font-weight:800;">ENTREGOU</div>
-            <div style="font-size:.78rem;color:var(--muted);">Saiu do caminhao para o cliente</div>
+            <div style="font-family:'Montserrat',sans-serif;font-size:1.15rem;font-weight:800;">ENTREGOU</div>
+            <div style="font-size:.78rem;color:var(--muted);">Saiu do caminhão para o cliente</div>
           </div>
         </div>
-        ${cBlock('Pretas','','delBlack','c-dB')}
+        ${cBlock('Pretas', 'delBlack', 'c-dB')}
         <div class="sep"></div>
-        ${cBlock('Brancas','','delWhite','c-dW')}
+        ${cBlock('Brancas', 'delWhite', 'c-dW')}
+        <div class="sep" style="margin-top:4px;"></div>
+        ${renderFotoBlock('client_entrega', 'Foto da entrega')}
       </div>
+
       <div class="glass-card" style="padding:28px;margin-bottom:24px;">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:22px;">
-          <div class="icon-box" style="background:rgba(0,229,160,.1);">&#128260;</div>
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;">
+          <div class="icon-box" style="background:rgba(0,229,160,.1);">📥</div>
           <div>
-            <div style="font-family:'Montserrat',sans-serif;font-size:1.2rem;font-weight:800;">COLETOU</div>
-            <div style="font-size:.78rem;color:var(--muted);">Entrou no caminhao</div>
+            <div style="font-family:'Montserrat',sans-serif;font-size:1.15rem;font-weight:800;">COLETOU</div>
+            <div style="font-size:.78rem;color:var(--muted);">Entrou no caminhão</div>
           </div>
         </div>
-        ${cBlock('Pretas','','colBlack','c-cB')}
+        ${cBlock('Pretas', 'colBlack', 'c-cB')}
         <div class="sep"></div>
-        ${cBlock('Brancas','','colWhite','c-cW')}
+        ${cBlock('Brancas', 'colWhite', 'c-cW')}
+        <div class="sep" style="margin-top:4px;"></div>
+        ${renderFotoBlock('client_coleta', 'Foto da coleta')}
       </div>
+
       <button id="regBtn" onclick="registerClient()" class="btn-giant" style="margin-bottom:14px;">
         ${ico('<polyline points="20 6 9 17 4 12"/>',24)} Registrar Cliente
       </button>
@@ -288,7 +516,7 @@ function initDriver(name) {
     </div>`;
   }
 
-  /* PASSO 3 */
+  /* ══ RESUMO ══ */
   function vSummary() {
     const txHtml = S.transactions.length ? S.transactions.map(tx => `
       <div class="tx-item">
@@ -298,19 +526,20 @@ function initDriver(name) {
           ${tx.delWhite ? `<span class="tx-chip del">Brancas entregues: ${tx.delWhite}</span>` : ''}
           ${tx.colBlack ? `<span class="tx-chip col">Pretas coletadas: ${tx.colBlack}</span>` : ''}
           ${tx.colWhite ? `<span class="tx-chip col">Brancas coletadas: ${tx.colWhite}</span>` : ''}
+          ${tx.temFoto  ? `<span class="tx-chip" style="border-color:rgba(255,179,71,.3);color:var(--warning);">📷 Foto</span>` : ''}
         </div>
-      </div>`).join('') : '<p class="empty">Nenhum cliente lancado ainda.</p>';
+      </div>`).join('') : '<p class="empty">Nenhum cliente lançado ainda.</p>';
 
     $('app').innerHTML = `<div id="driver-wrap" class="fade-in">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;">
         <span class="wordmark">Lumin Log</span>
-        <div class="step-dot-row">${dots(3)}</div>
+        <div class="step-dot-row">${dots(2,2)}</div>
       </div>
-      <div class="step-badge" style="margin-bottom:18px;">Passo 3 de 3 - Resumo</div>
+      <div class="step-badge" style="margin-bottom:18px;">Resumo</div>
       <h2 style="font-family:'Montserrat',sans-serif;font-size:1.85rem;font-weight:900;
         color:var(--text);margin-bottom:24px;line-height:1.1;">Resumo do Dia</h2>
       <div class="glass-card" style="padding:28px;margin-bottom:16px;">
-        <div class="label-section" style="margin-bottom:18px;">No Caminhao Agora</div>
+        <div class="label-section" style="margin-bottom:18px;">No Caminhão Agora</div>
         <div style="display:flex;gap:36px;">
           <div><div class="big-num">${S.truckBlack}</div><div class="big-num-label">Pretas</div></div>
           <div><div class="big-num">${S.truckWhite}</div><div class="big-num-label">Brancas</div></div>
@@ -319,10 +548,10 @@ function initDriver(name) {
       </div>
       <div class="glass-card" style="padding:22px;margin-bottom:24px;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-          <div class="label-section">${S.transactions.length} cliente${S.transactions.length!==1?'s':''} lancado${S.transactions.length!==1?'s':''}</div>
+          <div class="label-section">${S.transactions.length} cliente${S.transactions.length!==1?'s':''} lançado${S.transactions.length!==1?'s':''}</div>
           <button onclick="backToClient()" style="font-size:.78rem;font-weight:700;color:var(--accent);
             padding:7px 14px;border:1px solid rgba(0,212,255,.2);border-radius:8px;
-            background:rgba(0,212,255,.06);">+ Novo Cliente</button>
+            background:rgba(0,212,255,.06);cursor:pointer;">+ Novo Cliente</button>
         </div>
         <div style="max-height:300px;overflow-y:auto;">${txHtml}</div>
       </div>
@@ -333,24 +562,24 @@ function initDriver(name) {
     </div>`;
   }
 
-  /* DONE */
+  /* ══ DONE ══ */
   function vDone() {
     $('app').innerHTML = `<div id="driver-wrap" class="fade-in"
       style="display:flex;flex-direction:column;align-items:center;justify-content:center;
       min-height:85svh;text-align:center;padding:40px 20px;">
       <div style="font-size:88px;line-height:1;margin-bottom:24px;
-        filter:drop-shadow(0 0 30px rgba(0,229,160,.4));">&#9989;</div>
+        filter:drop-shadow(0 0 30px rgba(0,229,160,.4));">✅</div>
       <h1 style="font-family:'Montserrat',sans-serif;font-size:2.4rem;font-weight:900;
         color:var(--text);margin-bottom:12px;line-height:1.1;">Dia Finalizado!</h1>
       <p style="color:var(--muted);font-size:1.2rem;margin-bottom:6px;">Tudo salvo com sucesso.</p>
       <p style="color:var(--muted);font-size:1.05rem;margin-bottom:48px;">
         Obrigado, <span style="color:var(--text);font-weight:700;">${name}</span>. Bom descanso!
       </p>
-      <button onclick="newDay()" class="btn-giant" style="max-width:320px;">Novo Lancamento</button>
+      <button onclick="newDay()" class="btn-giant" style="max-width:320px;">Novo Lançamento</button>
     </div>`;
   }
 
-  /* ── ACOES ── */
+  /* ── AÇÕES ── */
   window.S = S;
 
   window.adj = function(key, delta, elId) {
@@ -358,21 +587,37 @@ function initDriver(name) {
     const el = $(elId); if (el) el.textContent = S[key];
   };
 
+  window.escolherModo = function(mode) {
+    S.mode = mode;
+    S.step = mode === 'cd' ? 'departure' : 'client';
+    render();
+  };
+
+  window.voltarEscolha = function() {
+    S.step = 'choose';
+    render();
+  };
+
   window.confirmDeparture = async function() {
     if (S.saving) return; S.saving = true;
     try {
-      const today = new Date().toISOString().split('T')[0];
       const batch = db.batch();
       batch.set(db.collection('ll_drivers').doc(name),
         { name, truckBlack: S.truckBlack, truckWhite: S.truckWhite, lastUpdated: TS() },
         { merge: true });
-      batch.set(db.collection('ll_events').doc(), {
+
+      const eventData = {
         type: 'cd_departure', driverName: name,
         truckBlack: S.truckBlack, truckWhite: S.truckWhite, timestamp: TS()
-      });
+      };
+      if (S.fotos.cd_saida) eventData.fotoUrl = S.fotos.cd_saida;
+      batch.set(db.collection('ll_events').doc(), eventData);
+
       await batch.commit();
-      S.step = 'client'; render();
-    } catch(e) { toast('Erro ao salvar. Verifique a conexao.'); }
+      // Após retirada no CD, vai para lançamento de cliente
+      S.step = 'client'; S.mode = 'client';
+      render();
+    } catch(e) { toast('Erro ao salvar. Verifique a conexão.'); }
     finally { S.saving = false; }
   };
 
@@ -398,12 +643,10 @@ function initDriver(name) {
 
       const batch = db.batch();
 
-      /* 1. Atualiza saldo do caminhao */
       batch.update(db.collection('ll_drivers').doc(name), {
         truckBlack: newTB, truckWhite: newTW, lastUpdated: TS()
       });
 
-      /* 2. Atualiza saldo do cliente */
       batch.set(cRef, {
         name: cn,
         balanceBlack: Math.max(0, nn(cur.balanceBlack) + delBlack - colBlack),
@@ -411,66 +654,49 @@ function initDriver(name) {
         lastUpdated: TS()
       }, { merge: true });
 
-      /* 3. Loga o evento */
-      batch.set(db.collection('ll_events').doc(), {
+      const eventData = {
         type: 'client_transaction', driverName: name, clientName: cn,
         delBlack, delWhite, colBlack, colWhite,
         truckBefore: { black: S.truckBlack, white: S.truckWhite },
         truckAfter:  { black: newTB, white: newTW },
         timestamp: TS()
-      });
+      };
+      if (S.fotos.client_entrega) eventData.fotoEntrega = S.fotos.client_entrega;
+      if (S.fotos.client_coleta)  eventData.fotoColeta  = S.fotos.client_coleta;
+      batch.set(db.collection('ll_events').doc(), eventData);
 
-      /* 4. Grava em controle_caixas (aparece no Lumin Log do admin)
-            Uma linha por tipo de caixa entregue/coletada */
-      if (delBlack > 0) {
-        batch.set(db.collection('controle_caixas').doc(), {
-          tipo: 'SAIDA', data: today, cliente: cn,
-          fornecedor: name, motorista: name,
-          quantidadeCx: delBlack, cor: 'Preta',
-          valorUnitario: 20.00, valorTotal: delBlack * 20.00,
-          status: 'OK', origem: 'motorista',
-          createdAt: TS()
-        });
-      }
-      if (delWhite > 0) {
-        batch.set(db.collection('controle_caixas').doc(), {
-          tipo: 'SAIDA', data: today, cliente: cn,
-          fornecedor: name, motorista: name,
-          quantidadeCx: delWhite, cor: 'Branca',
-          valorUnitario: 28.00, valorTotal: delWhite * 28.00,
-          status: 'OK', origem: 'motorista',
-          createdAt: TS()
-        });
-      }
-      if (colBlack > 0) {
-        batch.set(db.collection('controle_caixas').doc(), {
-          tipo: 'ENTRADA', data: today, cliente: cn,
-          fornecedor: name, motorista: name,
-          quantidadeCx: colBlack, cor: 'Preta',
-          valorUnitario: 20.00, valorTotal: colBlack * 20.00,
-          status: 'OK', origem: 'motorista',
-          createdAt: TS()
-        });
-      }
-      if (colWhite > 0) {
-        batch.set(db.collection('controle_caixas').doc(), {
-          tipo: 'ENTRADA', data: today, cliente: cn,
-          fornecedor: name, motorista: name,
-          quantidadeCx: colWhite, cor: 'Branca',
-          valorUnitario: 28.00, valorTotal: colWhite * 28.00,
-          status: 'OK', origem: 'motorista',
-          createdAt: TS()
-        });
-      }
+      if (delBlack > 0) batch.set(db.collection('controle_caixas').doc(), {
+        tipo: 'SAIDA', data: today, cliente: cn, fornecedor: name, motorista: name,
+        quantidadeCx: delBlack, cor: 'Preta', valorUnitario: 20.00,
+        valorTotal: delBlack * 20.00, status: 'OK', origem: 'motorista', createdAt: TS()
+      });
+      if (delWhite > 0) batch.set(db.collection('controle_caixas').doc(), {
+        tipo: 'SAIDA', data: today, cliente: cn, fornecedor: name, motorista: name,
+        quantidadeCx: delWhite, cor: 'Branca', valorUnitario: 28.00,
+        valorTotal: delWhite * 28.00, status: 'OK', origem: 'motorista', createdAt: TS()
+      });
+      if (colBlack > 0) batch.set(db.collection('controle_caixas').doc(), {
+        tipo: 'ENTRADA', data: today, cliente: cn, fornecedor: name, motorista: name,
+        quantidadeCx: colBlack, cor: 'Preta', valorUnitario: 20.00,
+        valorTotal: colBlack * 20.00, status: 'OK', origem: 'motorista', createdAt: TS()
+      });
+      if (colWhite > 0) batch.set(db.collection('controle_caixas').doc(), {
+        tipo: 'ENTRADA', data: today, cliente: cn, fornecedor: name, motorista: name,
+        quantidadeCx: colWhite, cor: 'Branca', valorUnitario: 28.00,
+        valorTotal: colWhite * 28.00, status: 'OK', origem: 'motorista', createdAt: TS()
+      });
 
       await batch.commit();
 
-      S.transactions.push({ clientName: cn, delBlack, delWhite, colBlack, colWhite });
+      const temFoto = !!(S.fotos.client_entrega || S.fotos.client_coleta);
+      S.transactions.push({ clientName: cn, delBlack, delWhite, colBlack, colWhite, temFoto });
       S.truckBlack = newTB; S.truckWhite = newTW;
       S.clientName = '';
       S.delBlack = S.delWhite = S.colBlack = S.colWhite = 0;
+      S.fotos.client_entrega = null;
+      S.fotos.client_coleta  = null;
       render();
-      toast(`${cn} registrado!`);
+      toast(`✓ ${cn} registrado!`);
 
     } catch(e) {
       console.error(e);
@@ -506,8 +732,9 @@ function initDriver(name) {
 
   window.newDay = function() {
     Object.assign(S, {
-      step: 'departure', transactions: [],
-      clientName: '', delBlack: 0, delWhite: 0, colBlack: 0, colWhite: 0
+      step: 'choose', mode: null, transactions: [],
+      clientName: '', delBlack: 0, delWhite: 0, colBlack: 0, colWhite: 0,
+      fotos: {}
     });
     render();
   };

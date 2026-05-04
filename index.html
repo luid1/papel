@@ -1502,28 +1502,43 @@
 <script>
 document.addEventListener("DOMContentLoaded", () => {
   // ✅ PADRONIZAÇÃO: Navegação via sidebar (.adm-nav-item) — idêntico ao Tenant
+  // ── Função central de troca de aba (reusável) ──────────────
+  function switchAdmTab(target) {
+    document.querySelectorAll(".adm-nav-item").forEach(t => t.classList.remove("active"));
+    document.querySelectorAll(".admin-tab-panel").forEach(p => p.classList.remove("active"));
+
+    const navBtn = document.querySelector(`.adm-nav-item[data-adm-tab="${target}"]`);
+    if (navBtn) navBtn.classList.add("active");
+    document.getElementById(target)?.classList.add("active");
+
+    // Persiste aba ativa na sessão
+    try { sessionStorage.setItem("lumin_adm_tab", target); } catch(_) {}
+
+    // Fecha sidebar mobile ao navegar
+    document.getElementById("adm-sidebar")?.classList.remove("open");
+    document.getElementById("adm-sb-overlay")?.classList.remove("active");
+
+    // Carrega consolidado ao abrir aba
+    if (target === "tab-combustivel") loadAdminCombustivel(_adminCombPeriod);
+
+    // Ativa luminlog quando aba é aberta
+    if (target === "tab-luminlog") {
+      if (typeof initLuminLog === "function") { initLuminLog(); setTimeout(renderLuminLog, 100); }
+    }
+  }
+
   document.querySelectorAll(".adm-nav-item").forEach(tab => {
-    tab.addEventListener("click", () => {
-      const target = tab.dataset.admTab;
+    tab.addEventListener("click", () => switchAdmTab(tab.dataset.admTab));
+  });
 
-      document.querySelectorAll(".adm-nav-item").forEach(t => t.classList.remove("active"));
-      document.querySelectorAll(".admin-tab-panel").forEach(p => p.classList.remove("active"));
-
-      tab.classList.add("active");
-      document.getElementById(target)?.classList.add("active");
-
-      // Fecha sidebar mobile ao navegar
-      document.getElementById("adm-sidebar")?.classList.remove("open");
-      document.getElementById("adm-sb-overlay")?.classList.remove("active");
-
-      // Carrega consolidado ao abrir aba
-      if (target === "tab-combustivel") loadAdminCombustivel(_adminCombPeriod);
-
-      // Ativa luminlog quando aba é aberta
-      if (target === "tab-luminlog") {
-        if (typeof initLuminLog === "function") { initLuminLog(); setTimeout(renderLuminLog, 100); }
+  // ── Restaura última aba ao abrir o admin ─────────────────────
+  window.addEventListener("lumin:admin-ready", () => {
+    try {
+      const lastTab = sessionStorage.getItem("lumin_adm_tab");
+      if (lastTab && document.getElementById(lastTab)) {
+        setTimeout(() => switchAdmTab(lastTab), 200);
       }
-    });
+    } catch(_) {}
   });
 
   // ── Sidebar mobile: hamburger e overlay ──────────────────────
