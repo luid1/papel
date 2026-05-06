@@ -1061,8 +1061,25 @@
     </header>
 
     <div id="t-filter-bar">
-      <span style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;flex-shrink:0;">Período</span>
-      <div id="t-filter-pills" style="display:flex;gap:6px;flex-wrap:nowrap;"></div>
+      <span style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;flex-shrink:0;white-space:nowrap;">Período</span>
+      <div id="t-filter-pills" style="display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;"></div>
+      <!-- Barra de pesquisa inteligente -->
+      <div id="t-search-wrap" style="position:relative;flex-shrink:0;">
+        <input id="t-smart-search" type="text" placeholder="🔍 Buscar…"
+          autocomplete="off" autocorrect="off" spellcheck="false"
+          style="padding:7px 12px 7px 32px;border-radius:20px;font-size:12px;font-weight:600;
+          background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+          color:var(--text);width:140px;transition:width .25s;" />
+        <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;"
+          width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(228,240,246,.4)" stroke-width="2.5" stroke-linecap="round">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <!-- Dropdown de resultados -->
+        <div id="t-search-dropdown" style="display:none;position:absolute;top:calc(100% + 6px);right:0;
+          min-width:280px;max-width:340px;max-height:320px;overflow-y:auto;
+          background:var(--bg2);border:1px solid rgba(0,212,255,.2);border-radius:16px;
+          box-shadow:0 8px 40px rgba(0,0,0,.5);z-index:200;padding:8px;"></div>
+      </div>
     </div>
 
     <div style="flex:1;overflow-y:auto;overflow-x:hidden;">
@@ -1125,24 +1142,88 @@
 
       <!-- Relatórios -->
       <section id="v-rep" class="t-view">
-        <div style="margin-bottom:28px;"><h3 style="font-size:clamp(1.25rem,2.5vw,1.75rem);font-weight:800;margin-bottom:8px;">Central de Relatórios</h3><p style="color:var(--muted);font-size:var(--fs-sm);">Analise e exporte seus dados financeiros por período.</p></div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:28px;">
-          <button class="t-rep-filter active" data-rep="semanal" style="padding:8px 18px;border-radius:20px;font-size:13px;font-weight:700;border:1px solid var(--accent);background:rgba(0,212,255,.12);color:var(--accent);min-height:36px;touch-action:manipulation;transition:.2s;">Semanal</button>
-          <button class="t-rep-filter" data-rep="mensal" style="padding:8px 18px;border-radius:20px;font-size:13px;font-weight:700;border:1px solid var(--border);background:transparent;color:var(--muted);min-height:36px;touch-action:manipulation;transition:.2s;">Mensal</button>
-          <button class="t-rep-filter" data-rep="anual" style="padding:8px 18px;border-radius:20px;font-size:13px;font-weight:700;border:1px solid var(--border);background:transparent;color:var(--muted);min-height:36px;touch-action:manipulation;transition:.2s;">Anual</button>
-          <button id="t-btn-rep-pdf" style="margin-left:auto;padding:8px 18px;border-radius:20px;font-size:13px;font-weight:700;border:1px solid rgba(0,229,160,.3);background:rgba(0,229,160,.08);color:var(--success);display:flex;align-items:center;gap:8px;min-height:36px;touch-action:manipulation;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Exportar PDF
-          </button>
+        <div style="margin-bottom:20px;">
+          <h3 style="font-size:clamp(1.25rem,2.5vw,1.75rem);font-weight:800;margin-bottom:6px;">Central de Relatórios</h3>
+          <p style="color:var(--muted);font-size:var(--fs-sm);">Analise e exporte seus dados financeiros com filtros precisos.</p>
         </div>
-        <div id="rep-summary" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:28px;">
-          <div class="glass stat-card" style="color:var(--success);"><p style="font-size:12px;font-weight:800;text-transform:uppercase;color:var(--muted);margin-bottom:12px;letter-spacing:.1em;">Total Entradas</p><h3 id="t-rep-in" style="font-family:'DM Mono',monospace;font-weight:400;">R$ 0,00</h3></div>
-          <div class="glass stat-card" style="color:var(--alert);"><p style="font-size:12px;font-weight:800;text-transform:uppercase;color:var(--muted);margin-bottom:12px;letter-spacing:.1em;">Total Saídas</p><h3 id="t-rep-out" style="font-family:'DM Mono',monospace;font-weight:400;">R$ 0,00</h3></div>
-          <div class="glass stat-card" style="color:var(--accent);"><p style="font-size:12px;font-weight:800;text-transform:uppercase;color:var(--muted);margin-bottom:12px;letter-spacing:.1em;">Saldo Líquido</p><h3 id="t-rep-net" style="font-family:'DM Mono',monospace;font-weight:400;">R$ 0,00</h3></div>
+
+        <!-- Filtros de período -->
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px;">
+          <button class="t-rep-filter" data-rep="semanal"   style="padding:8px 16px;border-radius:20px;font-size:12px;font-weight:700;border:1px solid var(--border);background:transparent;color:var(--muted);min-height:36px;touch-action:manipulation;transition:.2s;">Últimos 7 dias</button>
+          <button class="t-rep-filter active" data-rep="mes_atual"  style="padding:8px 16px;border-radius:20px;font-size:12px;font-weight:700;border:1px solid var(--accent);background:rgba(0,212,255,.12);color:var(--accent);min-height:36px;touch-action:manipulation;transition:.2s;">Mês Atual</button>
+          <button class="t-rep-filter" data-rep="mes_passado" style="padding:8px 16px;border-radius:20px;font-size:12px;font-weight:700;border:1px solid var(--border);background:transparent;color:var(--muted);min-height:36px;touch-action:manipulation;transition:.2s;">Mês Passado</button>
+          <button class="t-rep-filter" data-rep="trimestre"  style="padding:8px 16px;border-radius:20px;font-size:12px;font-weight:700;border:1px solid var(--border);background:transparent;color:var(--muted);min-height:36px;touch-action:manipulation;transition:.2s;">Trimestre</button>
+          <button class="t-rep-filter" data-rep="anual"      style="padding:8px 16px;border-radius:20px;font-size:12px;font-weight:700;border:1px solid var(--border);background:transparent;color:var(--muted);min-height:36px;touch-action:manipulation;transition:.2s;">Ano Atual</button>
+          <button class="t-rep-filter" data-rep="personalizado" style="padding:8px 16px;border-radius:20px;font-size:12px;font-weight:700;border:1px solid var(--border);background:transparent;color:var(--muted);min-height:36px;touch-action:manipulation;transition:.2s;">📅 Personalizado</button>
         </div>
-        <div>
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;"><h4 style="font-size:16px;font-weight:800;">Auditoria de Transações</h4><span id="t-rep-count" style="font-size:11px;color:var(--muted);font-weight:600;"></span></div>
-          <div class="glass tx-wrap"><table class="tx-table"><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th style="text-align:right;">Valor</th><th style="text-align:right;">Ações</th></tr></thead><tbody id="t-rep-list"></tbody></table></div>
+
+        <!-- Filtro personalizado (oculto por padrão) -->
+        <div id="rep-custom-dates" style="display:none;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px;padding:16px;border-radius:16px;background:rgba(0,212,255,.04);border:1px solid rgba(0,212,255,.12);">
+          <div>
+            <label style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);display:block;margin-bottom:5px;">De</label>
+            <input type="date" id="rep-date-ini" class="input-field" style="font-size:13px;padding:9px 12px;border-radius:10px;" />
+          </div>
+          <div>
+            <label style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);display:block;margin-bottom:5px;">Até</label>
+            <input type="date" id="rep-date-fim" class="input-field" style="font-size:13px;padding:9px 12px;border-radius:10px;" />
+          </div>
+          <button id="rep-apply-custom" style="padding:9px 20px;border-radius:10px;background:var(--accent);color:#000;font-size:13px;font-weight:800;border:none;cursor:pointer;min-height:40px;">Aplicar</button>
+        </div>
+
+        <!-- Filtros avançados por categoria/tipo -->
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:20px;">
+          <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);">Categoria:</span>
+          <button class="t-rep-cat-filter active" data-cat="all" style="padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid var(--accent);background:rgba(0,212,255,.1);color:var(--accent);cursor:pointer;transition:.15s;">Todas</button>
+          <button class="t-rep-cat-filter" data-cat="entrada"    style="padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:.15s;">▲ Entradas</button>
+          <button class="t-rep-cat-filter" data-cat="saida-fixa" style="padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:.15s;">▼ Saídas Fixas</button>
+          <button class="t-rep-cat-filter" data-cat="variavel"   style="padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:.15s;">● Variáveis</button>
+          <button class="t-rep-cat-filter" data-cat="funcionario" style="padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:.15s;">👤 Funcionários</button>
+          <!-- Pesquisa inline nos relatórios -->
+          <div style="margin-left:auto;position:relative;">
+            <input id="rep-search" type="text" placeholder="🔍 Filtrar…" autocomplete="off"
+              style="padding:6px 10px 6px 28px;border-radius:20px;font-size:11px;font-weight:600;
+              background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+              color:var(--text);width:120px;" />
+            <svg style="position:absolute;left:9px;top:50%;transform:translateY(-50%);pointer-events:none;"
+              width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(228,240,246,.35)" stroke-width="2.5" stroke-linecap="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+          </div>
+          <!-- Limpar filtros -->
+          <button id="rep-clear-filters" style="display:none;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid rgba(255,91,112,.25);background:rgba(255,91,112,.08);color:var(--alert);cursor:pointer;">✕ Limpar</button>
+        </div>
+
+        <!-- KPIs do período filtrado -->
+        <div id="rep-summary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:24px;">
+          <div class="glass stat-card" style="color:var(--success);"><p style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--muted);margin-bottom:10px;letter-spacing:.1em;">Entradas</p><h3 id="t-rep-in" style="font-family:'DM Mono',monospace;font-weight:400;font-size:clamp(16px,3vw,22px);">R$ 0,00</h3></div>
+          <div class="glass stat-card" style="color:var(--alert);">  <p style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--muted);margin-bottom:10px;letter-spacing:.1em;">Saídas</p>  <h3 id="t-rep-out" style="font-family:'DM Mono',monospace;font-weight:400;font-size:clamp(16px,3vw,22px);">R$ 0,00</h3></div>
+          <div class="glass stat-card" style="color:var(--accent);"> <p style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--muted);margin-bottom:10px;letter-spacing:.1em;">Saldo</p>   <h3 id="t-rep-net" style="font-family:'DM Mono',monospace;font-weight:400;font-size:clamp(16px,3vw,22px);">R$ 0,00</h3></div>
+          <div class="glass stat-card" style="color:var(--warning);"><p style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--muted);margin-bottom:10px;letter-spacing:.1em;">Registros</p><div id="t-rep-count" style="font-family:'DM Mono',monospace;font-size:22px;font-weight:700;color:var(--warning);">0</div></div>
+        </div>
+
+        <!-- Rótulo do período ativo + botões de exportação -->
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:16px;">
+          <div>
+            <h4 style="font-size:16px;font-weight:800;">Auditoria de Transações</h4>
+            <div id="rep-period-label" style="font-size:11px;color:var(--muted);margin-top:2px;"></div>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button id="t-btn-rep-pdf" style="padding:8px 16px;border-radius:20px;font-size:12px;font-weight:700;border:1px solid rgba(0,229,160,.3);background:rgba(0,229,160,.08);color:var(--success);display:flex;align-items:center;gap:6px;min-height:36px;touch-action:manipulation;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              PDF
+            </button>
+            <button id="t-btn-rep-excel" style="padding:8px 16px;border-radius:20px;font-size:12px;font-weight:700;border:1px solid rgba(255,179,71,.3);background:rgba(255,179,71,.08);color:var(--warning);display:flex;align-items:center;gap:6px;min-height:36px;touch-action:manipulation;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+              Excel
+            </button>
+          </div>
+        </div>
+
+        <div class="glass tx-wrap">
+          <table class="tx-table">
+            <thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th style="text-align:right;">Valor</th><th style="text-align:right;">Ações</th></tr></thead>
+            <tbody id="t-rep-list"></tbody>
+          </table>
         </div>
       </section>
 
@@ -1494,6 +1575,19 @@
 .comb-card { transition: transform .15s, box-shadow .15s; }
 .comb-card:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,.25); }
 .comb-tab-btn:hover:not(.active) { background: rgba(255,255,255,.06) !important; color: var(--text) !important; }
+
+/* Smart search dropdown */
+#t-search-dropdown .search-result-item:hover { background: rgba(255,255,255,.06); }
+#t-filter-bar { gap: 8px; }
+#t-filter-pills { scrollbar-width: none; }
+#t-filter-pills::-webkit-scrollbar { display: none; }
+#t-smart-search:focus { width: 200px; outline: none; border-color: rgba(0,212,255,.4); background: rgba(0,212,255,.05); }
+/* Rep section */
+#rep-custom-dates { display: flex; }
+.t-rep-cat-filter { cursor: pointer; transition: .15s; white-space: nowrap; }
+mark { background: rgba(0,212,255,.25); color: var(--accent); border-radius: 3px; padding: 0 2px; }
+/* Calendar recurring */
+.cal-day[style*="outline"] { position: relative; }
 </style>
 
 <!-- ════════════════════════════════════════════════════════════

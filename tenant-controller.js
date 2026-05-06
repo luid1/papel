@@ -27,7 +27,7 @@ const s = {
   view:'v-home', txs:[], obs:[], pagamentos:[],
   fM:new Date().getMonth()+1, fY:new Date().getFullYear(),
   cM:new Date().getMonth()+1, cY:new Date().getFullYear(),
-  repFilter:'semanal', features:{}
+  repFilter:'mes_atual', repCat:'all', repCustomIni:'', repCustomFim:'', features:{}
 };
 let charts={}, _unsubTxs=null, _unsubObs=null, _unsubPag=null, _unsubCompany=null;
 
@@ -130,7 +130,6 @@ function render(){
 
 function buildPills(){
   const months=new Set();
-  // Garante que o mês actual SEMPRE aparece, mesmo sem transações
   const now=new Date();
   const nowYM=`${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
   months.add(nowYM);
@@ -144,10 +143,56 @@ function buildPills(){
     const btn=document.createElement('button');
     btn.className='fpill';
     btn.textContent=`${MONTHS[m-1].slice(0,3)} ${y}`;
-    btn.style.cssText=`border:1px solid ${active?'var(--accent)':'var(--border)'};background:${active?'rgba(0,212,255,.12)':'transparent'};color:${active?'var(--accent)':'var(--muted)'};`;
+    btn.style.cssText=`border:1px solid ${active?'var(--accent)':'var(--border)'};background:${active?'rgba(0,212,255,.12)':'transparent'};color:${active?'var(--accent)':'var(--muted)'};flex-shrink:0;`;
     addEvents(btn,()=>{s.fM=m;s.fY=y;render();});
     pills.appendChild(btn);
   });
+  // Rola para o pill activo
+  const activePill=pills.querySelector('.fpill[style*="var(--accent)"]');
+  if(activePill) setTimeout(()=>activePill.scrollIntoView({inline:'center',behavior:'smooth'}),100);
+}
+
+// ─── PESQUISA INTELIGENTE ─────────────────────────────────────
+function bindSmartSearch(){
+  const inp=$('t-smart-search');
+  const dd=$('t-search-dropdown');
+  if(!inp||!dd) return;
+  inp.addEventListener('input',()=>{
+    const q=inp.value.trim().toLowerCase();
+    if(!q){dd.style.display='none';return;}
+    const cats=activeCats();
+    const results=s.txs.filter(t=>{
+      if(!t.date)return false;
+      return (t.description||'').toLowerCase().includes(q)||(t.category||'').toLowerCase().includes(q)||(t.date||'').includes(q)||(CATS[t.category]?.label||'').toLowerCase().includes(q);
+    }).slice(0,10);
+    if(!results.length){dd.innerHTML='<div style="padding:14px;text-align:center;color:var(--muted);font-size:13px;">Nenhum resultado</div>';dd.style.display='block';return;}
+    dd.innerHTML=results.map(t=>{
+      const cat=cats[t.category]||CATS.variavel,isIn=t.category==='entrada',vc=isIn?'var(--success)':'var(--alert)';
+      const hiDesc=(t.description||'').replace(new RegExp('('+q.replace(/[.*+?^${}()|[\]\]/g,'\$&')+')','gi'),'<b>$1</b>');
+      return `<div class="search-result-item" data-id="${t.id}"
+        style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;cursor:pointer;transition:background .1s;">
+        <span style="font-size:18px;">${isIn?'▲':'▼'}</span>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${hiDesc}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px;">${fD(t.date)} · <span style="color:${cat.color};">${cat.label}</span></div>
+        </div>
+        <div style="font-family:'DM Mono',monospace;font-weight:700;color:${vc};font-size:13px;flex-shrink:0;">${isIn?'+':'-'} ${fmt(t.amount)}</div>
+      </div>`;
+    }).join('');
+    dd.style.display='block';
+    // Clique → navega para o mês correto
+    dd.querySelectorAll('.search-result-item').forEach(item=>{
+      item.addEventListener('mouseenter',()=>item.style.background='rgba(255,255,255,.06)');
+      item.addEventListener('mouseleave',()=>item.style.background='');
+      item.addEventListener('click',()=>{
+        const tx=s.txs.find(t=>t.id===item.dataset.id);
+        if(tx&&tx.date){const[y,m]=tx.date.split('-').map(Number);s.fM=m;s.fY=y;switchV('v-home');setTimeout(()=>{const row=document.querySelector(`[data-id="${tx.id}"]`);if(row)row.closest('tr')?.scrollIntoView({behavior:'smooth',block:'center'});},400);}
+        dd.style.display='none'; inp.value='';
+      });
+    });
+  });
+  inp.addEventListener('focus',()=>{if(inp.value.trim())dd.style.display='block';});
+  document.addEventListener('click',e=>{if(!inp.contains(e.target)&&!dd.contains(e.target))dd.style.display='none';});
 }
 
 // ─── CATEGORIAS ACTIVAS (respeita feature flags) ──────────────
@@ -258,14 +303,46 @@ function renderCal(){
   const grid=$('t-cal-g'); if(!grid) return;
   grid.innerHTML='';
   ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].forEach(d=>{grid.innerHTML+=`<div class="cal-day-header-label">${d}</div>`;});
-  for(let i=0;i<first;i++) grid.innerHTML+=`<div class="cal-day" style="opacity:.2;"></div>`;
+
+  // Células vazias antes do dia 1
+  for(let i=0;i<first;i++) grid.innerHTML+=`<div class="cal-day" style="opacity:.15;"></div>`;
+
+  // Recorrentes deste mês: usa o dia cadastrado como dia do mês
+  const cats=activeCats();
+  const rec=s.txs.filter(t=>t.isRecorrente&&(t.category!=='funcionario'||cats['funcionario']));
+
   for(let d=1;d<=days;d++){
     const ds=`${s.cY}-${String(s.cM).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const dT=s.txs.filter(t=>t.date===ds), isT=ds===todayStr;
-    const div=document.createElement('div'); div.className='cal-day'+(isT?' today':'');
-    div.innerHTML=`<div class="cal-day-num">${d}</div><div style="display:flex;flex-direction:column;gap:3px;margin-top:6px;overflow:hidden;">${dT.slice(0,2).map(t=>`<div class="cal-event-pill" style="background:${CATS[t.category]?.color||'#888'}22;color:${CATS[t.category]?.color||'#888'};">${esc(t.description||'')}</div>`).join('')}${dT.length>2?`<div class="cal-more-label">+${dT.length-2}</div>`:''}</div>`;
-    div.addEventListener('click',()=>openCalDayModal(ds,dT));
+
+    // Pagamentos recorrentes que vencem neste dia do mês
+    const recToday=rec.filter(t=>{
+      const recDay=Number((t.date||'').split('-')[2]||0);
+      return recDay===d && !dT.find(x=>x.id===t.id); // não duplicar se já tem entrada
+    });
+    const obKey=key=>s.obs.find(o=>o.monthKey===key);
+    const allEvents=[...dT, ...recToday];
+
+    const div=document.createElement('div');
+    div.className='cal-day'+(isT?' today':'');
+    if(recToday.length) div.style.outline='1.5px dashed rgba(255,179,71,.35)';
+
+    const pills=allEvents.slice(0,2).map(t=>{
+      const isPending=t.isRecorrente&&!obKey(`${t.id}_${s.cY}-${String(s.cM).padStart(2,'0')}`)?.done;
+      const clr=CATS[t.category]?.color||'#888';
+      return `<div class="cal-event-pill" style="background:${clr}22;color:${clr};${t.isRecorrente?'border:1px dashed '+clr+'55;':''}">${isPending?'⏰ ':''} ${esc(t.description||'')}</div>`;
+    }).join('');
+    const extra=allEvents.length>2?`<div class="cal-more-label">+${allEvents.length-2}</div>`:'';
+
+    div.innerHTML=`<div class="cal-day-num">${d}</div><div style="display:flex;flex-direction:column;gap:3px;margin-top:6px;overflow:hidden;">${pills}${extra}</div>`;
+
+    div.addEventListener('click',()=>openCalDayModal(ds,allEvents));
     grid.appendChild(div);
+  }
+  // Empty cells for alignment
+  for(let i=0;i<first;i++){
+    const blank=document.createElement('div');blank.className='cal-day';blank.style.opacity='.2';
+    grid.prepend(blank);
   }
 }
 
@@ -318,27 +395,114 @@ function renderOb(){
 }
 
 // ─── RELATÓRIOS ───────────────────────────────────────────────
-function renderRep(){
+
+// Retorna as datas [ini, fim] ISO para o filtro activo
+function repDateRange(){
+  const now=new Date();
+  const iso=d=>d.toISOString().slice(0,10);
+  const y=now.getFullYear(), m=now.getMonth();
+  if(s.repFilter==='semanal'){
+    const d=new Date(now);d.setDate(d.getDate()-6);
+    return [iso(d), iso(now)];
+  }
+  if(s.repFilter==='mes_atual'){
+    return [`${y}-${String(m+1).padStart(2,'0')}-01`, iso(now)];
+  }
+  if(s.repFilter==='mes_passado'){
+    const pm=m===0?12:m, py=m===0?y-1:y;
+    const last=new Date(y,m,0).getDate();
+    return [`${py}-${String(pm).padStart(2,'0')}-01`, `${py}-${String(pm).padStart(2,'0')}-${String(last).padStart(2,'0')}`];
+  }
+  if(s.repFilter==='trimestre'){
+    const d=new Date(now);d.setMonth(d.getMonth()-3);
+    return [iso(d), iso(now)];
+  }
+  if(s.repFilter==='anual'){
+    return [`${y}-01-01`, `${y}-12-31`];
+  }
+  if(s.repFilter==='personalizado'){
+    return [s.repCustomIni||`${y}-01-01`, s.repCustomFim||iso(now)];
+  }
+  return [`${y}-${String(m+1).padStart(2,'0')}-01`, iso(now)];
+}
+
+// Rótulo legível do período
+function repPeriodLabel(){
+  const [ini,fim]=repDateRange();
+  const fmt2=iso=>iso.split('-').reverse().join('/');
+  const labels={semanal:'Últimos 7 dias',mes_atual:'Mês atual',mes_passado:'Mês passado',trimestre:'Últimos 3 meses',anual:'Ano atual',personalizado:'Período personalizado'};
+  return `${labels[s.repFilter]||''} · ${fmt2(ini)} a ${fmt2(fim)}`;
+}
+
+function filterForRep(txt=''){
   const cats=activeCats();
-  const now=new Date(); let filtered=[];
-  if(s.repFilter==='semanal'){const c=new Date();c.setDate(c.getDate()-7);filtered=s.txs.filter(t=>t.date&&t.date>=c.toISOString().slice(0,10));}
-  else if(s.repFilter==='mensal'){const y=now.getFullYear(),m=now.getMonth()+1;filtered=s.txs.filter(t=>{if(!t.date)return false;const[ty,tm]=t.date.split('-').map(Number);return ty===y&&tm===m;});}
-  else{const y=now.getFullYear();filtered=s.txs.filter(t=>t.date&&t.date.startsWith(String(y)));}
-  // Remove funcionário se feature desativada
-  filtered=filtered.filter(t=>t.category!=='funcionario'||cats['funcionario']);
-  filtered.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  const tIn=filtered.filter(t=>t.category==='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
-  const tOut=filtered.filter(t=>t.category!=='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
-  const net=tIn-tOut;
+  const [ini,fim]=repDateRange();
+  let data=s.txs.filter(t=>{
+    if(!t.date) return false;
+    if(t.date<ini||t.date>fim) return false;
+    if(t.category==='funcionario'&&!cats['funcionario']) return false;
+    if(s.repCat!=='all'&&t.category!==s.repCat) return false;
+    if(txt){const q=txt.toLowerCase();if(!(t.description||'').toLowerCase().includes(q)&&!(t.category||'').toLowerCase().includes(q)&&!(t.date||'').includes(q)) return false;}
+    return true;
+  });
+  data.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  return data;
+}
+
+function renderRep(){
+  const searchTxt=($('rep-search')?.value||'').trim();
+  const filtered=filterForRep(searchTxt);
+  const cats=activeCats();
+  const tIn  = filtered.filter(t=>t.category==='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
+  const tOut = filtered.filter(t=>t.category!=='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
+  const net  = tIn-tOut;
   const setEl=(id,val,color)=>{const el=$(id);if(!el)return;el.textContent=fmt(val);el.style.color=color;};
   setEl('t-rep-in',tIn,'var(--success)'); setEl('t-rep-out',tOut,'var(--alert)'); setEl('t-rep-net',net,net>=0?'var(--success)':'var(--alert)');
-  const cEl=$('t-rep-count'); if(cEl) cEl.textContent=`${filtered.length} registro${filtered.length!==1?'s':''}`;
+  const cEl=$('t-rep-count'); if(cEl){cEl.textContent=filtered.length;cEl.style.color='var(--warning)';}
+  const lblEl=$('rep-period-label'); if(lblEl) lblEl.textContent=repPeriodLabel();
+
+  // Botões de filtro de período
+  $$('.t-rep-filter').forEach(btn=>{
+    const a=btn.dataset.rep===s.repFilter;
+    btn.style.borderColor=a?'var(--accent)':'var(--border)';
+    btn.style.background=a?'rgba(0,212,255,.12)':'transparent';
+    btn.style.color=a?'var(--accent)':'var(--muted)';
+  });
+  // Botões de filtro de categoria
+  $$('.t-rep-cat-filter').forEach(btn=>{
+    const a=btn.dataset.cat===s.repCat;
+    btn.style.borderColor=a?'var(--accent)':'var(--border)';
+    btn.style.background=a?'rgba(0,212,255,.12)':'transparent';
+    btn.style.color=a?'var(--accent)':'var(--muted)';
+  });
+  // Painel de datas personalizadas
+  const cdEl=$('rep-custom-dates');
+  if(cdEl) cdEl.style.display=s.repFilter==='personalizado'?'flex':'none';
+  // Botão limpar
+  const hasFilter=s.repFilter!=='mes_atual'||s.repCat!=='all'||searchTxt;
+  const clrBtn=$('rep-clear-filters'); if(clrBtn) clrBtn.style.display=hasFilter?'inline-flex':'none';
+
   const repList=$('t-rep-list'); if(!repList) return;
   repList.innerHTML=filtered.map(t=>{
     const cat=cats[t.category]||CATS.variavel,isIn=t.category==='entrada',vc=isIn?'var(--success)':'var(--alert)';
-    return `<tr style="--card-accent:${cat.color};"><td data-label="Data" style="color:var(--muted);font-family:'DM Mono',monospace;font-size:13px;white-space:nowrap;">${fD(t.date)}</td><td data-label="Categoria"><span class="cat-badge" style="background:${cat.color}22;color:${cat.color};">${cat.label}</span></td><td data-label="Descrição" style="font-weight:600;">${esc(t.description||'—')}</td><td data-label="Valor" style="text-align:right;font-family:'DM Mono',monospace;font-weight:700;color:${vc};white-space:nowrap;">${isIn?'+':'-'} ${fmt(t.amount)}</td><td data-label="Ações" class="td-actions-cell" style="text-align:right;"><div class="td-actions"><button class="btn-act edit" data-id="${t.id}" data-action="edit">✎</button><button class="btn-act del" data-id="${t.id}" data-action="delete">🗑</button></div></td></tr>`;
-  }).join('')||`<tr><td colspan="5" style="text-align:center;padding:56px;color:var(--muted);">Nenhuma transação neste período.</td></tr>`;
-  $$('.t-rep-filter').forEach(btn=>{const a=btn.dataset.rep===s.repFilter;btn.style.borderColor=a?'var(--accent)':'var(--border)';btn.style.background=a?'rgba(0,212,255,.12)':'transparent';btn.style.color=a?'var(--accent)':'var(--muted)';});
+    // Highlight search term
+    let desc=esc(t.description||'—');
+    if(searchTxt){const re=new RegExp('('+searchTxt.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi');desc=desc.replace(re,'<mark style="background:rgba(0,212,255,.25);color:var(--accent);border-radius:3px;padding:0 2px;">$1</mark>');}
+    return `<tr style="--card-accent:${cat.color};">
+      <td data-label="Data" style="color:var(--muted);font-family:'DM Mono',monospace;font-size:13px;white-space:nowrap;">${fD(t.date)}</td>
+      <td data-label="Categoria"><span class="cat-badge" style="background:${cat.color}22;color:${cat.color};">${cat.label}</span></td>
+      <td data-label="Descrição" style="font-weight:600;">${desc}</td>
+      <td data-label="Valor" style="text-align:right;font-family:'DM Mono',monospace;font-weight:700;color:${vc};white-space:nowrap;">${isIn?'+':'-'} ${fmt(t.amount)}</td>
+      <td data-label="Ações" class="td-actions-cell" style="text-align:right;"><div class="td-actions">
+        <button class="btn-act edit" data-id="${t.id}" data-action="edit">✎</button>
+        <button class="btn-act del"  data-id="${t.id}" data-action="delete">🗑</button>
+      </div></td>
+    </tr>`;
+  }).join('')||`<tr><td colspan="5" style="text-align:center;padding:56px;color:var(--muted);">
+    <div style="font-size:28px;opacity:.25;margin-bottom:12px;">🔍</div>
+    Nenhuma transação encontrada para este filtro.
+    ${hasFilter?'<br><button onclick="window._repClearFilters&&window._repClearFilters()" style="margin-top:12px;padding:7px 16px;border-radius:20px;background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.25);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;">Limpar filtros</button>':''}
+  </td></tr>`;
 }
 
 // ─── ABA A PAGAR ──────────────────────────────────────────────
@@ -452,24 +616,41 @@ async function deleteTx(id){
   catch(e){toast('Erro ao excluir',true);}
 }
 
+// ─── EXCEL EXPORT ─────────────────────────────────────────────
+function exportRepExcel(){
+  if(!window.XLSX){toast('XLSX não disponível',true);return;}
+  const data=filterForRep(($('rep-search')?.value||'').trim());
+  if(!data.length){toast('Nenhum dado para exportar.',true);return;}
+  const cats=activeCats();
+  const rows=data.map(t=>({
+    'Data':t.date||'',
+    'Descrição':t.description||'',
+    'Categoria':cats[t.category]?.label||t.category||'',
+    'Tipo':t.category==='entrada'?'ENTRADA':'SAÍDA',
+    'Valor':Number(t.amount||0),
+    'Recorrente':t.isRecorrente?'Sim':'Não',
+  }));
+  const wb=XLSX.utils.book_new();
+  const ws=XLSX.utils.json_to_sheet(rows);
+  ws['!cols']=[{wch:12},{wch:30},{wch:20},{wch:10},{wch:14},{wch:12}];
+  XLSX.utils.book_append_sheet(wb,ws,'Transações');
+  const [ini,fim]=repDateRange();
+  XLSX.writeFile(wb,`lumin_${ini}_${fim}.xlsx`);
+  toast('✓ Excel exportado com sucesso!');
+}
+
 // ─── PDF ──────────────────────────────────────────────────────
 function generatePDF(period){
   if(!window.jspdf){toast('PDF não disponível',true);return;}
+  const filtered=filterForRep(($('rep-search')?.value||'').trim());
   const now=new Date();
-  const filtered=s.txs.filter(t=>{
-    if(!t.date)return false;
-    const[y,m,d]=t.date.split('-').map(Number);
-    if(period==='semanal')return (now-new Date(y,m-1,d))<7*86400000;
-    if(period==='mensal')return m===now.getMonth()+1&&y===now.getFullYear();
-    return y===now.getFullYear();
-  });
   const inc=filtered.filter(t=>t.category==='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
   const out=filtered.filter(t=>t.category!=='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
   const bal=inc-out;
   const{jsPDF}=window.jspdf;
   const pd=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
   const today=now.toLocaleDateString('pt-BR');
-  const pNames={semanal:'Últimos 7 Dias',mensal:'Mês Atual',anual:'Ano Fiscal'};
+  const pNames={semanal:'Últimos 7 Dias',mes_atual:'Mês Atual',mes_passado:'Mês Passado',trimestre:'Trimestre',anual:'Ano Atual',personalizado:'Período Personalizado'};
   const cn=s.company?.name||'Lumin';
   pd.setFillColor(5,13,18);pd.rect(0,0,210,297,'F');
   pd.setFillColor(0,100,140);pd.rect(0,0,210,42,'F');
@@ -646,8 +827,41 @@ function bindEvents(){
     new MutationObserver(bind).observe(el,{childList:true,subtree:true});
   });
 
-  $$('.t-rep-filter').forEach(btn=>addEvents(btn,()=>{s.repFilter=btn.dataset.rep;renderRep();}));
+  // Filtros de período do relatório
+  $$('.t-rep-filter').forEach(btn=>addEvents(btn,()=>{
+    s.repFilter=btn.dataset.rep;
+    if(s.repFilter!=='personalizado'){s.repCustomIni='';s.repCustomFim='';}
+    renderRep();
+  }));
+
+  // Filtros de categoria
+  $$('.t-rep-cat-filter').forEach(btn=>addEvents(btn,()=>{s.repCat=btn.dataset.cat;renderRep();}));
+
+  // Filtro por texto inline
+  $('rep-search')?.addEventListener('input',()=>renderRep());
+
+  // Datas personalizadas
+  $('rep-apply-custom')?.addEventListener('click',()=>{
+    s.repCustomIni=$('rep-date-ini')?.value||'';
+    s.repCustomFim=$('rep-date-fim')?.value||'';
+    if(!s.repCustomIni||!s.repCustomFim){toast('⚠ Selecione as duas datas',true);return;}
+    renderRep();
+  });
+
+  // Limpar filtros de relatório
+  window._repClearFilters=function(){
+    s.repFilter='mes_atual';s.repCat='all';s.repCustomIni='';s.repCustomFim='';
+    const repSrch=$('rep-search'); if(repSrch) repSrch.value='';
+    renderRep();
+  };
+  addEvents('rep-clear-filters',window._repClearFilters);
+
+  // Exportar
   addEvents('t-btn-rep-pdf',()=>generatePDF(s.repFilter));
+  addEvents('t-btn-rep-excel',()=>exportRepExcel());
+
+  // Pesquisa inteligente (barra global no topo)
+  bindSmartSearch();
 
   ['click','touchstart'].forEach(ev=>{
     $('t-tb-avatar')?.addEventListener(ev,e=>{e.preventDefault();$('t-avatar-input').click();},{passive:false});
