@@ -1753,14 +1753,17 @@ async function loadAdminCombustivel(period = "month") {
 document.addEventListener("DOMContentLoaded", () => {
   const bnBtns = document.querySelectorAll("#t-bottom-nav .t-bn-item");
 
-  // Bottom Nav → dispara clique no .t-nav-item equivalente
+  // Bottom Nav → chama switchV directamente via shim global
   bnBtns.forEach(btn => {
     btn.addEventListener("click", () => {
       const view = btn.dataset.view;
-      bnBtns.forEach(b => b.classList.remove("active"));
-      btn.classList.add("active");
-      const sidebarBtn = document.querySelector(`.t-nav-item[data-view="${view}"]`);
-      if (sidebarBtn) sidebarBtn.click();
+      if (typeof window.luminSwitchView === 'function') {
+        window.luminSwitchView(view);
+      } else {
+        // fallback antes do tenant carregar: simula clique no sidebar
+        const sidebarBtn = document.querySelector(`.t-nav-item[data-view="${view}"]`);
+        if (sidebarBtn) sidebarBtn.click();
+      }
     });
   });
 

@@ -40,9 +40,9 @@ const fD  = iso => iso ? iso.split('-').reverse().join('/') : '—';
 const esc = str => String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
 function addEvents(elOrId, fn){
+  // click-only — touchstart caused double-fires and swallowed scroll events
   const el = typeof elOrId==='string' ? $(elOrId) : elOrId;
   if(!el) return;
-  el.addEventListener('touchstart', e=>{e.preventDefault();fn(e);},{passive:false});
   el.addEventListener('click', fn);
 }
 
@@ -118,8 +118,10 @@ function toggleModal(open){
 }
 
 // ─── RENDER PRINCIPAL ─────────────────────────────────────────
+let _appReady = false; // set true after initTenantDashboard completes first render
 function render(){
-  applyFeatures(); // garante DOM sincronizado com features antes de qualquer render
+  if(!_appReady) return; // boot not complete yet — ignore premature calls
+  applyFeatures();
   buildPills();
   if(s.view==='v-home')  renderHome();
   if(s.view==='v-cal')   renderCal();
@@ -144,7 +146,7 @@ function buildPills(){
     btn.className='fpill';
     btn.textContent=`${MONTHS[m-1].slice(0,3)} ${y}`;
     btn.style.cssText=`border:1px solid ${active?'var(--accent)':'var(--border)'};background:${active?'rgba(0,212,255,.12)':'transparent'};color:${active?'var(--accent)':'var(--muted)'};flex-shrink:0;`;
-    addEvents(btn,()=>{s.fM=m;s.fY=y;render();});
+    btn.addEventListener('click',()=>{s.fM=m;s.fY=y;render();});
     pills.appendChild(btn);
   });
   // Rola para o pill activo
@@ -168,7 +170,7 @@ function bindSmartSearch(){
     if(!results.length){dd.innerHTML='<div style="padding:14px;text-align:center;color:var(--muted);font-size:13px;">Nenhum resultado</div>';dd.style.display='block';return;}
     dd.innerHTML=results.map(t=>{
       const cat=cats[t.category]||CATS.variavel,isIn=t.category==='entrada',vc=isIn?'var(--success)':'var(--alert)';
-      const hiDesc=(t.description||'').replace(new RegExp('('+q.replace(/[.*+?^${}()|[\]\]/g,'\$&')+')','gi'),'<b>$1</b>');
+      const hiDesc=(t.description||'').replace(new RegExp('('+q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi'),'<b>$1</b>');
       return `<div class="search-result-item" data-id="${t.id}"
         style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;cursor:pointer;transition:background .1s;">
         <span style="font-size:18px;">${isIn?'▲':'▼'}</span>
@@ -339,12 +341,8 @@ function renderCal(){
     div.addEventListener('click',()=>openCalDayModal(ds,allEvents));
     grid.appendChild(div);
   }
-  // Empty cells for alignment
-  for(let i=0;i<first;i++){
-    const blank=document.createElement('div');blank.className='cal-day';blank.style.opacity='.2';
-    grid.prepend(blank);
-  }
 }
+
 
 function openCalDayModal(ds,txs){
   const modal=$('t-cal-day-modal'), title=$('t-cal-modal-title'), body=$('t-cal-modal-body');
@@ -383,7 +381,7 @@ function renderOb(){
   }).join('');
 
   $$('.ob-check').forEach(btn=>{
-    addEvents(btn,async()=>{
+    btn.addEventListener('click',async()=>{
       const id=btn.dataset.id, key=`${id}_${s.fY}-${String(s.fM).padStart(2,'0')}`, ob=s.obs.find(o=>o.monthKey===key);
       try{
         if(ob) await updateDoc(doc(db,'obrigacoes',ob.id),{done:!ob.done,updatedAt:Date.now()});
@@ -749,7 +747,8 @@ async function initTenantDashboard(user){
     ),
     snap => {
       s.txs = snap.docs.map(d => ({id: d.id, ...d.data()}));
-      render();
+      if(_appReady) render();
+      // if not ready yet, switchV('v-home') at end of init will trigger render
     },
     err => console.error('[Tenant] txs:', err)
   );
@@ -762,32 +761,50 @@ async function initTenantDashboard(user){
     ),
     snap => {
       s.obs = snap.docs.map(d => ({id: d.id, ...d.data()}));
-      if(s.view === 'v-obrig') render();
+      if(_appReady && s.view === 'v-obrig') render();
     },
     err => console.error('[Tenant] obrig:', err)
   );
 
   bindEvents();
-  switchV('v-home');
+  _appReady = true;   // unlock render() — all state is ready
+
+  // Re-populate UI now that company data is confirmed loaded
+  // (the HTML defaults "Usuário / Empresa" only show if this was skipped)
+  const _dn2 = user.displayName || user.username || 'Usuário';
+  const _ini2 = _dn2.charAt(0).toUpperCase();
+  const _uName2 = $('t-u-name'); if(_uName2) _uName2.textContent = _dn2;
+  const _uRole2 = $('t-u-role'); if(_uRole2) _uRole2.textContent = s.company?.name || user.companyId || 'Empresa';
+  const _uAv2   = $('t-u-av');   if(_uAv2 && !_uAv2.style.backgroundImage) _uAv2.textContent = _ini2;
+  const _tbAv2  = $('t-tb-avatar'); if(_tbAv2 && !_tbAv2.style.backgroundImage) _tbAv2.textContent = _ini2;
+
+  switchV('v-home');  // triggers first real render
 }
 
 // ─── BIND EVENTOS ─────────────────────────────────────────────
+let _eventsBound=false;
 function bindEvents(){
-  addEvents('t-btn-menu',()=>$('t-sidebar').classList.contains('open')?closeSidebar():openSidebar());
-  addEvents('t-btn-sb-close',()=>closeSidebar());
+  if(_eventsBound) return; _eventsBound=true;
+  // Use plain addEventListener throughout — addEvents (touchstart+click) causes double-fires
+  const on=(id,fn)=>{const e=typeof id==='string'?$(id):id;if(!e)return;e.addEventListener('click',fn);};
+  on('t-btn-menu',()=>$('t-sidebar').classList.contains('open')?closeSidebar():openSidebar());
+  on('t-btn-sb-close',()=>closeSidebar());
   $('t-sb-overlay')?.addEventListener('click',closeSidebar);
 
-  $$('.t-nav-item').forEach(btn=>addEvents(btn,()=>{const v=btn.dataset.view;if(v)switchV(v);}));
+  $$('.t-nav-item').forEach(btn=>{
+    if(btn._navBound) return; btn._navBound=true;
+    btn.addEventListener('click',()=>{const v=btn.dataset.view;if(v)switchV(v);});
+  });
 
-  addEvents('t-cal-p',()=>{s.cM--;if(s.cM<1){s.cM=12;s.cY--;}renderCal();});
-  addEvents('t-cal-n',()=>{s.cM++;if(s.cM>12){s.cM=1;s.cY++;}renderCal();});
+  on('t-cal-p',()=>{s.cM--;if(s.cM<1){s.cM=12;s.cY--;}renderCal();});
+  on('t-cal-n',()=>{s.cM++;if(s.cM>12){s.cM=1;s.cY++;}renderCal();});
 
   $('t-cal-modal-close')?.addEventListener('click',()=>$('t-cal-day-modal')?.classList.remove('active'));
   $('t-cal-day-modal')?.addEventListener('click',e=>{if(e.target===$('t-cal-day-modal'))$('t-cal-day-modal').classList.remove('active');});
 
-  addEvents('t-fab',()=>{ if(s.view!=='v-papelao') toggleModal(true); });
-  addEvents('t-btn-close-modal',()=>toggleModal(false));
-  addEvents('t-btn-cancel',()=>toggleModal(false));
+  on('t-fab',()=>{ if(s.view!=='v-papelao') toggleModal(true); });
+  on('t-btn-close-modal',()=>toggleModal(false));
+  on('t-btn-cancel',()=>toggleModal(false));
   $('t-m-add')?.addEventListener('click',e=>{if(e.target===$('t-m-add'))toggleModal(false);});
   $('t-modal-inner')?.addEventListener('click',e=>e.stopPropagation());
 
@@ -800,14 +817,14 @@ function bindEvents(){
     $('t-rec-hint').style.display=CATS[this.value]?.isRec?'block':'none';
   });
 
-  addEvents('t-btn-save',()=>{const b=$('t-btn-save');if(b?._editId)editTxSave(b._editId);else saveTx();});
+  on('t-btn-save',()=>{const b=$('t-btn-save');if(b?._editId)editTxSave(b._editId);else saveTx();});
 
   // Delegação nas tabelas
   ['t-tx-list','t-rep-list'].forEach(id=>{
     const el=$(id); if(!el) return;
     const bind=()=>el.querySelectorAll('.btn-act').forEach(btn=>{
       if(btn._bound)return;btn._bound=true;
-      addEvents(btn,()=>{
+      btn.addEventListener('click',()=>{
         const txId=btn.dataset.id, action=btn.dataset.action, tx=s.txs.find(t=>t.id===txId);
         if(!tx)return;
         if(action==='delete'){deleteTx(txId);return;}
@@ -828,14 +845,20 @@ function bindEvents(){
   });
 
   // Filtros de período do relatório
-  $$('.t-rep-filter').forEach(btn=>addEvents(btn,()=>{
-    s.repFilter=btn.dataset.rep;
-    if(s.repFilter!=='personalizado'){s.repCustomIni='';s.repCustomFim='';}
-    renderRep();
-  }));
+  $$('.t-rep-filter').forEach(btn=>{
+    if(btn._rfBound)return; btn._rfBound=true;
+    btn.addEventListener('click',()=>{
+      s.repFilter=btn.dataset.rep;
+      if(s.repFilter!=='personalizado'){s.repCustomIni='';s.repCustomFim='';}
+      renderRep();
+    });
+  });
 
   // Filtros de categoria
-  $$('.t-rep-cat-filter').forEach(btn=>addEvents(btn,()=>{s.repCat=btn.dataset.cat;renderRep();}));
+  $$('.t-rep-cat-filter').forEach(btn=>{
+    if(btn._rcfBound)return; btn._rcfBound=true;
+    btn.addEventListener('click',()=>{s.repCat=btn.dataset.cat;renderRep();});
+  });
 
   // Filtro por texto inline
   $('rep-search')?.addEventListener('input',()=>renderRep());
@@ -854,18 +877,16 @@ function bindEvents(){
     const repSrch=$('rep-search'); if(repSrch) repSrch.value='';
     renderRep();
   };
-  addEvents('rep-clear-filters',window._repClearFilters);
+  on('rep-clear-filters',window._repClearFilters);
 
   // Exportar
-  addEvents('t-btn-rep-pdf',()=>generatePDF(s.repFilter));
-  addEvents('t-btn-rep-excel',()=>exportRepExcel());
+  on('t-btn-rep-pdf',()=>generatePDF(s.repFilter));
+  on('t-btn-rep-excel',()=>exportRepExcel());
 
   // Pesquisa inteligente (barra global no topo)
   bindSmartSearch();
 
-  ['click','touchstart'].forEach(ev=>{
-    $('t-tb-avatar')?.addEventListener(ev,e=>{e.preventDefault();$('t-avatar-input').click();},{passive:false});
-  });
+  $('t-tb-avatar')?.addEventListener('click',()=>$('t-avatar-input').click());
   $('t-avatar-input')?.addEventListener('change',async function(){
     const file=this.files[0];if(!file||!s.user?.uid)return;
     toast('⏳ Processando imagem…');
@@ -880,15 +901,15 @@ function bindEvents(){
     this.value='';
   });
 
-  addEvents('t-btn-logout',()=>window.LuminAuth?.logout());
+  on('t-btn-logout',()=>window.LuminAuth?.logout());
 }
 
 // ─── LISTENER ─────────────────────────────────────────────────
+// Expõe switchV globalmente para o bottom nav e outros módulos
+window.luminSwitchView = function(id){ if(typeof switchV==='function') switchV(id); };
+
 window.addEventListener('lumin:tenant-ready',async e=>{
   const user=e.detail?.user;
   if(!user||!user.companyId){console.error('[Tenant] Sem companyId');return;}
   await initTenantDashboard(user);
-
-
-
 });
