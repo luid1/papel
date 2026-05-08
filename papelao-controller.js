@@ -18,7 +18,7 @@ import {
   onSnapshot, query, orderBy, serverTimestamp
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
-const PRICE_KG   = 0.40;
+const DEFAULT_PRICE_KG = 0.40;
 const fmt = v => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const fmtKg = v => Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const esc = s => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -42,6 +42,17 @@ let _papelao = [];          // cache local
 let _tab  = 'apagar';      // tab activa
 let _filter = 'weekend';   // filtro dashboard
 
+/* ─── HELPER: preço actual do input (default 0.40) ────────── */
+function getCurrentPrice() {
+  const el = $('pap-preco');
+  if (!el) return DEFAULT_PRICE_KG;
+  // Aceita "0,40" ou "0.40"
+  const raw = String(el.value || '').replace(',', '.').trim();
+  const n   = parseFloat(raw);
+  if (!isNaN(n) && n > 0) return n;
+  return DEFAULT_PRICE_KG;
+}
+
 /* ─── MODAL PESAGEM ──────────────────────────────────────── */
 function openPapModal() {
   const modal = $('pap-modal-add');
@@ -49,7 +60,19 @@ function openPapModal() {
   modal.classList.add('active');
   const dataEl = $('pap-data');
   if (dataEl && !dataEl.value) dataEl.valueAsDate = new Date();
+  // Sugere preço default (R$ 0,40) caso o campo esteja vazio
+  const precoEl = $('pap-preco');
+  if (precoEl && !precoEl.value) precoEl.value = DEFAULT_PRICE_KG.toFixed(2).replace('.', ',');
+  // Recalcula preview
+  recalcTotalPreview();
   setTimeout(() => $('pap-mercado')?.focus(), 280);
+}
+
+function recalcTotalPreview() {
+  const kg = parseFloat(($('pap-kg')?.value || '').replace(',', '.')) || 0;
+  const preco = getCurrentPrice();
+  const prev = $('pap-total-preview');
+  if (prev) prev.textContent = fmt(kg * preco);
 }
 function closePapModal() {
   const modal = $('pap-modal-add');
@@ -76,12 +99,14 @@ function renderAPagar() {
     groups[key].totalVal += Number(p.total) || 0;
   });
 
-  list.innerHTML = Object.values(groups).map(g => `
+  list.innerHTML = Object.values(groups).map(g => {
+    const precoMedio = g.totalKg > 0 ? (g.totalVal / g.totalKg) : DEFAULT_PRICE_KG;
+    return `
     <div class="glass ob-item" style="margin-bottom:14px;gap:18px;padding:24px 28px;border-radius:20px;border:1px solid rgba(255,179,71,.15);flex-wrap:wrap;">
       <div style="width:48px;height:48px;border-radius:14px;background:rgba(255,179,71,.1);border:1px solid rgba(255,179,71,.2);display:grid;place-items:center;font-size:24px;flex-shrink:0;">📦</div>
       <div style="flex:1;min-width:0;">
         <div style="font-size:19px;font-weight:700;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(g.label)}</div>
-        <div style="font-size:13px;color:var(--muted);">${g.items.length} pesagem(ns) &nbsp;·&nbsp; ${fmtKg(g.totalKg)} kg &nbsp;·&nbsp; R$ ${PRICE_KG.toFixed(2)}/kg</div>
+        <div style="font-size:13px;color:var(--muted);">${g.items.length} pesagem(ns) &nbsp;·&nbsp; ${fmtKg(g.totalKg)} kg &nbsp;·&nbsp; média R$ ${precoMedio.toFixed(2).replace('.',',')}/kg</div>
       </div>
       <div style="font-family:'DM Mono',monospace;font-size:clamp(20px,4vw,28px);font-weight:700;color:var(--warning);flex-shrink:0;margin:0 8px;">${fmt(g.totalVal)}</div>
       <button data-baixar-grupo="${encodeURIComponent(g.label.trim().toLowerCase())}" style="padding:14px 22px;border-radius:12px;min-height:52px;background:rgba(0,229,160,.1);border:1.5px solid rgba(0,229,160,.25);color:var(--success);font-weight:800;font-size:15px;display:flex;align-items:center;gap:8px;cursor:pointer;white-space:nowrap;transition:.2s;">
@@ -89,7 +114,7 @@ function renderAPagar() {
         Dar Baixa
       </button>
     </div>
-  `).join('');
+  `;}).join('');
 
   // Dar Baixa — quita todo o grupo
   list.querySelectorAll('[data-baixar-grupo]').forEach(btn => {
@@ -195,31 +220,32 @@ function bindEvents() {
     if (e.target === $('pap-modal-add')) closePapModal();
   });
 
-  // KG → calcula total (dentro do modal)
-  $('pap-kg')?.addEventListener('input', function () {
-    const kg = parseFloat(this.value) || 0;
-    const prev = $('pap-total-preview');
-    if (prev) prev.textContent = fmt(kg * PRICE_KG);
-  });
+  // KG → calcula total (dentro do modal) — usa preço actual do input
+  $('pap-kg')?.addEventListener('input', recalcTotalPreview);
+  // Preço → também recalcula preview ao mudar
+  $('pap-preco')?.addEventListener('input', recalcTotalPreview);
 
   // Registrar pesagem
   addEv('btn-registrar-pap', async () => {
     const mercado = ($('pap-mercado')?.value || '').trim() || 'Aleatório/Avulso';
-    const kg      = parseFloat($('pap-kg')?.value || 0);
+    const kg      = parseFloat(($('pap-kg')?.value || '').replace(',', '.')) || 0;
+    const preco   = getCurrentPrice();
     const data    = $('pap-data')?.value;
     if (!kg || kg <= 0) { toast('⚠ Informe o peso em KG', true); return; }
+    if (!preco || preco <= 0) { toast('⚠ Informe o preço por KG', true); return; }
     if (!data)           { toast('⚠ Informe a data', true); return; }
 
     const btn = $('btn-registrar-pap'); if (btn) btn.disabled = true;
     try {
       await addDoc(collection(db, _col), {
-        mercado, kg, preco: PRICE_KG, total: kg * PRICE_KG,
+        mercado, kg, preco, total: kg * preco,
         data, status: 'apagar', companyId: _cId || null,
         createdAt: serverTimestamp()
       });
       toast('✓ Pesagem registrada!');
       const m = $('pap-mercado'); if (m) m.value = '';
       const k = $('pap-kg');     if (k) k.value = '';
+      // O preço fica preenchido para reuso na próxima pesagem
       const p = $('pap-total-preview'); if (p) p.textContent = 'R$ 0,00';
       closePapModal();
     } catch (e) { toast('Erro ao registrar', true); console.error(e); }

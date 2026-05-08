@@ -523,8 +523,11 @@ tr:hover td { background: rgba(255,255,255,.025); }
   gap: 12px;
   margin-bottom: 16px;
 }
-@media (min-width: 1025px) {
-  .stats-grid { grid-template-columns: repeat(4, 1fr); gap: 16px; }
+@media (min-width: 720px) {
+  .stats-grid { grid-template-columns: repeat(3, 1fr); gap: 14px; }
+}
+@media (min-width: 1100px) {
+  .stats-grid { grid-template-columns: repeat(5, 1fr); gap: 16px; }
 }
 
 /* ══════════════════════════════════════════════
@@ -563,24 +566,30 @@ tr:hover td { background: rgba(255,255,255,.025); }
 
 /* Saldo strip */
 #t-saldo-strip {
-  display: grid; grid-template-columns: repeat(3,1fr);
+  display: grid; grid-template-columns: repeat(2,1fr);
   border-radius: var(--r-lg); margin-bottom: var(--sp-lg);
   padding: var(--sp-5) var(--sp-6);
-  gap: 0;
+  gap: 14px var(--sp-4);
 }
-#t-saldo-strip > div { padding: 0 var(--sp-6); }
-#t-saldo-strip > div:first-child { padding-left: 0; }
-#t-saldo-strip > div:last-child { padding-right: 0; }
+@media (min-width: 720px) {
+  #t-saldo-strip { grid-template-columns: repeat(4,1fr); gap: 0; }
+  #t-saldo-strip > div { padding: 0 var(--sp-6); }
+  #t-saldo-strip > div:first-child { padding-left: 0; }
+  #t-saldo-strip > div:last-child { padding-right: 0; }
+}
 #t-saldo-strip p {
   font-size: var(--fs-xs); font-weight: 700; color: var(--muted);
   margin-bottom: 6px; text-transform: uppercase; letter-spacing: .08em;
 }
 #t-saldo-strip h4 {
   font-family: 'DM Mono', monospace;
-  font-size: var(--fs-2xl);
+  font-size: clamp(1.05rem, 2.4vw, var(--fs-2xl));
   font-weight: 500;
   line-height: 1;
   margin-top: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ══════════════════════════════════════════════

@@ -286,6 +286,23 @@
               </div>
             </label>
 
+            <!-- Comida -->
+            <label style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);cursor:pointer;">
+              <div>
+                <div style="font-size:14px;font-weight:700;">🍽️ Comida</div>
+                <div style="font-size:12px;color:var(--muted);margin-top:2px;">Habilita a categoria "Comida" nas transações e relatórios</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px;flex-shrink:0;">
+                <span id="feat-comida-label" style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;transition:.2s;">Desativado</span>
+                <div style="position:relative;">
+                  <input type="checkbox" id="feat-comida" style="position:absolute;opacity:0;width:0;height:0;">
+                  <div class="feat-toggle" data-feat="comida" style="width:46px;height:26px;border-radius:13px;background:rgba(255,255,255,.12);transition:.2s;cursor:pointer;position:relative;">
+                    <div style="position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 4px rgba(0,0,0,.3);"></div>
+                  </div>
+                </div>
+              </div>
+            </label>
+
             <!-- Logística KM -->
             <label style="display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06);cursor:pointer;">
               <div>
@@ -1102,13 +1119,18 @@
             <p>Folha Pagamento</p>
             <h3 id="t-s-staff">R$ 0,00</h3>
           </div>
+          <div class="stat-card glass" style="color:#4ecdc4;">
+            <p>🍽️ Comida</p>
+            <h3 id="t-s-food">R$ 0,00</h3>
+          </div>
           <div class="stat-card glass" style="color:var(--purple);">
             <p>Despesas Variáveis</p>
             <h3 id="t-s-var">R$ 0,00</h3>
           </div>
         </div>
         <div class="glass" id="t-saldo-strip" style="border-radius:16px;margin-bottom:16px;gap:0;">
-          <div><p style="font-size:12px;font-weight:800;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.1em;">Receita Total</p><h4 id="t-t-in" style="font-family:'DM Mono',monospace;color:var(--success);">R$ 0,00</h4></div>
+          <div><p style="font-size:12px;font-weight:800;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.1em;">Saldo Anterior</p><h4 id="t-prev-bal" style="font-family:'DM Mono',monospace;color:var(--muted);">R$ 0,00</h4></div>
+          <div style="border-left:1px solid var(--border);"><p style="font-size:12px;font-weight:800;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.1em;">Receita Total</p><h4 id="t-t-in" style="font-family:'DM Mono',monospace;color:var(--success);">R$ 0,00</h4></div>
           <div style="border-left:1px solid var(--border);border-right:1px solid var(--border);"><p style="font-size:12px;font-weight:800;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.1em;">Despesa Total</p><h4 id="t-t-out" style="font-family:'DM Mono',monospace;color:var(--alert);">R$ 0,00</h4></div>
           <div><p style="font-size:12px;font-weight:800;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.1em;">Saldo Líquido</p><h4 id="t-t-net" style="font-family:'DM Mono',monospace;color:var(--accent);">R$ 0,00</h4></div>
         </div>
@@ -1181,6 +1203,7 @@
           <button class="t-rep-cat-filter" data-cat="saida-fixa" style="padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:.15s;">▼ Saídas Fixas</button>
           <button class="t-rep-cat-filter" data-cat="variavel"   style="padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:.15s;">● Variáveis</button>
           <button class="t-rep-cat-filter" data-cat="funcionario" style="padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:.15s;">👤 Funcionários</button>
+          <button class="t-rep-cat-filter" data-cat="comida" style="padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:.15s;">🍽️ Comida</button>
           <!-- Pesquisa inline nos relatórios -->
           <div style="margin-left:auto;position:relative;">
             <input id="rep-search" type="text" placeholder="🔍 Filtrar…" autocomplete="off"
@@ -1406,6 +1429,7 @@
             <option value="entrada">Entrada (Receita)</option>
             <option value="saida-fixa">Saída Fixa (Contas)</option>
             <option value="funcionario">Pagamento Funcionário</option>
+            <option value="comida">Comida</option>
             <option value="variavel">Despesa Variável</option>
           </select>
         </div>
@@ -1448,7 +1472,7 @@
       <div style="width:40px;height:4px;background:rgba(255,255,255,.15);border-radius:4px;margin:0 auto 20px;"></div>
       <button id="pap-modal-close" style="position:absolute;top:16px;right:16px;width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,.07);border:1px solid var(--border);color:var(--muted);display:grid;place-items:center;font-size:20px;min-height:44px;">✕</button>
       <h3 style="font-family:'Montserrat',sans-serif;font-size:1.125rem;font-weight:800;margin-bottom:4px;padding-right:44px;">Nova Pesagem</h3>
-      <p style="color:var(--muted);font-size:14px;margin-bottom:24px;">Valor calculado automaticamente: KG × R$ 0,40</p>
+      <p style="color:var(--muted);font-size:14px;margin-bottom:24px;">Total = Peso × Preço por KG (preço editável)</p>
       <div style="display:grid;gap:18px;">
         <div>
           <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:10px;">Mercado / Fornecedor</label>
@@ -1461,9 +1485,13 @@
             <input type="number" id="pap-kg" class="input-field" placeholder="0,00" min="0" step="0.01" inputmode="decimal">
           </div>
           <div>
-            <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:10px;">Data da Pesagem</label>
-            <input type="date" id="pap-data" class="input-field">
+            <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:10px;">Preço por KG (R$)</label>
+            <input type="text" id="pap-preco" class="input-field" placeholder="0,40" inputmode="decimal" autocomplete="off">
           </div>
+        </div>
+        <div>
+          <label style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:10px;">Data da Pesagem</label>
+          <input type="date" id="pap-data" class="input-field">
         </div>
         <div style="background:rgba(0,212,255,.06);border:1px solid rgba(0,212,255,.2);border-radius:14px;padding:18px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
           <span style="font-size:14px;color:var(--muted);font-weight:600;">Total a Pagar</span>
@@ -1808,6 +1836,9 @@ document.addEventListener("DOMContentLoaded", () => {
           m.classList.add("active");
           const dataEl = document.getElementById("pap-data");
           if (dataEl && !dataEl.value) dataEl.valueAsDate = new Date();
+          // Sugere preço default R$ 0,40 (livre para edição)
+          const precoEl = document.getElementById("pap-preco");
+          if (precoEl && !precoEl.value) precoEl.value = "0,40";
           setTimeout(() => document.getElementById("pap-mercado")?.focus(), 280);
         }
       } else if (isCombustivel) {

@@ -16,7 +16,8 @@ const CATS = {
   'entrada':     { label:'Entrada',              color:'#00e5a0', isRec:false },
   'saida-fixa':  { label:'Saída Fixa',           color:'#ff5b70', isRec:true  },
   'funcionario': { label:'Pagto. Funcionário',   color:'#ffb347', isRec:true  },
-  'variavel':    { label:'Despesa Variável',      color:'#b085f5', isRec:false }
+  'comida':      { label:'Comida',               color:'#4ecdc4', isRec:false },
+  'variavel':    { label:'Despesa Variável',     color:'#b085f5', isRec:false }
 };
 const MONTHS = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho',
                 'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
@@ -256,8 +257,13 @@ function bindSmartSearch(){
 // ─── CATEGORIAS ACTIVAS (respeita feature flags) ──────────────
 function activeCats() {
   const hasFuncionario = s.features?.funcionario === true;
+  const hasComida      = s.features?.comida === true;
   return Object.fromEntries(
-    Object.entries(CATS).filter(([k]) => k !== 'funcionario' || hasFuncionario)
+    Object.entries(CATS).filter(([k]) => {
+      if (k === 'funcionario') return hasFuncionario;
+      if (k === 'comida')      return hasComida;
+      return true;
+    })
   );
 }
 
@@ -300,44 +306,198 @@ function applyFeatures() {
       if (sel.value === 'funcionario') sel.value = 'entrada';
       optExistente.remove();
     }
+
+    // Opção "Comida" — mesma lógica (insere/remove conforme feature)
+    const hasComida    = features.comida === true;
+    const optComida    = sel.querySelector('option[value="comida"]');
+
+    if (hasComida && !optComida) {
+      const optVariavel2 = sel.querySelector('option[value="variavel"]');
+      const opt = document.createElement('option');
+      opt.value       = 'comida';
+      opt.textContent = 'Comida';
+      sel.insertBefore(opt, optVariavel2);
+    } else if (!hasComida && optComida) {
+      if (sel.value === 'comida') sel.value = 'variavel';
+      optComida.remove();
+    }
   }
+}
+
+// ─── SALDO CUMULATIVO + RECORRENTES VIRTUAIS ─────────────────
+// Verifica se uma categoria está activa para o tenant actual
+function _catActive(cat) {
+  if (cat === 'funcionario') return s.features?.funcionario === true;
+  if (cat === 'comida')      return s.features?.comida === true;
+  return true;
+}
+
+// Gera as instâncias virtuais de transações recorrentes para um mês alvo.
+// Toda transação com isRecorrente:true cuja data ORIGINAL é anterior ao
+// mês alvo gera uma "instância virtual" naquele mês (mesmo dia).
+function getMonthRecurrentInstances(year, month) {
+  const targetMonthKey = `${year}-${String(month).padStart(2,'0')}`;
+  const out = [];
+  for (const t of s.txs) {
+    if (!t.isRecorrente || !t.date) continue;
+    if (!_catActive(t.category)) continue;
+    const [ty, tm] = t.date.split('-').map(Number);
+    if (!ty || !tm) continue;
+    // Apenas se a recorrência originou ANTES do mês alvo
+    if (ty > year || (ty === year && tm >= month)) continue;
+    const day = (t.date.split('-')[2] || '01');
+    out.push({
+      ...t,
+      id: `${t.id}__virt__${targetMonthKey}`,
+      date: `${targetMonthKey}-${day}`,
+      isVirtual: true,
+      sourceTxId: t.id
+    });
+  }
+  return out;
+}
+
+// Saldo cumulativo até o FIM do mês ANTERIOR ao [year, month] selecionado.
+// Conta cada transação não-recorrente uma vez (na sua data) e cada
+// transação recorrente uma vez por mês desde a origem até o mês anterior.
+function calcPreviousBalance(year, month) {
+  // "Mês limite" = mês anterior ao selecionado
+  const limitMonths = year * 12 + month - 1; // p.ex. fev/2025 → jan/2025 = 24301
+
+  let balance = 0;
+  for (const t of s.txs) {
+    if (!t.date) continue;
+    if (!_catActive(t.category)) continue;
+    const [ty, tm] = t.date.split('-').map(Number);
+    if (!ty || !tm) continue;
+
+    const sign = t.category === 'entrada' ? 1 : -1;
+    const amount = Number(t.amount || 0);
+    const startIdx = ty * 12 + tm;
+
+    if (t.isRecorrente) {
+      // Conta uma vez para cada mês de [origem] até [mês anterior ao actual]
+      if (startIdx > limitMonths) continue;
+      const count = limitMonths - startIdx + 1;
+      balance += sign * amount * count;
+    } else {
+      if (startIdx <= limitMonths) {
+        balance += sign * amount;
+      }
+    }
+  }
+  return balance;
+}
+
+// Expande recorrentes para um intervalo de datas [iniIso, fimIso] — usado
+// pelos relatórios para que recorrentes apareçam em todos os meses do período.
+function getExpandedTxsInRange(iniIso, fimIso) {
+  if (!iniIso || !fimIso) return [];
+  const out = [];
+
+  // 1. Transações reais cuja data está dentro do range
+  for (const t of s.txs) {
+    if (!t.date) continue;
+    if (!_catActive(t.category)) continue;
+    if (t.date >= iniIso && t.date <= fimIso) out.push(t);
+  }
+
+  // 2. Para cada recorrente, gerar virtuais nos meses do range que sejam
+  //    POSTERIORES ao mês de origem (o mês de origem já foi contado em #1).
+  const [iy, im] = iniIso.split('-').map(Number);
+  const [fy, fm] = fimIso.split('-').map(Number);
+
+  for (const t of s.txs) {
+    if (!t.isRecorrente || !t.date) continue;
+    if (!_catActive(t.category)) continue;
+    const [oy, om] = t.date.split('-').map(Number);
+    if (!oy || !om) continue;
+
+    // Itera meses do range
+    let cy = iy, cm = im;
+    while (cy < fy || (cy === fy && cm <= fm)) {
+      // Se este mês é POSTERIOR ao mês de origem da recorrente
+      if (cy > oy || (cy === oy && cm > om)) {
+        const mk = `${cy}-${String(cm).padStart(2,'0')}`;
+        const day = (t.date.split('-')[2] || '01');
+        const virtualDate = `${mk}-${day}`;
+        if (virtualDate >= iniIso && virtualDate <= fimIso) {
+          out.push({
+            ...t,
+            id: `${t.id}__virt__${mk}`,
+            date: virtualDate,
+            isVirtual: true,
+            sourceTxId: t.id
+          });
+        }
+      }
+      cm++;
+      if (cm > 12) { cm = 1; cy++; }
+    }
+  }
+  return out;
 }
 
 // ─── DASHBOARD ────────────────────────────────────────────────
 function renderHome(){
   const cats = activeCats();
-  const f=s.txs.filter(t=>{
+
+  // Transações reais do mês selecionado
+  const realF = s.txs.filter(t=>{
     if(!t.date)return false;
     const[y,m]=t.date.split('-').map(Number);
-    return y===s.fY&&m===s.fM && (t.category!=='funcionario'||cats['funcionario']);
+    return y===s.fY&&m===s.fM && _catActive(t.category);
   });
+  // Instâncias virtuais de recorrentes (originaram em meses anteriores)
+  const virtF = getMonthRecurrentInstances(s.fY, s.fM);
+  const f = [...realF, ...virtF];
+
   const sum=cat=>f.filter(t=>t.category===cat).reduce((a,t)=>a+Number(t.amount||0),0);
   const tIn=f.filter(t=>t.category==='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
   const tOut=f.filter(t=>t.category!=='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
+
+  // Saldo anterior cumulativo (todos os meses antes do selecionado)
+  const prevBal = calcPreviousBalance(s.fY, s.fM);
+
   animateVal('t-s-in',sum('entrada')); animateVal('t-s-out-f',sum('saida-fixa'));
   // Folha pagamento: mostra 0 se desativado
   animateVal('t-s-staff', cats['funcionario'] ? sum('funcionario') : 0);
+  // Comida: mostra 0 se desativado
+  animateVal('t-s-food', cats['comida'] ? sum('comida') : 0);
   animateVal('t-s-var',sum('variavel'));
-  animateVal('t-t-in',tIn); animateVal('t-t-out',tOut); animateVal('t-t-net',tIn-tOut);
-  const netEl=$('t-t-net'); if(netEl) netEl.style.color=(tIn-tOut)>=0?'var(--success)':'var(--alert)';
+  animateVal('t-prev-bal', prevBal);
+  animateVal('t-t-in',tIn); animateVal('t-t-out',tOut);
+  // Saldo Líquido = saldo anterior + (entradas do mês - saídas do mês)
+  const netNow = prevBal + tIn - tOut;
+  animateVal('t-t-net', netNow);
+  const netEl=$('t-t-net'); if(netEl) netEl.style.color = netNow>=0?'var(--success)':'var(--alert)';
+  // Cor do saldo anterior também muda conforme positivo/negativo
+  const prevEl=$('t-prev-bal'); if(prevEl) prevEl.style.color = prevBal>=0?'var(--success)':'var(--alert)';
   // Oculta o card "Folha Pagamento" se feature desativada
   const staffCard=$('t-s-staff')?.closest('.stat-card');
   if(staffCard) staffCard.style.display=cats['funcionario']?'':'none';
+  // Oculta o card "Comida" se feature desativada
+  const foodCard=$('t-s-food')?.closest('.stat-card');
+  if(foodCard) foodCard.style.display=cats['comida']?'':'none';
   const cEl=$('t-tx-count'); if(cEl) cEl.textContent=`${f.length} registro${f.length!==1?'s':''}`;
 
   const txList=$('t-tx-list'); if(!txList) return;
   const fSorted = [...f].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   txList.innerHTML=fSorted.slice(0,15).map(t=>{
     const cat=cats[t.category]||CATS.variavel, isIn=t.category==='entrada', vc=isIn?'var(--success)':'var(--alert)';
+    const isVirt = t.isVirtual===true;
+    // Em transações virtuais (recorrentes auto-aplicadas), não permite editar/excluir
+    // — o usuário deve agir na transação ORIGINAL via Obrigações.
+    const actions = isVirt
+      ? `<span title="Recorrente automático" style="font-size:10px;padding:3px 8px;border-radius:6px;background:rgba(255,179,71,.12);color:var(--warning);font-weight:700;">🔄 RECORRENTE</span>`
+      : `<button class="btn-act edit" data-id="${t.id}" data-action="edit">✎</button>
+         <button class="btn-act del"  data-id="${t.id}" data-action="delete">🗑</button>`;
     return `<tr style="--card-accent:${cat.color};">
       <td data-label="Data" style="color:var(--muted);font-family:'DM Mono',monospace;font-size:13px;white-space:nowrap;">${fD(t.date)}</td>
       <td data-label="Categoria"><span class="cat-badge" style="background:${cat.color}22;color:${cat.color};">${cat.label}</span></td>
-      <td data-label="Descrição" style="font-weight:600;">${esc(t.description||'—')}</td>
+      <td data-label="Descrição" style="font-weight:600;">${esc(t.description||'—')}${isVirt?' <span style="font-size:10px;color:var(--muted);">·rec</span>':''}</td>
       <td data-label="Valor" style="text-align:right;font-family:'DM Mono',monospace;font-weight:700;color:${vc};white-space:nowrap;">${isIn?'+':'-'} ${fmt(t.amount)}</td>
-      <td data-label="Ações" class="td-actions-cell" style="text-align:right;"><div class="td-actions">
-        <button class="btn-act edit" data-id="${t.id}" data-action="edit">✎</button>
-        <button class="btn-act del"  data-id="${t.id}" data-action="delete">🗑</button>
-      </div></td></tr>`;
+      <td data-label="Ações" class="td-actions-cell" style="text-align:right;"><div class="td-actions">${actions}</div></td></tr>`;
   }).join('')||`<tr><td colspan="5" style="text-align:center;padding:56px;color:var(--muted);">Sem registros para este período.</td></tr>`;
 
   if(!window.Chart) return;
@@ -349,8 +509,24 @@ function renderHome(){
   const catEntries = Object.entries(cats);
   if(pieC) charts.pie=new window.Chart(pieC,{type:'doughnut',data:{labels:catEntries.map(([,c])=>c.label),datasets:[{data:catEntries.map(([k])=>sum(k)),backgroundColor:catEntries.map(([,c])=>c.color),borderWidth:0,hoverOffset:10}]},options:{cutout:'72%',responsive:true,maintainAspectRatio:false,animation:{duration:700},plugins:{legend:{display:true,position:'bottom',labels:{color:'rgba(228,240,246,.5)',font:{size:11},padding:14,boxWidth:10}},tooltip:{backgroundColor:'rgba(5,13,18,.92)',borderColor:'rgba(0,212,255,.2)',borderWidth:1,callbacks:{label:ctx=>` ${ctx.label}: ${fmt(ctx.parsed)}`}}}}});
 
+  // Gráfico de 6 meses — também considera recorrentes virtuais
   const last6=[];
-  for(let i=5;i>=0;i--){const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-i);const m=d.getMonth()+1,y=d.getFullYear();const mT=s.txs.filter(t=>{if(!t.date)return false;const[ty,tm]=t.date.split('-').map(Number);return ty===y&&tm===m;});last6.push({label:MONTHS[m-1].slice(0,3),in:mT.filter(t=>t.category==='entrada').reduce((a,t)=>a+Number(t.amount||0),0),out:mT.filter(t=>t.category!=='entrada').reduce((a,t)=>a+Number(t.amount||0),0)});}
+  for(let i=5;i>=0;i--){
+    const d=new Date(); d.setDate(1); d.setMonth(d.getMonth()-i);
+    const m=d.getMonth()+1, y=d.getFullYear();
+    const real = s.txs.filter(t=>{
+      if(!t.date) return false;
+      const[ty,tm]=t.date.split('-').map(Number);
+      return ty===y&&tm===m && _catActive(t.category);
+    });
+    const virt = getMonthRecurrentInstances(y, m);
+    const all = [...real, ...virt];
+    last6.push({
+      label: MONTHS[m-1].slice(0,3),
+      in:  all.filter(t=>t.category==='entrada').reduce((a,t)=>a+Number(t.amount||0),0),
+      out: all.filter(t=>t.category!=='entrada').reduce((a,t)=>a+Number(t.amount||0),0)
+    });
+  }
   if(barC) charts.bar=new window.Chart(barC,{type:'bar',data:{labels:last6.map(d=>d.label),datasets:[{label:'Entradas',data:last6.map(d=>d.in),backgroundColor:'rgba(0,229,160,.55)',borderRadius:6,borderSkipped:false},{label:'Saídas',data:last6.map(d=>d.out),backgroundColor:'rgba(255,91,112,.5)',borderRadius:6,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,animation:{duration:600},scales:{y:{display:false},x:{grid:{display:false},border:{display:false},ticks:{color:'rgba(255,255,255,.38)',font:{size:11}}}},plugins:{legend:{display:false},tooltip:{backgroundColor:'rgba(5,13,18,.92)',borderColor:'rgba(0,212,255,.2)',borderWidth:1,callbacks:{label:c=>`${c.dataset.label}: ${fmt(c.parsed.y)}`}}}}});
 }
 
@@ -367,7 +543,7 @@ function renderCal(){
 
   // Recorrentes deste mês: usa o dia cadastrado como dia do mês
   const cats=activeCats();
-  const rec=s.txs.filter(t=>t.isRecorrente&&(t.category!=='funcionario'||cats['funcionario']));
+  const rec=s.txs.filter(t=>t.isRecorrente && _catActive(t.category));
 
   for(let d=1;d<=days;d++){
     const ds=`${s.cY}-${String(s.cM).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
@@ -415,8 +591,7 @@ function openCalDayModal(ds,txs){
 
 // ─── OBRIGAÇÕES ───────────────────────────────────────────────
 function renderOb(){
-  const cats=activeCats();
-  const rec=s.txs.filter(t=>t.isRecorrente&&(t.category!=='funcionario'||cats['funcionario']));
+  const rec=s.txs.filter(t=>t.isRecorrente && _catActive(t.category));
   const list=$('t-ob-list'); if(!list) return;
   if(!rec.length){list.innerHTML=`<div style="text-align:center;padding:60px;color:var(--muted);">Nenhuma obrigação recorrente cadastrada.</div>`;return;}
   list.innerHTML=rec.map(t=>{
@@ -433,6 +608,7 @@ function renderOb(){
         </div>
       </div>
       <div style="font-family:'DM Mono',monospace;font-weight:800;color:var(--warning);font-size:17px;flex-shrink:0;">${fmt(t.amount)}</div>
+      <button class="ob-del" data-id="${t.id}" aria-label="Excluir recorrência" title="Excluir esta recorrência (ex: funcionário que saiu)" style="margin-left:8px;width:38px;height:38px;border-radius:10px;background:rgba(255,91,112,.08);border:1px solid rgba(255,91,112,.2);color:var(--alert);font-size:16px;cursor:pointer;flex-shrink:0;display:grid;place-items:center;">🗑</button>
     </div>`;
   }).join('');
 
@@ -444,6 +620,32 @@ function renderOb(){
         else{ const tx=s.txs.find(t=>t.id===id); await setDoc(doc(db,'obrigacoes',key),{monthKey:key,txId:id,desc:tx?.description||'',amount:tx?.amount||0,category:tx?.category||'',month:s.fM,year:s.fY,done:true,createdAt:Date.now(),companyId:s.companyId}); }
         toast(ob?.done?'↺ Marcado como pendente':'✓ Marcado como pago');
       }catch(e){toast('Erro ao atualizar',true);}
+    });
+  });
+
+  // Botão de excluir recorrência (ex: funcionário que saiu)
+  $$('.ob-del').forEach(btn=>{
+    btn.addEventListener('click',async()=>{
+      const id=btn.dataset.id;
+      const tx=s.txs.find(t=>t.id===id);
+      if(!tx) return;
+      const msg=`Excluir a recorrência "${tx.description}" (${fmt(tx.amount)})?\n\n` +
+                `⚠ Isso vai REMOVER esta saída fixa para sempre.\n` +
+                `Os meses anteriores onde ela já foi descontada vão deixar de contar.\n\n` +
+                `Use isso quando o funcionário saiu, o contrato encerrou, etc.`;
+      if(!confirm(msg)) return;
+      try{
+        // 1. Apaga a transação original
+        await deleteDoc(doc(db,'transactions',id));
+        // 2. Apaga TODOS os registros de obrigação relacionados
+        //    (busca por txId no cache local)
+        const obsToDelete = s.obs.filter(o=>o.txId===id);
+        await Promise.all(obsToDelete.map(o=>deleteDoc(doc(db,'obrigacoes',o.id))));
+        toast('🗑 Recorrência excluída');
+      }catch(e){
+        console.error(e);
+        toast('Erro ao excluir',true);
+      }
     });
   });
 }
@@ -491,10 +693,12 @@ function repPeriodLabel(){
 function filterForRep(txt=''){
   const cats=activeCats();
   const [ini,fim]=repDateRange();
-  let data=s.txs.filter(t=>{
+  // Expande recorrentes virtuais para que apareçam em todos os meses do range
+  const expanded = getExpandedTxsInRange(ini, fim);
+  let data = expanded.filter(t=>{
     if(!t.date) return false;
-    if(t.date<ini||t.date>fim) return false;
     if(t.category==='funcionario'&&!cats['funcionario']) return false;
+    if(t.category==='comida'&&!cats['comida']) return false;
     if(s.repCat!=='all'&&t.category!==s.repCat) return false;
     if(txt){const q=txt.toLowerCase();if(!(t.description||'').toLowerCase().includes(q)&&!(t.category||'').toLowerCase().includes(q)&&!(t.date||'').includes(q)) return false;}
     return true;
@@ -539,18 +743,20 @@ function renderRep(){
   const repList=$('t-rep-list'); if(!repList) return;
   repList.innerHTML=filtered.map(t=>{
     const cat=cats[t.category]||CATS.variavel,isIn=t.category==='entrada',vc=isIn?'var(--success)':'var(--alert)';
+    const isVirt = t.isVirtual===true;
     // Highlight search term
     let desc=esc(t.description||'—');
     if(searchTxt){const re=new RegExp('('+searchTxt.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+')','gi');desc=desc.replace(re,'<mark style="background:rgba(0,212,255,.25);color:var(--accent);border-radius:3px;padding:0 2px;">$1</mark>');}
+    const actions = isVirt
+      ? `<span title="Recorrente automático" style="font-size:10px;padding:3px 8px;border-radius:6px;background:rgba(255,179,71,.12);color:var(--warning);font-weight:700;">🔄 REC</span>`
+      : `<button class="btn-act edit" data-id="${t.id}" data-action="edit">✎</button>
+         <button class="btn-act del"  data-id="${t.id}" data-action="delete">🗑</button>`;
     return `<tr style="--card-accent:${cat.color};">
       <td data-label="Data" style="color:var(--muted);font-family:'DM Mono',monospace;font-size:13px;white-space:nowrap;">${fD(t.date)}</td>
       <td data-label="Categoria"><span class="cat-badge" style="background:${cat.color}22;color:${cat.color};">${cat.label}</span></td>
-      <td data-label="Descrição" style="font-weight:600;">${desc}</td>
+      <td data-label="Descrição" style="font-weight:600;">${desc}${isVirt?' <span style="font-size:10px;color:var(--muted);">·rec</span>':''}</td>
       <td data-label="Valor" style="text-align:right;font-family:'DM Mono',monospace;font-weight:700;color:${vc};white-space:nowrap;">${isIn?'+':'-'} ${fmt(t.amount)}</td>
-      <td data-label="Ações" class="td-actions-cell" style="text-align:right;"><div class="td-actions">
-        <button class="btn-act edit" data-id="${t.id}" data-action="edit">✎</button>
-        <button class="btn-act del"  data-id="${t.id}" data-action="delete">🗑</button>
-      </div></td>
+      <td data-label="Ações" class="td-actions-cell" style="text-align:right;"><div class="td-actions">${actions}</div></td>
     </tr>`;
   }).join('')||`<tr><td colspan="5" style="text-align:center;padding:56px;color:var(--muted);">
     <div style="font-size:28px;opacity:.25;margin-bottom:12px;">🔍</div>
@@ -562,8 +768,7 @@ function renderRep(){
 // ─── ABA A PAGAR ──────────────────────────────────────────────
 function renderPagar(){
   // Calcula obrigações pendentes do mês actual
-  const cats=activeCats();
-  const rec=s.txs.filter(t=>t.isRecorrente&&(t.category!=='funcionario'||cats['funcionario']));
+  const rec=s.txs.filter(t=>t.isRecorrente && _catActive(t.category));
   let totalPendente=0, totalPago=0;
 
   const items=rec.map(t=>{

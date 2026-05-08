@@ -498,6 +498,10 @@ async function loadCompanyFeatures(companyId) {
   if (featPapelao) featPapelao.checked = _featData.papelao === true;
   updateToggleUI("papelao", _featData.papelao === true);
 
+  const featComida = el("feat-comida");
+  if (featComida) featComida.checked = _featData.comida === true;
+  updateToggleUI("comida", _featData.comida === true);
+
   const featLogisticaKm = el("feat-logistica_km");
   if (featLogisticaKm) featLogisticaKm.checked = _featData.logistica_km === true;
   updateToggleUI("logistica_km", _featData.logistica_km === true);
@@ -523,6 +527,7 @@ async function saveFeatConfig() {
   const features = {
     funcionario:  el("feat-funcionario")?.checked  === true,
     papelao:      el("feat-papelao")?.checked       === true,
+    comida:       el("feat-comida")?.checked        === true,
     logistica_km: el("feat-logistica_km")?.checked  === true
   };
 
@@ -561,7 +566,7 @@ function bindFeatEvents() {
 
   // Impede que cliques no próprio <input> (invisível mas clicável)
   // disparem um segundo toggle além do listener acima.
-  ["feat-funcionario","feat-papelao","feat-logistica_km"].forEach(id => {
+  ["feat-funcionario","feat-papelao","feat-comida","feat-logistica_km"].forEach(id => {
     el(id)?.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
