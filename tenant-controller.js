@@ -457,28 +457,45 @@ function renderHome(){
   const tOut=f.filter(t=>t.category!=='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
 
   // Saldo anterior cumulativo (todos os meses antes do selecionado)
-  const prevBal = calcPreviousBalance(s.fY, s.fM);
+  const prevBal  = calcPreviousBalance(s.fY, s.fM);
+  const monthNet = tIn - tOut;       // resultado só deste mês
+  const netNow   = prevBal + monthNet; // saldo atual considerando tudo
 
+  // Label do mês corrente (chip ao lado de "Saldo Atual")
+  const mLabel = $('t-resumo-month');
+  if(mLabel) mLabel.textContent = `${MONTHS[s.fM-1]} ${s.fY}`;
+
+  // Detalhes por categoria
   animateVal('t-s-in',sum('entrada')); animateVal('t-s-out-f',sum('saida-fixa'));
-  // Folha pagamento: mostra 0 se desativado
   animateVal('t-s-staff', cats['funcionario'] ? sum('funcionario') : 0);
-  // Comida: mostra 0 se desativado
-  animateVal('t-s-food', cats['comida'] ? sum('comida') : 0);
+  animateVal('t-s-food',  cats['comida']      ? sum('comida')      : 0);
   animateVal('t-s-var',sum('variavel'));
-  animateVal('t-prev-bal', prevBal);
-  animateVal('t-t-in',tIn); animateVal('t-t-out',tOut);
-  // Saldo Líquido = saldo anterior + (entradas do mês - saídas do mês)
-  const netNow = prevBal + tIn - tOut;
-  animateVal('t-t-net', netNow);
-  const netEl=$('t-t-net'); if(netEl) netEl.style.color = netNow>=0?'var(--success)':'var(--alert)';
-  // Cor do saldo anterior também muda conforme positivo/negativo
-  const prevEl=$('t-prev-bal'); if(prevEl) prevEl.style.color = prevBal>=0?'var(--success)':'var(--alert)';
-  // Oculta o card "Folha Pagamento" se feature desativada
-  const staffCard=$('t-s-staff')?.closest('.stat-card');
-  if(staffCard) staffCard.style.display=cats['funcionario']?'':'none';
-  // Oculta o card "Comida" se feature desativada
-  const foodCard=$('t-s-food')?.closest('.stat-card');
-  if(foodCard) foodCard.style.display=cats['comida']?'':'none';
+
+  // Totais do mês
+  animateVal('t-t-in',tIn);
+  animateVal('t-t-out',tOut);
+
+  // Saldo anterior + resultado do mês + saldo atual
+  animateVal('t-prev-bal',  prevBal);
+  animateVal('t-month-net', monthNet);
+  animateVal('t-t-net',     netNow);
+
+  // Cores dinâmicas (verde/vermelho) — usa classes em vez de style inline
+  const setCls = (id, val) => {
+    const el = $(id); if(!el) return;
+    el.classList.remove('pos','neg');
+    el.classList.add(val>=0?'pos':'neg');
+  };
+  setCls('t-t-net',     netNow);
+  setCls('t-prev-bal',  prevBal);
+  setCls('t-month-net', monthNet);
+
+  // Oculta linhas (bd-row) das features desativadas
+  const staffRow = $('t-s-staff')?.closest('.bd-row');
+  if(staffRow) staffRow.style.display = cats['funcionario']?'':'none';
+  const foodRow = $('t-s-food')?.closest('.bd-row');
+  if(foodRow)  foodRow.style.display  = cats['comida']?'':'none';
+
   const cEl=$('t-tx-count'); if(cEl) cEl.textContent=`${f.length} registro${f.length!==1?'s':''}`;
 
   const txList=$('t-tx-list'); if(!txList) return;

@@ -1106,34 +1106,71 @@
 
       <!-- Dashboard -->
       <section id="v-home" class="t-view active">
-        <div class="stats-grid">
-          <div class="stat-card glass" style="color:var(--success);">
-            <p>Entradas Mensais</p>
-            <h3 id="t-s-in">R$ 0,00</h3>
+
+        <!-- ═══ RESUMO FINANCEIRO (card hero unificado) ═══ -->
+        <section class="resumo-card glass">
+
+          <!-- Linha 1: SALDO ATUAL em destaque -->
+          <div class="resumo-hero">
+            <div class="resumo-hero-label">
+              <span>Saldo Atual</span>
+              <span class="resumo-month" id="t-resumo-month">—</span>
+            </div>
+            <div class="resumo-hero-value" id="t-t-net">R$ 0,00</div>
+            <div class="resumo-hero-sub">
+              <span>Vindo do mês anterior: <strong id="t-prev-bal">R$ 0,00</strong></span>
+              <span class="resumo-sep">·</span>
+              <span>Resultado do mês: <strong id="t-month-net">R$ 0,00</strong></span>
+            </div>
           </div>
-          <div class="stat-card glass" style="color:var(--alert);">
-            <p>Saídas Fixas</p>
-            <h3 id="t-s-out-f">R$ 0,00</h3>
+
+          <div class="resumo-divider"></div>
+
+          <!-- Linha 2: Totais do mês (Receita / Despesa) -->
+          <div class="resumo-totals">
+            <div class="resumo-total-block">
+              <div class="resumo-total-label">▲ Receita do Mês</div>
+              <div class="resumo-total-value pos" id="t-t-in">R$ 0,00</div>
+            </div>
+            <div class="resumo-total-block">
+              <div class="resumo-total-label">▼ Despesa do Mês</div>
+              <div class="resumo-total-value neg" id="t-t-out">R$ 0,00</div>
+            </div>
           </div>
-          <div class="stat-card glass" style="color:var(--warning);">
-            <p>Folha Pagamento</p>
-            <h3 id="t-s-staff">R$ 0,00</h3>
+
+          <div class="resumo-divider"></div>
+
+          <!-- Linha 3: Breakdown por categoria -->
+          <div class="resumo-breakdown">
+            <div class="bd-row">
+              <span class="bd-dot" style="background:#00e5a0"></span>
+              <span class="bd-label">Entradas</span>
+              <span class="bd-val pos" id="t-s-in">R$ 0,00</span>
+            </div>
+            <div class="bd-row">
+              <span class="bd-dot" style="background:#ff5b70"></span>
+              <span class="bd-label">Saídas Fixas</span>
+              <span class="bd-val neg" id="t-s-out-f">R$ 0,00</span>
+            </div>
+            <div class="bd-row" data-cat="funcionario">
+              <span class="bd-dot" style="background:#ffb347"></span>
+              <span class="bd-label">Folha de Pagamento</span>
+              <span class="bd-val neg" id="t-s-staff">R$ 0,00</span>
+            </div>
+            <div class="bd-row" data-cat="comida">
+              <span class="bd-dot" style="background:#4ecdc4"></span>
+              <span class="bd-label">🍽️ Comida</span>
+              <span class="bd-val neg" id="t-s-food">R$ 0,00</span>
+            </div>
+            <div class="bd-row">
+              <span class="bd-dot" style="background:#b085f5"></span>
+              <span class="bd-label">Despesas Variáveis</span>
+              <span class="bd-val neg" id="t-s-var">R$ 0,00</span>
+            </div>
           </div>
-          <div class="stat-card glass" style="color:#4ecdc4;">
-            <p>🍽️ Comida</p>
-            <h3 id="t-s-food">R$ 0,00</h3>
-          </div>
-          <div class="stat-card glass" style="color:var(--purple);">
-            <p>Despesas Variáveis</p>
-            <h3 id="t-s-var">R$ 0,00</h3>
-          </div>
-        </div>
-        <div class="glass" id="t-saldo-strip" style="border-radius:16px;margin-bottom:16px;gap:0;">
-          <div><p style="font-size:12px;font-weight:800;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.1em;">Saldo Anterior</p><h4 id="t-prev-bal" style="font-family:'DM Mono',monospace;color:var(--muted);">R$ 0,00</h4></div>
-          <div style="border-left:1px solid var(--border);"><p style="font-size:12px;font-weight:800;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.1em;">Receita Total</p><h4 id="t-t-in" style="font-family:'DM Mono',monospace;color:var(--success);">R$ 0,00</h4></div>
-          <div style="border-left:1px solid var(--border);border-right:1px solid var(--border);"><p style="font-size:12px;font-weight:800;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.1em;">Despesa Total</p><h4 id="t-t-out" style="font-family:'DM Mono',monospace;color:var(--alert);">R$ 0,00</h4></div>
-          <div><p style="font-size:12px;font-weight:800;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.1em;">Saldo Líquido</p><h4 id="t-t-net" style="font-family:'DM Mono',monospace;color:var(--accent);">R$ 0,00</h4></div>
-        </div>
+
+        </section>
+        <!-- ═══ /RESUMO FINANCEIRO ═══ -->
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:24px;margin-bottom:32px;">
           <div class="glass" style="padding:20px;border-radius:16px;"><h3 style="font-size:17px;font-weight:700;margin-bottom:20px;">Distribuição de Gastos</h3><div style="height:200px;position:relative;"><canvas id="t-c-pie"></canvas></div></div>
           <div class="glass" style="padding:20px;border-radius:16px;"><h3 style="font-size:17px;font-weight:700;margin-bottom:20px;">Fluxo de Caixa (6 Meses)</h3><div style="height:200px;position:relative;"><canvas id="t-c-bar"></canvas></div></div>

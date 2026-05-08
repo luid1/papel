@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Preview · Resumo Financeiro Lumin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Montserrat:wght@800;900&family=DM+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #050d12; --bg2: #08141d; --bg3: #0c1c28;
+    --accent: #00d4ff; --accent2: #008fb5;
+    --success: #00e5a0; --alert: #ff5b70;
+    --warning: #ffb347; --purple: #b085f5;
+    --text: #e4f0f6; --muted: rgba(228,240,246,.45);
+    --glass: rgba(255,255,255,.04);
+    --border: rgba(255,255,255,.08);
+    --r-lg: 18px;
+    --sp-lg: 24px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: linear-gradient(135deg, #050d12 0%, #0a1822 100%);
+    color: var(--text);
+    font-family: 'Inter', system-ui, sans-serif;
+    min-height: 100vh;
+    padding: 40px 20px;
+    -webkit-font-smoothing: antialiased;
+  }
+  .preview-wrap {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: grid;
+    gap: 32px;
+  }
+  .preview-title {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+  .preview-sub {
+    color: var(--muted);
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+  .glass {
+    background: var(--glass);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+  }
+
+  /* === RESUMO FINANCEIRO === */
+  .resumo-card {
+    border-radius: var(--r-lg);
+    padding: 28px 28px 22px;
+    position: relative;
+    overflow: hidden;
+  }
+  .resumo-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--success), var(--accent), var(--alert));
+    opacity: .55;
+  }
+
+  .resumo-hero { margin-bottom: 18px; }
+  .resumo-hero-label {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+  .resumo-hero-label > span:first-child {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .resumo-month {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    background: rgba(0, 212, 255, .1);
+    padding: 2px 10px;
+    border-radius: 20px;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+  .resumo-hero-value {
+    font-family: 'DM Mono', monospace;
+    font-size: clamp(28px, 6vw, 44px);
+    font-weight: 600;
+    line-height: 1.05;
+    letter-spacing: -.5px;
+    color: var(--accent);
+    word-break: break-all;
+    margin-bottom: 8px;
+  }
+  .resumo-hero-value.pos { color: var(--success); }
+  .resumo-hero-value.neg { color: var(--alert); }
+  .resumo-hero-sub {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+    font-size: 12.5px;
+    color: var(--muted);
+    font-weight: 500;
+    align-items: center;
+  }
+  .resumo-hero-sub strong {
+    color: var(--text);
+    font-weight: 700;
+    font-family: 'DM Mono', monospace;
+  }
+  .resumo-hero-sub strong.pos { color: var(--success); }
+  .resumo-hero-sub strong.neg { color: var(--alert); }
+  .resumo-sep { opacity: .35; }
+
+  .resumo-divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--border), transparent);
+    margin: 18px 0;
+  }
+
+  .resumo-totals {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .resumo-total-label {
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .resumo-total-value {
+    font-family: 'DM Mono', monospace;
+    font-size: clamp(18px, 3.5vw, 26px);
+    font-weight: 600;
+    line-height: 1.1;
+    word-break: break-all;
+  }
+  .resumo-total-value.pos { color: var(--success); }
+  .resumo-total-value.neg { color: var(--alert); }
+
+  .resumo-breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .bd-row {
+    display: grid;
+    grid-template-columns: 12px 1fr auto;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 4px;
+    border-radius: 8px;
+    transition: background .15s;
+  }
+  .bd-row:hover { background: rgba(255, 255, 255, .025); }
+  .bd-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, .25);
+  }
+  .bd-label {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .bd-val {
+    font-family: 'DM Mono', monospace;
+    font-size: 14.5px;
+    font-weight: 700;
+    letter-spacing: -.2px;
+    white-space: nowrap;
+  }
+  .bd-val.pos { color: var(--success); }
+  .bd-val.neg { color: var(--alert); }
+
+  @media (max-width: 540px) {
+    .resumo-card { padding: 22px 20px 18px; }
+    .resumo-hero-sub { font-size: 11.5px; }
+    .resumo-totals { gap: 12px; }
+  }
+</style>
+</head>
+<body>
+<div class="preview-wrap">
+
+  <div>
+    <div class="preview-title">Preview — Resumo Financeiro</div>
+    <div class="preview-sub">Usando os números do seu screenshot (Maio/2026)</div>
+  </div>
+
+  <!-- ═══ NOVO LAYOUT — usando os números reais ═══ -->
+  <section class="resumo-card glass">
+
+    <div class="resumo-hero">
+      <div class="resumo-hero-label">
+        <span>Saldo Atual</span>
+        <span class="resumo-month">Maio 2026</span>
+      </div>
+      <div class="resumo-hero-value neg">-R$ 23.831,24</div>
+      <div class="resumo-hero-sub">
+        <span>Vindo do mês anterior: <strong class="pos">+R$ 8.422,09</strong></span>
+        <span class="resumo-sep">·</span>
+        <span>Resultado do mês: <strong class="neg">-R$ 32.253,33</strong></span>
+      </div>
+    </div>
+
+    <div class="resumo-divider"></div>
+
+    <div class="resumo-totals">
+      <div class="resumo-total-block">
+        <div class="resumo-total-label">▲ Receita do Mês</div>
+        <div class="resumo-total-value pos">R$ 3.228,15</div>
+      </div>
+      <div class="resumo-total-block">
+        <div class="resumo-total-label">▼ Despesa do Mês</div>
+        <div class="resumo-total-value neg">R$ 35.481,48</div>
+      </div>
+    </div>
+
+    <div class="resumo-divider"></div>
+
+    <div class="resumo-breakdown">
+      <div class="bd-row">
+        <span class="bd-dot" style="background:#00e5a0"></span>
+        <span class="bd-label">Entradas</span>
+        <span class="bd-val pos">R$ 3.228,15</span>
+      </div>
+      <div class="bd-row">
+        <span class="bd-dot" style="background:#ff5b70"></span>
+        <span class="bd-label">Saídas Fixas</span>
+        <span class="bd-val neg">R$ 10.926,08</span>
+      </div>
+      <div class="bd-row">
+        <span class="bd-dot" style="background:#ffb347"></span>
+        <span class="bd-label">Folha de Pagamento</span>
+        <span class="bd-val neg">R$ 23.650,00</span>
+      </div>
+      <div class="bd-row">
+        <span class="bd-dot" style="background:#4ecdc4"></span>
+        <span class="bd-label">🍽️ Comida</span>
+        <span class="bd-val neg">R$ 0,00</span>
+      </div>
+      <div class="bd-row">
+        <span class="bd-dot" style="background:#b085f5"></span>
+        <span class="bd-label">Despesas Variáveis</span>
+        <span class="bd-val neg">R$ 905,40</span>
+      </div>
+    </div>
+
+  </section>
+
+</div>
+</body>
+</html>

@@ -517,6 +517,10 @@ tr:hover td { background: rgba(255,255,255,.025); }
 /* ══════════════════════════════════════════════
    STATS GRID
 ══════════════════════════════════════════════ */
+/* ══════════════════════════════════════════════
+   STAT CARDS (legado — não usado no dashboard novo,
+   mantido para outros lugares)
+══════════════════════════════════════════════ */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -529,10 +533,6 @@ tr:hover td { background: rgba(255,255,255,.025); }
 @media (min-width: 1100px) {
   .stats-grid { grid-template-columns: repeat(5, 1fr); gap: 16px; }
 }
-
-/* ══════════════════════════════════════════════
-   STAT CARDS
-══════════════════════════════════════════════ */
 .stat-card {
   padding: var(--sp-5);
   border-radius: var(--r-lg);
@@ -564,32 +564,161 @@ tr:hover td { background: rgba(255,255,255,.025); }
   min-width: 0;
 }
 
-/* Saldo strip */
-#t-saldo-strip {
-  display: grid; grid-template-columns: repeat(2,1fr);
-  border-radius: var(--r-lg); margin-bottom: var(--sp-lg);
-  padding: var(--sp-5) var(--sp-6);
-  gap: 14px var(--sp-4);
+/* ══════════════════════════════════════════════
+   RESUMO FINANCEIRO (card hero unificado)
+══════════════════════════════════════════════ */
+.resumo-card {
+  border-radius: var(--r-lg);
+  padding: 28px 28px 22px;
+  margin-bottom: 24px;
+  position: relative;
+  overflow: hidden;
 }
-@media (min-width: 720px) {
-  #t-saldo-strip { grid-template-columns: repeat(4,1fr); gap: 0; }
-  #t-saldo-strip > div { padding: 0 var(--sp-6); }
-  #t-saldo-strip > div:first-child { padding-left: 0; }
-  #t-saldo-strip > div:last-child { padding-right: 0; }
+.resumo-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--success), var(--accent), var(--alert));
+  opacity: .55;
 }
-#t-saldo-strip p {
-  font-size: var(--fs-xs); font-weight: 700; color: var(--muted);
-  margin-bottom: 6px; text-transform: uppercase; letter-spacing: .08em;
+
+/* Linha 1: HERO */
+.resumo-hero { margin-bottom: 18px; }
+.resumo-hero-label {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
 }
-#t-saldo-strip h4 {
+.resumo-hero-label > span:first-child {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.resumo-month {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  background: rgba(0, 212, 255, .1);
+  padding: 2px 10px;
+  border-radius: 20px;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.resumo-hero-value {
   font-family: 'DM Mono', monospace;
-  font-size: clamp(1.05rem, 2.4vw, var(--fs-2xl));
+  font-size: clamp(28px, 6vw, 44px);
+  font-weight: 600;
+  line-height: 1.05;
+  letter-spacing: -.5px;
+  color: var(--accent);
+  word-break: break-all; /* permite quebrar valores muito longos sem cortar */
+  margin-bottom: 8px;
+}
+.resumo-hero-value.pos { color: var(--success); }
+.resumo-hero-value.neg { color: var(--alert); }
+.resumo-hero-sub {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  font-size: 12.5px;
+  color: var(--muted);
   font-weight: 500;
-  line-height: 1;
-  margin-top: 0;
-  white-space: nowrap;
+  align-items: center;
+}
+.resumo-hero-sub strong {
+  color: var(--text);
+  font-weight: 700;
+  font-family: 'DM Mono', monospace;
+}
+.resumo-hero-sub strong.pos { color: var(--success); }
+.resumo-hero-sub strong.neg { color: var(--alert); }
+.resumo-sep { opacity: .35; }
+
+/* Divisor sutil */
+.resumo-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border), transparent);
+  margin: 18px 0;
+}
+
+/* Linha 2: TOTAIS (Receita / Despesa) */
+.resumo-totals {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.resumo-total-block { min-width: 0; }
+.resumo-total-label {
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.resumo-total-value {
+  font-family: 'DM Mono', monospace;
+  font-size: clamp(18px, 3.5vw, 26px);
+  font-weight: 600;
+  line-height: 1.1;
+  word-break: break-all;
+}
+.resumo-total-value.pos { color: var(--success); }
+.resumo-total-value.neg { color: var(--alert); }
+
+/* Linha 3: BREAKDOWN por categoria */
+.resumo-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.bd-row {
+  display: grid;
+  grid-template-columns: 12px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 4px;
+  border-radius: 8px;
+  transition: background .15s;
+}
+.bd-row:hover { background: rgba(255, 255, 255, .025); }
+.bd-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, .25);
+}
+.bd-label {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.bd-val {
+  font-family: 'DM Mono', monospace;
+  font-size: 14.5px;
+  font-weight: 700;
+  letter-spacing: -.2px;
+  white-space: nowrap;
+}
+.bd-val.pos { color: var(--success); }
+.bd-val.neg { color: var(--alert); }
+
+/* Mobile: ajustes finos */
+@media (max-width: 540px) {
+  .resumo-card { padding: 22px 20px 18px; }
+  .resumo-hero-sub { font-size: 11.5px; }
+  .resumo-totals { gap: 12px; }
+  .bd-label { font-size: 13px; }
+  .bd-val { font-size: 13.5px; }
 }
 
 /* ══════════════════════════════════════════════
