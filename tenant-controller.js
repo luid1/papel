@@ -987,7 +987,7 @@ function renderUsers(){
     <div style="width:96px;height:96px;border-radius:22px;border:2.5px solid var(--accent);
       margin:0 auto 20px;display:grid;place-items:center;font-size:36px;font-weight:900;
       color:var(--accent);background:var(--bg3);overflow:hidden;">${avatarInner}</div>
-    <h4 style="font-family:'Montserrat',sans-serif;font-size:20px;font-weight:800;letter-spacing:-.5px;margin-bottom:10px;">${esc(displayName)}</h4>
+    <h4 style="font-family:'Inter',sans-serif;font-size:20px;font-weight:700;letter-spacing:-.028em;margin-bottom:10px;">${esc(displayName)}</h4>
     <p style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--accent);
       background:rgba(0,212,255,.1);padding:5px 18px;border-radius:30px;display:inline-block;letter-spacing:1px;">${roleLabel}</p>
     <div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--muted);margin-top:16px;">@${esc(u.username||displayName.toLowerCase())}</div>
@@ -1207,6 +1207,7 @@ async function initTenantDashboard(user){
   );
 
   bindEvents();
+  bindThemeColor();   // seletor de cor configurável pelo usuário
   _appReady = true;   // unlock render() — all state is ready
 
   // Re-populate UI now that company data is confirmed loaded
@@ -1219,6 +1220,77 @@ async function initTenantDashboard(user){
   const _tbAv2  = $('t-tb-avatar'); if(_tbAv2 && !_tbAv2.style.backgroundImage) _tbAv2.textContent = _ini2;
 
   switchV('v-home');  // triggers first real render
+}
+
+// ─── SELETOR DE COR DE IDENTIDADE (aba Segurança) ─────────────
+function bindThemeColor() {
+  const input  = $('t-theme-color-input');
+  const hex    = $('t-theme-color-hex');
+  const saveBtn= $('t-theme-color-save');
+  const msg    = $('t-theme-color-msg');
+  if (!input || !hex || !saveBtn) return;
+
+  // Carrega cor atual
+  const currentColor = s.company?.themeColor || '#00d4ff';
+  input.value = currentColor;
+  hex.value = currentColor.toUpperCase();
+
+  // Aplica preview ao vivo
+  const applyPreview = (color) => {
+    if (!/^#[0-9A-Fa-f]{6}$/.test(color)) return;
+    document.documentElement.style.setProperty('--accent', color);
+    document.documentElement.style.setProperty('--accent2', color + 'cc');
+    saveBtn.style.background = color;
+  };
+
+  input.addEventListener('input', e => {
+    hex.value = e.target.value.toUpperCase();
+    applyPreview(e.target.value);
+  });
+
+  hex.addEventListener('input', e => {
+    let v = e.target.value.trim();
+    if (!v.startsWith('#')) v = '#' + v;
+    if (/^#[0-9A-Fa-f]{6}$/.test(v)) {
+      input.value = v;
+      applyPreview(v);
+    }
+  });
+
+  // Presets
+  document.querySelectorAll('.t-theme-preset').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const c = btn.dataset.color;
+      input.value = c;
+      hex.value = c.toUpperCase();
+      applyPreview(c);
+    });
+  });
+
+  // Salvar no Firestore
+  saveBtn.addEventListener('click', async () => {
+    const color = input.value;
+    if (!/^#[0-9A-Fa-f]{6}$/.test(color)) {
+      if (msg) { msg.style.display = 'block'; msg.style.color = 'var(--alert)'; msg.textContent = '⚠ Cor inválida — use formato #RRGGBB'; }
+      return;
+    }
+
+    saveBtn.disabled = true; saveBtn.textContent = 'Salvando...';
+    try {
+      await updateDoc(doc(db, 'companies', s.companyId), { themeColor: color });
+      if (msg) {
+        msg.style.display = 'block';
+        msg.style.color = 'var(--success)';
+        msg.textContent = '✓ Cor atualizada!';
+        setTimeout(() => { msg.style.display = 'none'; }, 2500);
+      }
+    } catch (err) {
+      console.error('[Tenant] Erro ao salvar cor:', err);
+      if (msg) { msg.style.display = 'block'; msg.style.color = 'var(--alert)'; msg.textContent = 'Erro ao salvar.'; }
+    } finally {
+      saveBtn.disabled = false; saveBtn.textContent = 'Salvar';
+    }
+  });
 }
 
 // ─── BIND EVENTOS ─────────────────────────────────────────────

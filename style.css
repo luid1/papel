@@ -342,8 +342,9 @@ h4 { font-family: 'Inter', sans-serif; font-size: var(--fs-base); font-weight: 6
   backdrop-filter: blur(20px); margin-bottom: var(--sp-md);
 }
 .admin-card h3 {
-  font-family: 'Montserrat', sans-serif; font-size: var(--fs-md);
-  font-weight: 700; margin-bottom: var(--sp-lg); color: var(--text);
+  font-family: 'Inter', sans-serif; font-size: var(--fs-md);
+  font-weight: 600; margin-bottom: var(--sp-lg); color: var(--text);
+  letter-spacing: -.018em;
 }
 
 .admin-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-md); }
@@ -507,10 +508,12 @@ tr:hover td { background: rgba(255,255,255,.025); }
 }
 #t-filter-bar::-webkit-scrollbar { height: 0; }
 .fpill {
-  padding: 6px 16px; border-radius: 40px;
-  font-size: var(--fs-xs); font-weight: 700;
-  transition: .2s; white-space: nowrap; min-height: 30px;
+  padding: 5px 12px; border-radius: 8px;
+  font-size: 12px; font-weight: 500;
+  transition: .15s; white-space: nowrap;
+  letter-spacing: -.005em;
 }
+.fpill:hover { color: var(--text) !important; }
 
 /* ── VIEWS ── */
 .t-view {
