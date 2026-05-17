@@ -1862,15 +1862,22 @@
 
   <!-- Modal Calendário Dia -->
   <div id="t-cal-day-modal">
-    <div style="width:100%;max-width:640px;background:var(--bg2);border:1px solid var(--border);border-radius:24px 24px 0 0;padding:16px 24px 48px;max-height:85svh;overflow-y:auto;animation:sheetUp .32s var(--ease);overscroll-behavior:contain;">
-      <div style="width:40px;height:4px;background:rgba(255,255,255,.15);border-radius:4px;margin:0 auto 20px;"></div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
-        <h3 id="t-cal-modal-title" style="font-family:'Inter',sans-serif;font-size:20px;font-weight:700;"></h3>
-        <button id="t-cal-modal-close" style="width:40px;height:40px;border-radius:10px;background:rgba(255,255,255,.07);border:1px solid var(--border);color:var(--muted);display:grid;place-items:center;font-size:18px;">✕</button>
+    <div style="width:100%;max-width:520px;background:var(--bg2);border:1px solid var(--border);border-radius:14px 14px 0 0;padding:16px 20px 32px;max-height:85svh;overflow-y:auto;animation:sheetUp .25s var(--ease);overscroll-behavior:contain;">
+      <div style="width:36px;height:4px;background:rgba(255,255,255,.12);border-radius:4px;margin:0 auto 18px;"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <h3 id="t-cal-modal-title" style="font-family:'Inter',sans-serif;font-size:16px;font-weight:600;letter-spacing:-.02em;margin:0;"></h3>
+        <button id="t-cal-modal-close" style="width:32px;height:32px;border-radius:8px;background:transparent;border:1px solid var(--border);color:var(--muted);display:grid;place-items:center;font-size:15px;cursor:pointer;">✕</button>
       </div>
-      <div id="t-cal-modal-body" style="display:grid;gap:10px;"></div>
+      <div id="t-cal-modal-body"></div>
     </div>
   </div>
+
+  <style>
+    @media (min-width: 768px) {
+      #t-cal-day-modal { align-items: center !important; padding: 24px !important; }
+      #t-cal-day-modal > div { border-radius: 14px !important; max-width: 480px; }
+    }
+  </style>
 
   <!-- Modal Nova Pesagem — Papelão -->
   <div id="pap-modal-add">

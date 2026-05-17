@@ -168,14 +168,14 @@ function buildPills(){
     const [y,m]=ym.split('-').map(Number);
     const active=m===s.fM&&y===s.fY;
     const btn=document.createElement('button');
-    btn.className='fpill';
+    btn.className='fpill'+(active?' active':'');
     btn.textContent=`${MONTHS[m-1].slice(0,3)} ${y}`;
-    btn.style.cssText=`border:1px solid ${active?'var(--accent)':'var(--border)'};background:${active?'rgba(0,212,255,.12)':'transparent'};color:${active?'var(--accent)':'var(--muted)'};flex-shrink:0;`;
+    btn.style.flexShrink='0';
     btn.addEventListener('click',()=>{s.fM=m;s.fY=y;s.dashShowAll=false;render();});
     pills.appendChild(btn);
   });
   // Rola para o pill activo
-  const activePill=pills.querySelector('.fpill[style*="var(--accent)"]');
+  const activePill=pills.querySelector('.fpill.active');
   if(activePill) setTimeout(()=>activePill.scrollIntoView({inline:'center',behavior:'smooth'}),100);
 }
 
@@ -267,13 +267,18 @@ function bindSmartSearch(){
     document.getElementById('t-save-f')?.addEventListener('click',()=>{ saveFilter(rawQ.trim()); renderSearch(rawQ); toast('✓ Filtro salvo!'); });
   }
 
-  inp.addEventListener('input',()=>renderSearch(inp.value));
+  inp.addEventListener('input',()=>{
+    renderSearch(inp.value);
+    // Filtra a tabela do dashboard em tempo real
+    s.dashSearch = inp.value;
+    if (s.view === 'v-home') renderHome();
+  });
   inp.addEventListener('focus',()=>renderSearch(inp.value));
   inp.addEventListener('keydown',function(e){
     if(e.key==='Enter'){ var q=inp.value.trim(); if(q){ saveFilter(q); var rs=document.getElementById('rep-search'); if(rs)rs.value=q; s.repFilter='anual'; switchV('v-rep'); renderRep(); dd.style.display='none'; toast('Buscando "'+q+'" em Relatórios…'); } }
     if(e.key==='Escape'){ dd.style.display='none'; inp.blur(); }
   });
-  if(clrBtn) clrBtn.addEventListener('click',function(){ inp.value=''; renderSearch(''); inp.focus(); });
+  if(clrBtn) clrBtn.addEventListener('click',function(){ inp.value=''; renderSearch(''); s.dashSearch=''; if(s.view==='v-home') renderHome(); inp.focus(); });
   document.addEventListener('click',function(e){ if(!inp.contains(e.target)&&!dd.contains(e.target)&&e.target!==clrBtn) dd.style.display='none'; });
 }
 
@@ -597,6 +602,16 @@ function renderHome(){
   // Filtro por origem
   if(s.dashOrigem !== 'all') filtered = filtered.filter(t => getOrigem(t) === s.dashOrigem);
 
+  // Filtro por busca em tempo real (descrição/categoria)
+  if (s.dashSearch && s.dashSearch.trim()) {
+    const q = normQ(s.dashSearch.trim());
+    filtered = filtered.filter(t => {
+      const d = normQ(t.description || '');
+      const c = normQ(CATS[t.category]?.label || '');
+      return d.includes(q) || c.includes(q);
+    });
+  }
+
   // Ordenação
   if(s.dashSort === 'createdAt'){
     filtered.sort((a,b) => (getCreatedAtMs(b) || 0) - (getCreatedAtMs(a) || 0));
@@ -728,12 +743,56 @@ function openCalDayModal(ds,txs){
   if(!modal) return;
   const [y,m,d]=ds.split('-').map(Number);
   title.textContent=`${d} de ${MONTHS[m-1]} de ${y}`;
-  if(!txs.length){body.innerHTML=`<div style="text-align:center;padding:40px;color:var(--muted);">Nenhuma movimentação neste dia.</div>`;} else {
+
+  // Botão de ação "Nova transação neste dia"
+  const newTxBtn = `<button id="t-cal-day-add" style="display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;background:var(--accent);color:var(--bg);border:1px solid color-mix(in srgb,var(--accent) 70%,black);font-size:13px;font-weight:600;cursor:pointer;letter-spacing:-.005em;margin-bottom:16px;">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Nova transação neste dia
+  </button>`;
+
+  if(!txs.length){
+    body.innerHTML = newTxBtn + `<div style="text-align:center;padding:36px 0;color:var(--muted);font-size:13px;letter-spacing:-.005em;">Nenhuma movimentação neste dia.</div>`;
+  } else {
     const inc=txs.filter(t=>t.category==='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
     const out=txs.filter(t=>t.category!=='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
-    body.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;"><div style="padding:14px;border-radius:14px;background:rgba(0,229,160,.08);border:1px solid rgba(0,229,160,.2);text-align:center;"><p style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">Entradas</p><p style="font-family:'DM Mono',monospace;font-size:18px;color:var(--success);font-weight:700;">${fmt(inc)}</p></div><div style="padding:14px;border-radius:14px;background:rgba(255,91,112,.08);border:1px solid rgba(255,91,112,.2);text-align:center;"><p style="font-size:10px;font-weight:800;text-transform:uppercase;color:var(--muted);margin-bottom:6px;">Saídas</p><p style="font-family:'DM Mono',monospace;font-size:18px;color:var(--alert);font-weight:700;">${fmt(out)}</p></div></div>${txs.map(t=>{const cat=CATS[t.category]||CATS.variavel,isIn=t.category==='entrada';return `<div style="display:flex;align-items:center;gap:14px;padding:14px 16px;border-radius:14px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.05);border-left:3px solid ${cat.color};margin-bottom:8px;"><div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:700;">${esc(t.description||'—')}</div><div style="margin-top:4px;"><span class="cat-badge" style="font-size:9px;background:${cat.color}22;color:${cat.color};">${cat.label}</span></div></div><div style="font-family:'DM Mono',monospace;font-weight:800;color:${isIn?'var(--success)':'var(--alert)'};font-size:16px;">${isIn?'+':'-'} ${fmt(t.amount)}</div></div>`;}).join('')}`;
+    body.innerHTML = newTxBtn
+      + `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;">
+          <div style="padding:10px 12px;border-radius:10px;border:1px solid var(--border);">
+            <p style="font-size:11px;color:var(--muted);margin-bottom:4px;letter-spacing:-.005em;">Entradas</p>
+            <p class="num" style="font-size:16px;color:var(--success);font-weight:600;">${fmt(inc)}</p>
+          </div>
+          <div style="padding:10px 12px;border-radius:10px;border:1px solid var(--border);">
+            <p style="font-size:11px;color:var(--muted);margin-bottom:4px;letter-spacing:-.005em;">Saídas</p>
+            <p class="num" style="font-size:16px;color:var(--alert);font-weight:600;">${fmt(out)}</p>
+          </div>
+        </div>`
+      + txs.map(t=>{
+          const cat=CATS[t.category]||CATS.variavel, isIn=t.category==='entrada';
+          return `<div style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;border:1px solid var(--border);margin-bottom:6px;">
+            <span style="width:5px;height:24px;border-radius:3px;background:${cat.color};flex-shrink:0;"></span>
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:13.5px;font-weight:500;letter-spacing:-.005em;">${esc(t.description||'—')}</div>
+              <div style="font-size:11px;color:var(--muted);margin-top:2px;letter-spacing:-.005em;">${cat.label}</div>
+            </div>
+            <div class="num" style="font-weight:600;color:${isIn?'var(--success)':'var(--alert)'};font-size:14px;">${isIn?'+':'−'} ${fmt(t.amount)}</div>
+          </div>`;
+        }).join('');
   }
   modal.classList.add('active');
+
+  // Wire up: clica em "Nova transação neste dia" → fecha modal do calendário,
+  // pré-preenche data e abre o modal de nova transação
+  setTimeout(() => {
+    const btn = $('t-cal-day-add');
+    btn?.addEventListener('click', () => {
+      modal.classList.remove('active');
+      // Pré-define a data no modal de nova transação
+      const dateInput = $('t-a-date');
+      if (dateInput) dateInput.value = ds; // YYYY-MM-DD
+      // Abre o modal
+      $('t-m-add')?.classList.add('active');
+    });
+  }, 0);
 }
 
 // ─── OBRIGAÇÕES ───────────────────────────────────────────────
