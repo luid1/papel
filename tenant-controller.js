@@ -711,7 +711,7 @@ function renderCal(){
     const pills=allEvents.slice(0,2).map(t=>{
       const isPending=t.isRecorrente&&!obKey(`${t.id}_${s.cY}-${String(s.cM).padStart(2,'0')}`)?.done;
       const clr=CATS[t.category]?.color||'#888';
-      return `<div class="cal-event-pill" style="background:${clr}22;color:${clr};${t.isRecorrente?'border:1px dashed '+clr+'55;':''}">${isPending?'⏰ ':''} ${esc(t.description||'')}</div>`;
+      return `<div class="cal-event-pill" style="--ev-color:${clr};${t.isRecorrente?'opacity:.7;':''}" title="${esc(t.description||'')}">${esc(t.description||'')}</div>`;
     }).join('');
     const extra=allEvents.length>2?`<div class="cal-more-label">+${allEvents.length-2}</div>`:'';
 
@@ -1162,7 +1162,14 @@ async function initTenantDashboard(user){
   const uRole=$('t-u-role'); if(uRole) uRole.textContent=s.company?.name||'Empresa';
   const uAv=$('t-u-av');    if(uAv)   uAv.textContent=initial;
   const tbDate=$('t-tb-date');
-  if(tbDate&&window.innerWidth>768) tbDate.textContent=`${getGreeting()}, ${displayName.split(' ')[0]} · ${new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'})}`;
+  if(tbDate&&window.innerWidth>768) {
+    // Pega o primeiro nome real — se for "Pessoal Financeiro X", usa o último (X)
+    const parts = displayName.split(' ').filter(Boolean);
+    const isPersonalPrefix = parts[0]?.toLowerCase() === 'pessoal';
+    const firstName = isPersonalPrefix ? parts[parts.length-1] : parts[0];
+    const today = new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'});
+    tbDate.textContent = `${getGreeting()}, ${firstName} · ${today}`;
+  }
   const tbAv=$('t-tb-avatar'); if(tbAv){tbAv.textContent=initial;tbAv.style.backgroundImage='';}
 
   // Foto de perfil

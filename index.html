@@ -52,35 +52,41 @@
      Visualmente idêntico ao original.
 ═════════════════════════════════════════════════════════════ -->
 <div id="login-screen" style="display:none;">
-  <div style="width:100%;max-width:480px;text-align:center;">
-    <div class="login-wordmark">Lumin</div>
-    <p style="color:var(--muted);text-transform:uppercase;font-size:13px;letter-spacing:.3em;margin-bottom:48px;font-weight:700;">
-      Controle Financeiro
-    </p>
-    <div class="glass" style="padding:32px 28px;border-radius:20px;">
-      <div style="margin-bottom:16px;text-align:left;">
-        <label class="form-label" style="font-size:12px;margin-bottom:12px;">Identificação</label>
-        <input type="email" id="l-user" class="input-field"
-          placeholder="Seu usuário"
-          style="font-size:15px;"
-          autocomplete="email" spellcheck="false" inputmode="email">
+  <div style="width:100%;max-width:380px;">
+    <!-- Header minimal -->
+    <div style="text-align:left;margin-bottom:36px;">
+      <div class="login-wordmark">Lumin</div>
+      <p style="color:var(--muted);font-size:14px;margin-top:8px;font-weight:400;letter-spacing:-.005em;">
+        Controle financeiro inteligente.
+      </p>
+    </div>
+
+    <!-- Formulário -->
+    <form id="login-form" style="display:flex;flex-direction:column;gap:14px;">
+      <div>
+        <label class="form-label" style="font-size:12px;margin-bottom:6px;font-weight:500;letter-spacing:-.005em;text-transform:none;color:var(--muted);">Usuário</label>
+        <input type="text" id="l-user" class="input-field"
+          placeholder="seu_usuario"
+          style="font-size:14px;width:100%;padding:11px 14px;border-radius:8px;background:transparent;border:1px solid var(--border);color:var(--text);letter-spacing:-.005em;"
+          autocomplete="username" spellcheck="false">
       </div>
-      <div style="margin-bottom:20px;text-align:left;">
-        <label class="form-label" style="font-size:12px;margin-bottom:12px;">Chave de Acesso</label>
+      <div>
+        <label class="form-label" style="font-size:12px;margin-bottom:6px;font-weight:500;letter-spacing:-.005em;text-transform:none;color:var(--muted);">Senha</label>
         <input type="password" id="l-pass" class="input-field"
           placeholder="••••••••"
-          style="font-size:15px;"
+          style="font-size:14px;width:100%;padding:11px 14px;border-radius:8px;background:transparent;border:1px solid var(--border);color:var(--text);"
           autocomplete="current-password">
       </div>
-      <div id="l-err" style="color:var(--alert);font-size:14px;margin-bottom:20px;display:none;font-weight:600;text-align:center;">
-        ⚠ Credenciais inválidas.
+      <div id="l-err" style="color:var(--alert);font-size:13px;display:none;font-weight:500;padding:8px 12px;background:rgba(248,113,113,.08);border:1px solid rgba(248,113,113,.2);border-radius:8px;">
+        Credenciais inválidas.
       </div>
-      <button id="btn-do-login" class="btn-primary" style="width:100%;font-size:18px;min-height:62px;">
-        Acessar Sistema
+      <button type="button" id="btn-do-login" style="margin-top:6px;padding:11px 16px;border-radius:8px;background:var(--accent);color:var(--bg);border:none;font-size:14px;font-weight:600;cursor:pointer;letter-spacing:-.005em;transition:filter .15s;">
+        Entrar
       </button>
-    </div>
-    <p style="font-size:11px;color:rgba(255,255,255,.18);margin-top:24px;line-height:1.6;">
-      Acesso Restrito · Armazém da Guia KG e Eco Mix
+    </form>
+
+    <p style="font-size:12px;color:var(--muted);margin-top:32px;line-height:1.5;letter-spacing:-.005em;">
+      Não tem conta? Entre em contato com o administrador.
     </p>
   </div>
 </div>
@@ -1242,39 +1248,37 @@
   <!-- Main -->
   <main id="t-main">
     <header id="t-topbar">
-      <div style="display:flex;align-items:center;gap:14px;">
+      <div style="display:flex;align-items:center;gap:12px;min-width:0;">
         <button id="t-btn-menu" aria-label="Menu">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
         </button>
-        <h2 id="t-v-title" style="font-family:'Inter',sans-serif;font-size:1rem;font-weight:600;letter-spacing:-.018em;">Dashboard</h2>
+        <h2 id="t-v-title" style="font-family:'Inter',sans-serif;font-size:15px;font-weight:600;letter-spacing:-.02em;color:var(--text);margin:0;">Dashboard</h2>
+        <span id="t-tb-date" style="font-size:13px;color:var(--muted);font-weight:400;letter-spacing:-.005em;border-left:1px solid var(--border);padding-left:12px;margin-left:2px;white-space:nowrap;"></span>
       </div>
-      <div style="display:flex;align-items:center;gap:14px;">
-        <span id="t-tb-date" style="font-size:13px;color:var(--muted);font-weight:400;letter-spacing:-.005em;"></span>
-        <div id="t-tb-avatar" title="Alterar foto de perfil" style="width:36px;height:36px;border-radius:50%;background:var(--bg3);overflow:hidden;cursor:pointer;display:grid;place-items:center;font-weight:600;color:var(--accent);font-size:14px;flex-shrink:0;background-size:cover;background-position:center;border:1px solid var(--border);">U</div>
-        <input type="file" id="t-avatar-input" accept="image/*" style="display:none;">
-      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;"></div>
     </header>
 
-    <div id="t-filter-bar" style="display:flex;align-items:center;gap:10px;padding:10px 20px 0;flex-shrink:0;">
+    <!-- Sub-bar: pills de mês à esquerda, busca à direita -->
+    <div id="t-filter-bar" style="display:flex;align-items:center;gap:10px;padding:10px 24px;flex-shrink:0;border-bottom:1px solid var(--border);">
       <div id="t-filter-pills" style="display:flex;gap:5px;flex:1;overflow-x:auto;min-width:0;padding-bottom:2px;scrollbar-width:none;"></div>
       <div id="t-search-wrap" style="position:relative;flex-shrink:0;">
-        <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;"
-          width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="rgba(228,240,246,.28)" stroke-width="2.5" stroke-linecap="round">
+        <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--muted);"
+          width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
         </svg>
         <input id="t-smart-search" type="text" placeholder="Buscar transações…"
           autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-          style="padding:8px 28px 8px 30px;border-radius:10px;font-size:12px;font-weight:500;
-          background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);
-          color:var(--text);width:175px;transition:width .2s,border-color .2s;outline:none;" />
+          style="padding:7px 30px 7px 32px;border-radius:8px;font-size:13px;font-weight:400;
+          background:transparent;border:1px solid var(--border);
+          color:var(--text);width:220px;transition:width .2s,border-color .2s,background .15s;outline:none;letter-spacing:-.005em;" />
         <button id="t-search-clear" style="display:none;position:absolute;right:8px;top:50%;
-          transform:translateY(-50%);background:none;border:none;color:rgba(228,240,246,.4);
-          font-size:14px;cursor:pointer;padding:2px 4px;line-height:1;">✕</button>
+          transform:translateY(-50%);background:none;border:none;color:var(--muted);
+          font-size:13px;cursor:pointer;padding:2px 4px;line-height:1;">✕</button>
         <div id="t-search-dropdown" style="display:none;position:absolute;top:calc(100% + 6px);right:0;
           min-width:300px;max-width:360px;max-height:340px;overflow-y:auto;
-          background:#0d1a22;border:1px solid rgba(0,212,255,.15);border-radius:14px;
-          box-shadow:0 12px 48px rgba(0,0,0,.6);z-index:300;padding:6px;">
-          <div id="t-search-saved" style="display:none;padding:4px 8px 8px;border-bottom:1px solid rgba(255,255,255,.05);margin-bottom:4px;"></div>
+          background:var(--bg2);border:1px solid var(--border);border-radius:10px;
+          box-shadow:0 12px 48px rgba(0,0,0,.5);z-index:300;padding:6px;">
+          <div id="t-search-saved" style="display:none;padding:4px 8px 8px;border-bottom:1px solid var(--border);margin-bottom:4px;"></div>
           <div id="t-search-results"></div>
         </div>
       </div>
@@ -1704,8 +1708,8 @@
     </div><!-- /views -->
   </main>
 
-  <!-- FAB -->
-  <button id="t-fab" title="Nova Transação" aria-label="Adicionar transação">＋</button>
+  <!-- Botão Nova Transação (canto inferior direito) -->
+  <button id="t-fab" title="Nova Transação" aria-label="Adicionar transação"><span class="fab-label">Nova transação</span></button>
 
   <!-- Bottom Navigation Bar (visível apenas em mobile ≤ 768px via CSS) -->
   <nav id="t-bottom-nav" aria-label="Navegação principal">
