@@ -1185,6 +1185,24 @@ function compressImage(file,maxPx=300,quality=0.78){
 async function initTenantDashboard(user){
   s.user=user; s.companyId=user.companyId;
 
+  // Reset de filtros — evita vazamento entre contas no mesmo navegador
+  s.dashCat = 'all';
+  s.dashOrigem = 'all';
+  s.dashSort = 'createdAt';
+  s.dashSearch = '';
+  s.dashShowAll = false;
+  s.repFilter = 'mes_atual';
+  s.repCat = 'all';
+  s.repCustomIni = '';
+  s.repCustomFim = '';
+  s.fM = new Date().getMonth()+1;
+  s.fY = new Date().getFullYear();
+  s.cM = new Date().getMonth()+1;
+  s.cY = new Date().getFullYear();
+  // Limpa input de busca da topbar
+  const searchInp = $('t-smart-search'); if (searchInp) searchInp.value = '';
+  const repSearchInp = $('rep-search'); if (repSearchInp) repSearchInp.value = '';
+
   // Ouve empresa em tempo real — features/cor actualizadas pelo admin
   // reflectem imediatamente no tenant sem precisar recarregar.
   if(_unsubCompany) _unsubCompany();
