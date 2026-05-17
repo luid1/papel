@@ -1,459 +1,2155 @@
 /**
  * ═══════════════════════════════════════════════════════════════
- *  LUMIN — Backend: Webhook WhatsApp → Whisper → GPT → Firestore
- *  Arquivo: webhook-handler.js (Firebase Functions ou Express)
+ *  LUMIN — Backend: WhatsApp Bot + Pluggy Open Finance
+ *  Arquivo: webhook-handler.js
  *
- *  Fluxo:
- *  1. WhatsApp envia webhook com áudio (ou texto)
- *  2. Baixamos o arquivo de áudio da API do WhatsApp
- *  3. Transcrevemos com OpenAI Whisper
- *  4. GPT extrai os campos estruturados em JSON
- *  5. Calculamos Valor Total e salvamos no Firestore
- *  6. (Opcional) Confirmamos por WhatsApp ao remetente
+ *  Funcionalidades:
+ *  1. Bot WhatsApp via QR Code (whatsapp-web.js)
+ *     - Reconhece o número de quem mandou
+ *     - Associa ao companyId cadastrado no Firestore (campo "phone")
+ *     - Groq interpreta a mensagem (texto ou áudio)
+ *     - Salva a transação direto em {companyId}_transacoes
+ *     - Responde com confirmação no WhatsApp
  *
- *  Deploy: Firebase Functions (recomendado) ou Express.js standalone
+ *  2. Pluggy Open Finance (endpoints REST)
+ *     - GET  /pluggy/connect-token  → token para o widget no frontend
+ *     - POST /pluggy/save-item      → salva itemId da conta bancária
+ *     - POST /pluggy/sync           → busca e categoriza transações
  *
- *  ⚠ CHAVES DE API:
- *  Substitua os placeholders abaixo pelas suas chaves reais.
- *  NUNCA commite chaves reais no repositório.
- *  Use variáveis de ambiente: process.env.NOME_DA_VARIAVEL
+ *  Deploy: node webhook-handler.js
+ *  QR Code aparece no terminal — escaneie com o WhatsApp do celular.
+ *  A sessão é salva em .wwebjs_auth/ e não precisa escanear de novo.
+ *
+ *  npm install express whatsapp-web.js qrcode-terminal groq-sdk firebase-admin cors axios
  * ═══════════════════════════════════════════════════════════════
  */
 
 // ─── DEPENDÊNCIAS ──────────────────────────────────────────────
-// npm install express axios form-data openai firebase-admin
-const express    = require('express');
-const axios      = require('axios');
-const FormData   = require('form-data');
-const OpenAI     = require('openai');
-const admin      = require('firebase-admin');
+require('dotenv').config();
+const express          = require('express');
+const cors             = require('cors');
+const axios            = require('axios');
+const Groq             = require('groq-sdk');
+const admin            = require('firebase-admin');
+const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
+const qrcode           = require('qrcode-terminal');
+const QRCode           = require('qrcode');
+const cron             = require('node-cron');
+const PDFDocument      = require('pdfkit');
+const fs               = require('fs');
+const path             = require('path');
+const gTTS             = require('node-gtts')('pt');
+const ffmpegPath       = require('ffmpeg-static');
+const { execFile }     = require('child_process');
 
-// ─── INICIALIZAÇÃO FIREBASE ADMIN ──────────────────────────────
-// Opção A: Em Firebase Functions, o admin já é inicializado automaticamente.
-// Opção B: Em servidor standalone, aponte para o arquivo de service account.
+// ─── CONFIG ────────────────────────────────────────────────────
+const ALERTA_VALOR_UNICO = Number(process.env.ALERTA_VALOR || 500); // avisa se gasto > R$500
+
+// ─── FIREBASE ADMIN ────────────────────────────────────────────
+// Em produção usa variável de ambiente (base64); em dev usa o arquivo local
 if (!admin.apps.length) {
-  admin.initializeApp({
-    // ⚠ SUBSTITUA: caminho para seu arquivo de credenciais de serviço
-    credential: admin.credential.cert(require('./serviceAccountKey.json')),
-    // ⚠ SUBSTITUA: URL do seu projeto Firestore
-    databaseURL: 'https://lumin-a5b29.firebaseio.com'
-  });
+  let credential;
+  if (process.env.FIREBASE_SERVICE_ACCOUNT_BASE64) {
+    const sa = JSON.parse(Buffer.from(process.env.FIREBASE_SERVICE_ACCOUNT_BASE64, 'base64').toString('utf-8'));
+    credential = admin.credential.cert(sa);
+  } else {
+    credential = admin.credential.cert(require('./serviceAccountKey.json'));
+  }
+  admin.initializeApp({ credential, databaseURL: 'https://lumin-a5b29.firebaseio.com' });
 }
 const db = admin.firestore();
 
-// ─── CLIENTE OPENAI ────────────────────────────────────────────
-const openai = new OpenAI({
-  // ⚠ SUBSTITUA: sua chave da OpenAI
-  apiKey: process.env.OPENAI_API_KEY || 'sk-SUBSTITUA_SUA_CHAVE_OPENAI_AQUI'
+// ─── GROQ ──────────────────────────────────────────────────────
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY || 'gsk-SUBSTITUA_SUA_CHAVE_GROQ_AQUI'
 });
 
-// ─── CONFIGURAÇÕES WHATSAPP CLOUD API ─────────────────────────
-const WA_CONFIG = {
-  // ⚠ SUBSTITUA: seu token de acesso permanente do WhatsApp Business
-  accessToken:  process.env.WA_ACCESS_TOKEN  || 'SEU_TOKEN_WHATSAPP_AQUI',
-  // ⚠ SUBSTITUA: seu Phone Number ID (não o número de telefone)
-  phoneNumberId: process.env.WA_PHONE_ID     || 'SEU_PHONE_NUMBER_ID_AQUI',
-  // ⚠ SUBSTITUA: token de verificação que você definiu no Meta Dashboard
-  verifyToken:   process.env.WA_VERIFY_TOKEN || 'lumin_verify_2026'
+// ─── PLUGGY ────────────────────────────────────────────────────
+const PLUGGY_CLIENT_ID     = process.env.PLUGGY_CLIENT_ID     || 'SEU_CLIENT_ID_PLUGGY_AQUI';
+const PLUGGY_CLIENT_SECRET = process.env.PLUGGY_CLIENT_SECRET || 'SEU_CLIENT_SECRET_PLUGGY_AQUI';
+const PLUGGY_BASE_URL      = 'https://api.pluggy.ai';
+
+// ─── CATEGORIAS (espelho do frontend) ──────────────────────────
+const CATS = {
+  'entrada':     'Entrada',
+  'saida-fixa':  'Saída Fixa',
+  'funcionario': 'Pagto. Funcionário',
+  'comida':      'Comida',
+  'variavel':    'Despesa Variável'
 };
 
-// ─── PREÇOS PADRÃO POR COR (espelho do frontend) ──────────────
-const PRECOS = { preta: 20.00, branca: 28.00 };
+// ═══════════════════════════════════════════════════════════════
+//  WHATSAPP BOT — resiliente com auto-reconexão
+// ═══════════════════════════════════════════════════════════════
 
-// ─── APP EXPRESS ───────────────────────────────────────────────
-const app = express();
-app.use(express.json());
+// ── Estado de reconexão
+let _waReady        = false;
+let _reconectando   = false;
+let _tentativas     = 0;
+let _qrAtual        = null;
+const MAX_TENTATIVAS = 15;
 
-// ── VERIFICAÇÃO DO WEBHOOK (GET) — exigido pelo Meta para ativar
-app.get('/webhook/whatsapp', (req, res) => {
-  const mode      = req.query['hub.mode'];
-  const token     = req.query['hub.verify_token'];
-  const challenge = req.query['hub.challenge'];
+// ── Estado de features por usuário
+const _pendingConfirm = new Map(); // chatId → {txs, empresaId, phone, expira}
+const _voiceUsers     = new Set(); // chatIds que querem resposta em áudio
+const _recentSaves    = new Map(); // chatId → [{desc, amount, ts}] para detecção de duplicados
+const MONTHS_BR = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
-  if (mode === 'subscribe' && token === WA_CONFIG.verifyToken) {
-    console.log('[Webhook] Verificação aceita pelo Meta.');
-    return res.status(200).send(challenge);
-  }
-  return res.sendStatus(403);
-});
+// Usa /data se o volume estiver montado (Fly.io), senão usa pasta local
+const DATA_DIR     = fs.existsSync('/data') ? '/data' : __dirname;
+const SESSION_PATH = path.join(DATA_DIR, '.wwebjs_auth');
+const SESSION_BAK  = path.join(DATA_DIR, '.wwebjs_auth_backup');
+console.log(`[Init] Sessão será salva em: ${SESSION_PATH}`);
 
-// ── RECEBER MENSAGENS (POST) ────────────────────────────────────
-app.post('/webhook/whatsapp', async (req, res) => {
-  // Confirma imediatamente ao WhatsApp (evita retentativas)
-  res.sendStatus(200);
+function criarWaClient() {
+  return new Client({
+    authStrategy: new LocalAuth({ clientId: 'lumin-bot', dataPath: SESSION_PATH }),
+    // Fixa uma versão conhecida do WhatsApp Web — evita problema de mensagens não chegando
+    webVersionCache: {
+      type: 'remote',
+      remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1015901470-alpha.html',
+    },
+    puppeteer: {
+      headless: true,
+      // No Fly.io usa o Chromium instalado no container
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-accelerated-2d-canvas',
+        '--disable-gpu',
+        '--no-first-run',
+        '--no-zygote',
+        '--disable-extensions',
+        '--disable-background-networking',
+        '--disable-default-apps',
+        '--mute-audio',
+        '--disable-translate',
+        '--safebrowsing-disable-auto-update',
+        '--disable-sync',
+        // Corrige "Execution context was destroyed" em Docker
+        '--disable-features=IsolateOrigins,site-per-process,BlockInsecurePrivateNetworkRequests',
+        '--disable-site-isolation-trials',
+        '--ignore-certificate-errors',
+        '--ignore-ssl-errors'
+      ],
+      timeout: 180000
+    },
+    restartOnAuthFail: true,
+    qrMaxRetries: 10,
+    takeoverOnConflict: true,
+    takeoverTimeoutMs: 10000
+  });
+}
 
-  try {
-    const body    = req.body;
-    const entry   = body?.entry?.[0];
-    const changes = entry?.changes?.[0];
-    const value   = changes?.value;
-    const message = value?.messages?.[0];
+let waClient = criarWaClient();
 
-    if (!message) return; // Não é mensagem (pode ser status de entrega)
+function registrarEventosWa(client) {
+  client.on('qr', qr => {
+    _waReady = false;
+    _qrAtual = qr;
+    const qrUrl = process.env.FLY_APP_NAME ? `https://${process.env.FLY_APP_NAME}.fly.dev/qr` : `http://localhost:${process.env.PORT||3001}/qr`;
+    console.log(`\n[WhatsApp] ⚡ Novo QR Code gerado! Acesse: ${qrUrl}\n`);
+    qrcode.generate(qr, { small: true });
 
-    const from = message.from; // Número do remetente (ex: "5511999990001")
-    const type = message.type; // 'audio' | 'text' | etc.
-
-    console.log(`[Webhook] Mensagem de ${from} | Tipo: ${type}`);
-
-    // ── 1. Processar ÁUDIO
-    if (type === 'audio') {
-      await processAudioMessage(message, from);
-    }
-
-    // ── 2. Processar TEXTO direto (fallback / correção manual)
-    if (type === 'text') {
-      const textoOriginal = message.text?.body || '';
-      await processTextToRecord(textoOriginal, from, 'whatsapp-texto');
-    }
-
-  } catch (err) {
-    console.error('[Webhook] Erro não tratado:', err);
-  }
-});
-
-// ─── PROCESSAMENTO DE ÁUDIO ────────────────────────────────────
-async function processAudioMessage(message, from) {
-  const audioId = message.audio?.id;
-  if (!audioId) return;
-
-  try {
-    // PASSO 1: Obter URL do áudio via API do WhatsApp
-    console.log(`[Audio] Obtendo URL do áudio ${audioId}...`);
-    const mediaRes = await axios.get(
-      `https://graph.facebook.com/v19.0/${audioId}`,
-      { headers: { Authorization: `Bearer ${WA_CONFIG.accessToken}` } }
-    );
-    const audioUrl = mediaRes.data.url;
-    const mimeType = mediaRes.data.mime_type || 'audio/ogg';
-
-    // PASSO 2: Baixar o arquivo de áudio
-    console.log('[Audio] Baixando arquivo de áudio...');
-    const audioRes = await axios.get(audioUrl, {
-      responseType: 'arraybuffer',
-      headers: { Authorization: `Bearer ${WA_CONFIG.accessToken}` }
+    // Salva/atualiza o arquivo PNG a cada novo QR (no volume persistente em produção)
+    const qrPath = path.join(DATA_DIR, 'qrcode.png');
+    QRCode.toFile(qrPath, qr, { width: 400, margin: 2 }, err => {
+      if (!err) console.log(`[WhatsApp] 📷 QR atualizado: ${qrPath}`);
     });
-    const audioBuffer = Buffer.from(audioRes.data);
+  });
 
-    // PASSO 3: Transcrever com Whisper
-    const transcricao = await transcreverAudio(audioBuffer, mimeType);
-    if (!transcricao) {
-      await enviarMensagemWhatsapp(from, '⚠ Não consegui entender o áudio. Por favor, tente novamente com mais clareza.');
+  client.on('authenticated', () => {
+    console.log(`[WhatsApp] ✅ Autenticado! Sessão salva em ${SESSION_PATH}`);
+    _tentativas = 0;
+  });
+
+  client.on('auth_failure', async msg => {
+    console.error('[WhatsApp] ❌ Falha de autenticação:', msg);
+    _waReady = false;
+    try {
+      if (fs.existsSync(SESSION_BAK)) {
+        console.log('[WhatsApp] 🔄 Tentando restaurar sessão do backup...');
+        if (fs.existsSync(SESSION_PATH)) fs.rmSync(SESSION_PATH, { recursive: true, force: true });
+        fs.cpSync(SESSION_BAK, SESSION_PATH, { recursive: true });
+        console.log('[WhatsApp] ✅ Backup restaurado! Tentando reconectar...');
+      } else if (fs.existsSync(SESSION_PATH)) {
+        fs.rmSync(SESSION_PATH, { recursive: true, force: true });
+        console.log('[WhatsApp] 🗑  Sessão corrompida removida. Precisará escanear o QR novamente.');
+      }
+    } catch (_) {}
+    agendarReconexao(5000);
+  });
+
+  client.on('ready', () => {
+    _waReady = true;
+    _tentativas = 0;
+    _reconectando = false;
+    console.log('[WhatsApp] 🟢 Bot conectado e pronto!');
+  });
+
+  client.on('disconnected', reason => {
+    _waReady = false;
+    console.warn('[WhatsApp] 🔴 Desconectado:', reason);
+    // LOGOUT real = sessão inválida no WhatsApp, apaga e pede QR novo
+    if (reason === 'LOGOUT') {
+      try {
+        if (fs.existsSync(SESSION_PATH)) fs.rmSync(SESSION_PATH, { recursive: true, force: true });
+      } catch (_) {}
+    }
+    agendarReconexao();
+  });
+}
+
+function agendarReconexao(forceDelay = null) {
+  if (_reconectando) return;
+  _reconectando = true;
+  _tentativas++;
+
+  if (_tentativas > MAX_TENTATIVAS) {
+    console.error('[WhatsApp] ☠  Máximo de tentativas atingido. Reiniciando o processo...');
+    process.exit(1); // PM2 reinicia automaticamente
+  }
+
+  // Backoff exponencial: 5s, 10s, 20s, 40s... máx 5 min
+  const delay = forceDelay ?? Math.min(5000 * Math.pow(2, _tentativas - 1), 300000);
+  console.log(`[WhatsApp] 🔄 Reconectando em ${Math.round(delay / 1000)}s... (tentativa ${_tentativas}/${MAX_TENTATIVAS})`);
+
+  setTimeout(async () => {
+    try {
+      waClient.removeAllListeners();
+      try { await waClient.destroy(); } catch (_) {}
+
+      waClient = criarWaClient();
+      registrarEventosWa(waClient);
+      registrarHandlerMensagens(waClient);
+      await waClient.initialize();
+      _reconectando = false;
+    } catch (err) {
+      console.error('[WhatsApp] Erro na reconexão:', err.message);
+      _reconectando = false;
+      agendarReconexao();
+    }
+  }, delay);
+}
+
+// ── Watchdog: verifica a cada 5 minutos se o bot está vivo
+setInterval(async () => {
+  if (_reconectando) return;
+  try {
+    const state = await waClient.getState().catch(() => null);
+    if (state !== 'CONNECTED' && _waReady) {
+      console.warn('[Watchdog] ⚠  Estado inesperado:', state, '— forçando reconexão');
+      _waReady = false;
+      agendarReconexao(3000);
+    }
+  } catch (_) {}
+}, 5 * 60 * 1000);
+
+// ── Keepalive: a cada 30 minutos faz uma operação leve pra manter a sessão ativa
+setInterval(async () => {
+  if (!_waReady || _reconectando) return;
+  try {
+    // Busca o próprio número — operação leve que mantém a conexão viva
+    await waClient.getState();
+    const info = await waClient.info;
+    if (info) console.log(`[Keepalive] ✅ Sessão ativa — ${info.pushname || 'bot'}`);
+  } catch (e) {
+    console.warn('[Keepalive] ⚠ Falha no keepalive:', e.message);
+    // Se falhou, aciona o watchdog
+    if (_waReady) { _waReady = false; agendarReconexao(5000); }
+  }
+}, 30 * 60 * 1000);
+
+// ── Backup da sessão: a cada 6 horas copia sessão para backup
+setInterval(() => {
+  try {
+    if (!fs.existsSync(SESSION_PATH)) return;
+    if (fs.existsSync(SESSION_BAK)) fs.rmSync(SESSION_BAK, { recursive: true, force: true });
+    fs.cpSync(SESSION_PATH, SESSION_BAK, { recursive: true });
+    console.log(`[Sessão] 💾 Backup criado em ${SESSION_BAK}`);
+  } catch (e) {
+    console.warn('[Sessão] Erro no backup:', e.message);
+  }
+}, 6 * 60 * 60 * 1000);
+
+registrarEventosWa(waClient);
+
+// Deduplicação: evita processar a mesma mensagem duas vezes (message + message_create)
+const _msgProcessados = new Set();
+
+// ── Handler de mensagens (função separada para poder re-registrar após reconexão)
+function registrarHandlerMensagens(client) {
+
+  async function handleMsg(msg) {
+    // Ignora mensagens do próprio bot e grupos
+    if (msg.fromMe) return;
+    const from = msg.from || '';
+    if (from.endsWith('@g.us')) return; // grupo
+
+    // Deduplicação por ID de mensagem
+    const msgId = msg.id?.id || msg.id?._serialized || null;
+    if (msgId) {
+      if (_msgProcessados.has(msgId)) return;
+      _msgProcessados.add(msgId);
+      // Limpa IDs antigos após 5 minutos
+      setTimeout(() => _msgProcessados.delete(msgId), 5 * 60 * 1000);
+    }
+
+    // Patch msg.reply para usar sendMessage diretamente — necessário em mensagens @lid
+    // onde msg.reply trava silenciosamente porque não consegue construir a referência de quote
+    const originalReply = msg.reply.bind(msg);
+    msg.reply = async function(content, chatId, options) {
+      try {
+        return await waClient.sendMessage(msg.from, content, options);
+      } catch (err) {
+        console.error(`[WA] sendMessage falhou para ${msg.from}:`, err.message);
+        try { return await originalReply(content, chatId, options); }
+        catch (e2) { console.error(`[WA] reply fallback também falhou:`, e2.message); }
+      }
+    };
+
+    // Delega para o processamento principal
+    return processarMensagem(msg);
+  }
+
+  client.on('message', handleMsg);
+  client.on('message_create', handleMsg);
+}
+
+// ── Processamento principal de mensagem
+async function processarMensagem(msg) {
+  // Ignora grupos e mensagens do próprio bot
+  if (msg.isGroupMsg || msg.fromMe) return;
+
+  const rawId  = msg.from;
+  const isLid  = rawId.endsWith('@lid');
+
+  console.log(`\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+  console.log(`[WA] 📨 Mensagem recebida`);
+  console.log(`[WA] Raw:   ${rawId}`);
+  console.log(`[WA] Tipo:  ${msg.type}`);
+  console.log(`[WA] Texto: ${msg.body || '(áudio)'}`);
+
+  try {
+    // ── 1. Resolve o telefone real (com fluxo de verificação para @lid)
+    let phone;
+    if (isLid) {
+      const mappingRef = db.collection('whatsapp_lid_mappings').doc(rawId);
+      const mapDoc = await mappingRef.get();
+
+      if (mapDoc.exists) {
+        phone = mapDoc.data().phone;
+        console.log(`[WA] 🔗 LID já vinculado ao número ${phone}`);
+      } else {
+        // Tenta interpretar como número de cadastro ou pede verificação
+        const verified = await tentarVerificacaoLid(msg, rawId);
+        if (!verified) return; // bot já respondeu com instruções
+        phone = verified;
+      }
+    } else {
+      phone = rawId.replace('@c.us', '').replace('@g.us', '');
+      console.log(`[WA] 📞 Telefone direto: ${phone}`);
+    }
+
+    // ── 2. Identifica a empresa pelo número cadastrado
+    const empresa = await buscarEmpresaPorTelefone(phone);
+    if (!empresa) {
+      console.log(`[WA] ❌ Número ${phone} não cadastrado em nenhuma empresa`);
+      await msg.reply(
+        `⚠ Eita! Seu número *${phone}* não tá no sistema não.\n` +
+        `Fala com o admin do Lumin pra ele te cadastrar. 🙏`
+      );
       return;
     }
-    console.log(`[Audio] Transcrição: "${transcricao}"`);
+    console.log(`[WA] ✅ Empresa identificada: ${empresa.nome} (${empresa.id})`);
 
-    // PASSO 4: Extrair dados e salvar
-    await processTextToRecord(transcricao, from, 'whatsapp-audio');
+    // ── 2. Roteamento por tipo de mensagem
+
+    // 📸 FOTO DE NOTA FISCAL
+    if (msg.type === 'image') {
+      await msg.reply('📸 Recebi a foto! Deixa eu ler aqui...');
+      const txFoto = await processarFotoNota(msg);
+      if (!txFoto || txFoto.length === 0) {
+        await msg.reply(`🤔 Não consegui identificar nenhuma transação na foto, ${empresa.nome}. Tenta uma foto mais nítida ou manda o valor no texto mesmo!`);
+        return;
+      }
+      const refs = await salvarTransacoes(txFoto, empresa.id, phone);
+      if (refs.length === 1) {
+        await msg.reply(formatConfirmacao(refs[0].tx, empresa.nome, refs[0].ref.id) + `\n\n_📸 Extraído da foto_`);
+      } else {
+        await msg.reply(formatConfirmacaoMultipla(refs, empresa.nome) + `\n\n_📸 Extraído da foto_`);
+      }
+      await verificarAlertas(refs, empresa, msg.from);
+      return;
+    }
+
+    // 🎙 ÁUDIO
+    let textoOriginal = '';
+    if (msg.type === 'ptt' || msg.type === 'audio') {
+      textoOriginal = await transcreverAudio(msg);
+      if (!textoOriginal) {
+        await msg.reply('⚠ Cara, não consegui pegar o áudio não. Tenta de novo? Manda mais devagar! 🎙');
+        return;
+      }
+      console.log(`[WA] Transcrição: "${textoOriginal}"`);
+    } else if (msg.type === 'chat') {
+      textoOriginal = msg.body?.trim();
+    } else {
+      return;
+    }
+
+    if (!textoOriginal) return;
+
+    // ── Comandos especiais
+    if (/^(ajuda|help|oi|ola|olá|menu|oii|oiii)$/i.test(textoOriginal)) {
+      await enviarResposta(msg, formatAjuda(empresa.nome));
+      return;
+    }
+    if (/^(resumo|relat[oó]rio|resumão|como\s*t[aá]|saldo|extrato)$/i.test(textoOriginal)) {
+      await enviarResposta(msg, await gerarResumoSemanal(empresa.id, empresa.nome));
+      return;
+    }
+    if (/^(resumo\s*mensal|m[eê]s|esse\s*m[eê]s)$/i.test(textoOriginal)) {
+      await enviarResposta(msg, await gerarResumoMensal(empresa.id, empresa.nome));
+      return;
+    }
+    if (/^(últimos|ultimos|últimas|ultimas|\d+\s*últimos|\d+\s*lançamentos)$/i.test(textoOriginal)) {
+      await enviarResposta(msg, await listarUltimas(empresa.id, 5));
+      return;
+    }
+    if (/^(cancela|desfaz|apaga|deleta?\s*[uú]ltim)/i.test(textoOriginal)) {
+      const ok = await deletarUltima(empresa.id);
+      await enviarResposta(msg, ok ? `✅ Última transação deletada! Se errei, me manda de novo.` : `⚠ Não achei nada pra deletar, mano.`);
+      return;
+    }
+    if (/^(exportar?|pdf|relat[oó]rio\s*pdf|exportar?\s*pdf)$/i.test(textoOriginal)) {
+      await msg.reply('⏳ Gerando o PDF do mês... já já tô mandando!');
+      await enviarPDFMes(empresa.id, empresa.nome, msg.from);
+      return;
+    }
+
+    // ── Confirmação de transação pendente (sim/não)
+    if (/^(sim|s|confirma|pode|bora|vai|ok)$/i.test(textoOriginal)) {
+      const pend = _pendingConfirm.get(msg.from);
+      if (pend && Date.now() < pend.expira) {
+        _pendingConfirm.delete(msg.from);
+        const refs = await salvarTransacoes(pend.txs, empresa.id, phone);
+        if (refs.length === 1) { const {tx,ref}=refs[0]; await msg.reply(formatConfirmacao(tx, empresa.nome, ref.id)); }
+        else await msg.reply(formatConfirmacaoMultipla(refs, empresa.nome));
+        await verificarAlertas(refs, empresa, msg.from);
+        return;
+      }
+    }
+    if (/^(nao|não|n|cancela|cancelar)$/i.test(textoOriginal)) {
+      if (_pendingConfirm.has(msg.from)) {
+        _pendingConfirm.delete(msg.from);
+        await msg.reply('❌ Ok, cancelei! Se quiser registrar, manda de novo.');
+        return;
+      }
+    }
+
+    // ── Projeção do mês
+    if (/projecao|projeção|como.*vai.*terminar|terminar.*m[eê]s|fechar.*m[eê]s|previs[aã]o.*m[eê]s/i.test(textoOriginal)) {
+      await enviarResposta(msg, await gerarProjecaoMes(empresa.id, empresa.nome));
+      return;
+    }
+
+    // ── Metas financeiras
+    if (/^meta\s+([\d.,]+)/i.test(textoOriginal)) {
+      const val = parseFloat(textoOriginal.replace(/[^\d,.]/g,'').replace(',','.'));
+      if (val > 0) { await definirMeta(empresa.id, val, empresa.nome, msg.from); return; }
+    }
+    if (/^(minha\s+meta|ver\s+meta|qual.*meta|meta\?|como.*meta|bati.*meta)$/i.test(textoOriginal)) {
+      await enviarResposta(msg, await verMeta(empresa.id, empresa.nome));
+      return;
+    }
+
+    // ── Lembretes customizados
+    if (/me\s+lembra|criar?\s+lembrete|adiciona\s+lembrete/i.test(textoOriginal)) {
+      await criarLembrete(empresa.id, msg.from, textoOriginal, empresa.nome);
+      return;
+    }
+    if (/^(meus\s+lembretes|ver\s+lembretes|lembretes)$/i.test(textoOriginal)) {
+      await enviarResposta(msg, await listarLembretes(empresa.id));
+      return;
+    }
+
+    // ── Busca por descrição/categoria
+    if (/quanto\s+(gastei|foi|custou|saiu)\s+(com|em|no|na|de)|total\s+(de|com|em|no)/i.test(textoOriginal)) {
+      await enviarResposta(msg, await buscarPorTermo(textoOriginal, empresa.id));
+      return;
+    }
+
+    // ── Correção de valor do último lançamento
+    if (/era\s+[\d.,]+|muda.*valor|valor.*errado|corrigi|errei.*valor|era\s+[\d]+\s+(nao|não|e\s+nao)/i.test(textoOriginal)) {
+      const nums = (textoOriginal.match(/[\d]+(?:[.,]\d+)?/g) || []).map(n => parseFloat(n.replace(',','.')));
+      if (nums.length > 0) {
+        const novoValor = nums[nums.length - 1]; // último número mencionado = valor correto
+        const ok = await editarUltimaValor(empresa.id, novoValor);
+        await enviarResposta(msg, ok ? `✅ Corrigi! Valor atualizado para *R$ ${fmt(novoValor)}*.` : `⚠ Não achei nada pra corrigir.`);
+        return;
+      }
+    }
+
+    // ── Ativar/desativar resposta por voz
+    if (/^(voz|resposta\s+por\s+voz|responder\s+por\s+voz|modo\s+voz|áudio|audio)$/i.test(textoOriginal)) {
+      if (_voiceUsers.has(msg.from)) {
+        _voiceUsers.delete(msg.from);
+        await msg.reply('🔇 Modo voz desativado. Voltei pra texto!');
+      } else {
+        _voiceUsers.add(msg.from);
+        await msg.reply('🔊 Modo voz ativado! Vou responder em áudio quando possível.');
+      }
+      return;
+    }
+
+    // 🧠 CONSULTORIA / CONSELHO DE NEGÓCIO
+    if (eConsulta(textoOriginal)) {
+      await msg.reply('🤔 Deixa eu analisar aqui com base nos seus dados...');
+      const partes = await responderConsultoria(textoOriginal, empresa.id, empresa.nome);
+      for (const parte of partes) {
+        await new Promise(r => setTimeout(r, 3000));
+        await msg.reply(parte);
+      }
+      return;
+    }
+
+    // 💬 PERGUNTA SOBRE DADOS (quanto gastei, saldo, etc.)
+    if (await ePerguntaFinanceira(textoOriginal)) {
+      const partes = await responderPergunta(textoOriginal, empresa.id, empresa.nome);
+      for (const parte of partes) {
+        await new Promise(r => setTimeout(r, 3000));
+        await msg.reply(parte);
+      }
+      return;
+    }
+
+    // ── 3. Interpreta as transações com Groq
+    console.log(`[WA] 🤖 Enviando para Groq: "${textoOriginal}"`);
+    const transacoes = await interpretarTransacoes(textoOriginal);
+    if (!transacoes || transacoes.length === 0) {
+      console.log(`[WA] ⚠ Groq não identificou transação`);
+      await msg.reply(
+        `🤔 Hmm, não entendi direito não, ${empresa.nome}.\n\n` +
+        `Manda assim ó:\n` +
+        `• "Entrada 500 cliente João"\n` +
+        `• "Aluguel 1200"\n` +
+        `• "Paguei a Maria 2000"\n` +
+        `• "Almoço 45 reais"\n` +
+        `• "Gasolina 300"\n\n` +
+        `Ou digita *ajuda* pra ver todos os comandos! 💡`
+      );
+      return;
+    }
+
+    // ── 3b. Detecção de duplicados (mesma desc + valor nos últimos 10 min)
+    const agora = Date.now();
+    const recentes = _recentSaves.get(empresa.id) || [];
+    const duplicado = transacoes.find(tx =>
+      recentes.some(r => r.desc === tx.description && Math.abs(r.amount - tx.value) < 0.01 && agora - r.ts < 10 * 60 * 1000)
+    );
+    if (duplicado) {
+      const fmt2 = v => Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+      await msg.reply(`⚠️ *Ei, parece duplicado!*\n\nJá registrei "${duplicado.description}" (${fmt2(duplicado.value)}) há menos de 10 minutos.\n\nEra pra registrar de novo mesmo? Responde *sim* pra confirmar ou *não* pra cancelar.`);
+      _pendingConfirm.set(msg.from, { txs: transacoes, empresaId: empresa.id, phone, expira: agora + 5 * 60 * 1000 });
+      return;
+    }
+
+    // ── 3c. Confirmação para valores altos (acima de R$ 2.000)
+    const txAlta = transacoes.find(tx => tx.value >= 2000 && tx.category !== 'entrada');
+    if (txAlta) {
+      const fmt2 = v => Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+      await msg.reply(`🚨 *Valor alto detectado!*\n\n"${txAlta.description}" — *${fmt2(txAlta.value)}*\n\nConfirma o registro? Responde *sim* ou *não*.`);
+      _pendingConfirm.set(msg.from, { txs: transacoes, empresaId: empresa.id, phone, expira: agora + 5 * 60 * 1000 });
+      return;
+    }
+
+    // ── 4. Salva todas no Firestore
+    const refs = await salvarTransacoes(transacoes, empresa.id, phone);
+
+    // ── 5. Confirma no WhatsApp
+    if (refs.length === 1) {
+      const { tx, ref } = refs[0];
+      let msg_ = formatConfirmacao(tx, empresa.nome, ref.id);
+      if (!tx.value || tx.value === 0) msg_ += `\n\n⚠ Valor não informado — entrei com R$ 0,00. Edita lá no app!`;
+      await msg.reply(msg_);
+    } else {
+      await msg.reply(formatConfirmacaoMultipla(refs, empresa.nome));
+    }
+
+    // ── 5b. Registra salvamentos recentes para detecção de duplicados
+    const novosRecentes = refs.map(({tx}) => ({ desc: tx.description, amount: tx.value, ts: Date.now() }));
+    _recentSaves.set(empresa.id, [...(_recentSaves.get(empresa.id) || []), ...novosRecentes].filter(r => Date.now() - r.ts < 15 * 60 * 1000));
+
+    // ── 6. Alertas automáticos
+    await verificarAlertas(refs, empresa, msg.from);
 
   } catch (err) {
-    console.error('[Audio] Erro ao processar áudio:', err.message);
-    await enviarMensagemWhatsapp(from, '❌ Erro ao processar o áudio. Tente novamente.');
+    console.error('[WA] Erro:', err.message);
+    try { await msg.reply('❌ Deu ruim aqui! Tenta de novo daqui a pouco? 🙏'); } catch (_) {}
+  }
+} // fim processarMensagem
+
+registrarHandlerMensagens(waClient);
+waClient.initialize();
+
+// ── Handlers globais — evitam que qualquer erro derrube o processo
+process.on('uncaughtException', err => {
+  console.error('[PROCESSO] ❌ Erro não capturado:', err.message);
+  // Não sai do processo — apenas loga
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[PROCESSO] ⚠  Promise rejeitada:', reason?.message || reason);
+});
+
+// ═══════════════════════════════════════════════════════════════
+//  RESUMO SEMANAL AUTOMÁTICO — toda segunda-feira às 8h
+// ═══════════════════════════════════════════════════════════════
+
+// ── Auto-sync Pluggy — todo dia às 3h da manhã
+cron.schedule('0 3 * * *', async () => {
+  console.log('[CRON] 🏦 Auto-sync Pluggy iniciado...');
+  try {
+    const snap = await db.collection('companies').where('pluggyItemId', '!=', null).get();
+    for (const doc of snap.docs) {
+      const { pluggyItemId, name } = doc.data();
+      if (!pluggyItemId) continue;
+      try {
+        const { novas } = await autoSyncEmpresa(doc.id, pluggyItemId, 2); // últimas 48h
+
+        // Notifica via WhatsApp se tiver transações novas
+        if (novas > 0) {
+          const mapsSnap = await db.collection('whatsapp_lid_mappings')
+            .where('companyId', '==', doc.id).limit(1).get();
+          if (!mapsSnap.empty) {
+            const { lid, phone } = mapsSnap.docs[0].data();
+            const chatId = lid || `${phone}@c.us`;
+            await waClient.sendMessage(chatId,
+              `🏦 *Sync automático concluído!*\n\n` +
+              `Importei *${novas} nova${novas > 1 ? 's transações' : ' transação'}* do seu banco direto no sistema.\n` +
+              `Tudo já tá no dashboard pra você conferir! 🔥\n\n` +
+              `_Sincronizado às ${new Date().toLocaleTimeString('pt-BR')}_`
+            );
+          }
+        }
+      } catch (e) {
+        console.error(`[CRON AutoSync] Erro para ${name}:`, e.message);
+      }
+    }
+  } catch (err) {
+    console.error('[CRON AutoSync] Erro geral:', err.message);
+  }
+}, { timezone: 'America/Sao_Paulo' });
+
+// ── Resumo semanal + PDF automático — toda segunda às 8h
+cron.schedule('0 8 * * 1', () => {
+  dispararParaTodos('semanal');
+  dispararParaTodos('pdf_auto');
+}, { timezone: 'America/Sao_Paulo' });
+
+// ── Lembrete de contas fixas — todo dia 1 às 9h
+cron.schedule('0 9 1 * *', () => dispararParaTodos('fixas'), { timezone: 'America/Sao_Paulo' });
+
+// ── Resumo do dia — todo dia às 20h
+cron.schedule('0 20 * * *', async () => {
+  console.log('[CRON] 🌙 Resumo do dia...');
+  try { await enviarResumoDia(); } catch(e) { console.error('[CRON ResumoDia]', e.message); }
+}, { timezone: 'America/Sao_Paulo' });
+
+// ── Verificar lembretes — a cada hora
+cron.schedule('0 * * * *', async () => {
+  try { await verificarLembretesHoje(); } catch(e) { console.error('[CRON Lembretes]', e.message); }
+}, { timezone: 'America/Sao_Paulo' });
+
+// ── Resumo mensal — todo último dia do mês às 20h
+cron.schedule('0 20 28-31 * *', async () => {
+  const amanha = new Date(); amanha.setDate(amanha.getDate() + 1);
+  if (amanha.getDate() === 1) dispararParaTodos('mensal');
+}, { timezone: 'America/Sao_Paulo' });
+
+async function dispararParaTodos(tipo) {
+  console.log(`[CRON] 📢 Disparando ${tipo} para todos...`);
+  try {
+    const mapsSnap = await db.collection('whatsapp_lid_mappings').get();
+    if (mapsSnap.empty) return;
+
+    // Deduplica por companyId — um resumo por empresa
+    const visto = new Set();
+    for (const mapDoc of mapsSnap.docs) {
+      const { lid, phone, companyId } = mapDoc.data();
+      const chatId = lid || `${phone}@c.us`;
+      try {
+        const empresaDoc = await db.collection('companies').doc(companyId).get();
+        if (!empresaDoc.exists) continue;
+        const nome = empresaDoc.data().name || 'você';
+
+        let msg;
+        if (tipo === 'semanal')   msg = await gerarResumoSemanal(companyId, nome);
+        if (tipo === 'mensal')    msg = await gerarResumoMensal(companyId, nome);
+        if (tipo === 'fixas')     msg = await gerarLembreteFixas(companyId, nome);
+        if (tipo === 'pdf_auto')  { await enviarPDFMes(companyId, nome, chatId); continue; }
+
+        if (!msg) continue;
+        await waClient.sendMessage(chatId, msg);
+        console.log(`[CRON] ✅ ${tipo} → ${nome} (${chatId})`);
+      } catch (e) {
+        console.error(`[CRON] Erro ${tipo} → ${companyId}:`, e.message);
+      }
+    }
+  } catch (err) {
+    console.error('[CRON] Erro geral:', err.message);
   }
 }
 
-// ─── TRANSCRIÇÃO WHISPER ───────────────────────────────────────
-async function transcreverAudio(buffer, mimeType) {
-  try {
-    // Determine extensão pelo MIME type
-    const ext = mimeType.includes('ogg') ? 'ogg'
-              : mimeType.includes('mp4') ? 'mp4'
-              : mimeType.includes('mpeg') ? 'mp3'
-              : 'ogg';
+// ─── GERAR RESUMO SEMANAL ──────────────────────────────────────
+async function gerarResumoSemanal(companyId, nome) {
+  const hoje = new Date();
+  const seteDias = new Date(hoje - 7 * 24 * 60 * 60 * 1000);
+  const dataInicio = seteDias.toISOString().split('T')[0];
 
-    // Cria FormData com o buffer
-    const form = new FormData();
-    form.append('file', buffer, { filename: `audio.${ext}`, contentType: mimeType });
-    form.append('model', 'whisper-1');
-    form.append('language', 'pt');  // Português do Brasil
-    form.append('response_format', 'text');
+  const snap = await db.collection('transactions')
+    .where('companyId', '==', companyId)
+    .get();
+  const docs = snap.docs.filter(d => (d.data().date || '') >= dataInicio);
 
-    const response = await openai.audio.transcriptions.create({
-      file: form.get('file'),
-      model: 'whisper-1',
-      language: 'pt',
-      response_format: 'text'
+  return formatarResumo(docs, nome, 'semanal', dataInicio, hoje.toISOString().split('T')[0]);
+}
+
+// ─── GERAR RESUMO MENSAL ───────────────────────────────────────
+async function gerarResumoMensal(companyId, nome) {
+  const hoje = new Date();
+  const inicioMes = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-01`;
+
+  const snap = await db.collection('transactions')
+    .where('companyId', '==', companyId)
+    .get();
+  const docs = snap.docs.filter(d => (d.data().date || '') >= inicioMes);
+
+  return formatarResumo(docs, nome, 'mensal', inicioMes, hoje.toISOString().split('T')[0]);
+}
+
+// ─── FORMATAR RESUMO (semanal ou mensal) ──────────────────────
+function formatarResumo(docs, nome, tipo, dataInicio, dataFim) {
+  const fmt = v => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const fD  = d => d?.split('-').reverse().join('/');
+
+  if (!docs.length) {
+    return `📊 *Resumo ${tipo} — ${nome}*\n\nNenhuma transação registrada nesse período. Bora movimentar! 🚀`;
+  }
+
+  const txs = docs.map(d => d.data());
+
+  const totalEntrada  = txs.filter(t => t.category === 'entrada').reduce((a, t) => a + Number(t.amount || 0), 0);
+  const totalSaida    = txs.filter(t => t.category !== 'entrada').reduce((a, t) => a + Number(t.amount || 0), 0);
+  const saldo         = totalEntrada - totalSaida;
+  const saldoPositivo = saldo >= 0;
+
+  const porCategoria = {};
+  for (const t of txs) {
+    const cat = CATS[t.category] || t.category;
+    porCategoria[cat] = (porCategoria[cat] || 0) + Number(t.amount || 0);
+  }
+
+  const linhas = [
+    `📊 *Resumo ${tipo} — ${nome}*`,
+    `📅 ${fD(dataInicio)} até ${fD(dataFim)}`,
+    ``,
+    `💸 *Entradas:* ${fmt(totalEntrada)}`,
+    `📤 *Saídas:*   ${fmt(totalSaida)}`,
+    `${saldoPositivo ? '✅' : '🔴'} *Saldo:*    ${fmt(saldo)}`,
+    ``,
+    `📋 *Por categoria:*`,
+    ...Object.entries(porCategoria).map(([cat, val]) => `  • ${cat}: ${fmt(val)}`),
+    ``,
+    `📦 *Total de lançamentos:* ${txs.length}`,
+    saldoPositivo
+      ? `\nFirmeza, tá no azul! 💪`
+      : `\nAtenção: semana no vermelho. Bora controlar! 👀`
+  ];
+
+  return linhas.join('\n');
+}
+
+// ─── LISTAR ÚLTIMAS TRANSAÇÕES ─────────────────────────────────
+async function listarUltimas(companyId, n = 5) {
+  const fmt = v => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const snap = await db.collection('transactions')
+    .where('companyId', '==', companyId)
+    .orderBy('date', 'desc')
+    .limit(n)
+    .get();
+
+  if (snap.empty) return `📭 Nenhuma transação registrada ainda.`;
+
+  const linhas = [`🗒 *Últimos ${snap.size} lançamentos:*\n`];
+  snap.docs.forEach(d => {
+    const t = d.data();
+    const isIn = t.category === 'entrada';
+    const emoji = isIn ? '💸' : '📤';
+    const cat = CATS[t.category] || t.category;
+    linhas.push(`${emoji} ${t.date?.split('-').reverse().join('/')} — ${t.description} (${cat}) — ${fmt(t.amount)}`);
+  });
+  return linhas.join('\n');
+}
+
+// ─── DELETAR ÚLTIMA TRANSAÇÃO ──────────────────────────────────
+async function deletarUltima(companyId) {
+  const snap = await db.collection('transactions')
+    .where('companyId', '==', companyId)
+    .orderBy('createdAt', 'desc')
+    .limit(1)
+    .get();
+
+  if (snap.empty) return false;
+  await snap.docs[0].ref.delete();
+  return true;
+}
+
+// ─── SALVAR TRANSAÇÕES (helper compartilhado) ──────────────────
+async function salvarTransacoes(transacoes, companyId, phone) {
+  const refs = [];
+  for (const tx of transacoes) {
+    const ref = await db.collection('transactions').add({
+      date:         tx.date,
+      category:     tx.category,
+      description:  tx.description,
+      amount:       tx.value,
+      companyId,
+      isRecorrente: false,
+      createdBy:    'whatsapp-bot',
+      origem:       'whatsapp',
+      whatsappFrom: phone,
+      createdAt:    admin.firestore.FieldValue.serverTimestamp()
     });
-
-    return String(response).trim();
-  } catch (err) {
-    console.error('[Whisper] Erro na transcrição:', err.message);
-    return null;
+    refs.push({ tx, ref });
+    console.log(`[WA] 💾 Salvo: ${tx.category} | R$${tx.value} | ${tx.description}`);
   }
+  return refs;
 }
 
-// ─── NORMALIZAÇÃO DE COR ───────────────────────────────────────
-/**
- * Converte qualquer variação de cor que o GPT possa retornar
- * para o valor canônico aceito pelo frontend: "Preta" | "Branca" | null
- *
- * O GPT às vezes retorna: "preta", "PRETA", "pretas", "caixa preta",
- * "branca", "BRANCA", "brancas", "caixa branca", etc.
- */
-function normalizarCor(cor) {
-  if (!cor) return null;
-  const c = String(cor).toLowerCase();
-  if (c.includes('pret')) return 'Preta';
-  if (c.includes('branc')) return 'Branca';
-  return null; // cor desconhecida → REVISAR
-}
+// ─── ALERTAS AUTOMÁTICOS ───────────────────────────────────────
+async function verificarAlertas(refs, empresa, chatId) {
+  const fmt = v => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-/**
- * Retorna o valorUnitario com base na cor normalizada.
- * Centraliza a lógica de preço para evitar inconsistências.
- */
-function precoPorCorNorm(corNormalizada) {
-  if (corNormalizada === 'Preta')  return PRECOS.preta;
-  if (corNormalizada === 'Branca') return PRECOS.branca;
-  return 0;
-}
+  // Alerta: gasto único alto
+  for (const { tx } of refs) {
+    if (tx.category !== 'entrada' && tx.value >= ALERTA_VALOR_UNICO) {
+      await waClient.sendMessage(chatId,
+        `🚨 *Alerta de gasto alto!*\n\n` +
+        `Registrei ${fmt(tx.value)} em "${tx.description}" — isso é um gasto acima de ${fmt(ALERTA_VALOR_UNICO)}.\n` +
+        `Tá dentro do planejado? 👀`
+      );
+    }
+  }
 
-// ─── EXTRAÇÃO DE DADOS COM GPT ────────────────────────────────
-async function extrairDadosComGPT(transcricao) {
-  const hoje = new Date().toISOString().split('T')[0];
-
-  const systemPrompt = `
-Você é um extrator de dados logísticos para um sistema de controle de caixas.
-Analise o texto e retorne APENAS um objeto JSON válido, sem explicações, sem markdown.
-
-CAMPOS DO JSON (use null se não encontrar):
-{
-  "tipo":         "ENTRADA" ou "SAÍDA" (obrigatório),
-  "data":         "YYYY-MM-DD" (use ${hoje} se não mencionado),
-  "cliente":      string com nome do cliente/unidade, ou null,
-  "quantidadeCx": número inteiro de caixas (obrigatório),
-  "cor":          EXATAMENTE "Preta" ou "Branca" (com maiúscula inicial) ou null,
-  "motorista":    string com nome do motorista, ou null,
-  "status":       "OK" ou "REVISAR"
-}
-
-REGRAS IMPORTANTES:
-- O campo "cor" deve ser EXATAMENTE a string "Preta" ou "Branca" — nunca plural, nunca minúsculo, nunca outra variação.
-- "entrada" / "entrou" / "chegou" = tipo ENTRADA
-- "saída" / "saiu" / "foi" / "saíram" = tipo SAÍDA
-- Se a cor não for mencionada ou for ambígua → cor: null, status: "REVISAR"
-- Se o cliente não for identificável → cliente: null
-- Se qualquer campo obrigatório estiver ambíguo → status: "REVISAR"
-- NÃO calcule valorUnitario nem valorTotal — o sistema calcula automaticamente.
-
-Retorne SOMENTE o JSON, sem nenhum texto adicional.
-  `.trim();
-
+  // Alerta: saídas do mês já passaram das entradas
   try {
-    const response = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user',   content: `Texto: "${transcricao}"` }
-      ],
+    const hoje = new Date();
+    const inicioMes = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-01`;
+    const snap = await db.collection('transactions')
+      .where('companyId', '==', empresa.id)
+      .get();
+
+    const txs = snap.docs.map(d => d.data()).filter(t => (t.date || '') >= inicioMes);
+    const entrada = txs.filter(t => t.category === 'entrada').reduce((a, t) => a + Number(t.amount || 0), 0);
+    const saida   = txs.filter(t => t.category !== 'entrada').reduce((a, t) => a + Number(t.amount || 0), 0);
+
+    if (saida > entrada && saida > 0) {
+      await waClient.sendMessage(chatId,
+        `🔴 *Atenção, ${empresa.nome}!*\n\n` +
+        `Suas saídas (${fmt(saida)}) já passaram das entradas (${fmt(entrada)}) esse mês.\n` +
+        `Saldo: *${fmt(entrada - saida)}* 📉\n\nBora ficar de olho! 👀`
+      );
+    }
+  } catch (e) {
+    console.error('[Alerta] Erro ao checar saldo:', e.message);
+  }
+
+  // Alerta de categoria acima da média
+  try { await verificarAlertaCategoria(refs, empresa); } catch(e) { console.error('[Alerta Cat]', e.message); }
+
+  // Alerta de saldo negativo proativo
+  try { await verificarSaldoNegativo(empresa.id, empresa, chatId); } catch(e) { console.error('[Alerta Saldo]', e.message); }
+
+  // Verificar meta atingida
+  try {
+    const metaDoc = await db.collection('metas').doc(empresa.id).get();
+    if (metaDoc.exists) {
+      const meta = metaDoc.data().valor;
+      const fmt = v => Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+      const inicioMes = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-01`;
+      const snap = await db.collection('transactions').where('companyId','==',empresa.id).get();
+      const entrada = snap.docs.map(d=>d.data()).filter(t=>(t.date||'')>=inicioMes && t.category==='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
+      const pct = entrada / meta * 100;
+      if (pct >= 100 && pct < 110) { // avisa só na primeira vez que bate
+        await waClient.sendMessage(chatId, `🏆 *META BATIDA, ${empresa.nome}!*\n\nVocê atingiu *${fmt(entrada)}* de *${fmt(meta)}* de faturamento esse mês!\n\nParabéns! 🔥🎉`);
+      } else if (pct >= 80 && pct < 85) {
+        await waClient.sendMessage(chatId, `🎯 Quase lá, ${empresa.nome}! Você já chegou a *${Math.round(pct)}%* da sua meta de ${fmt(meta)}.\nFaltam só *${fmt(meta-entrada)}*! 💪`);
+      }
+    }
+  } catch(e) { console.error('[Alerta Meta]', e.message); }
+}
+
+// ─── FOTO DE NOTA FISCAL (Groq Vision) ────────────────────────
+async function processarFotoNota(msg) {
+  try {
+    const media = await msg.downloadMedia();
+    if (!media?.data) return null;
+
+    const hoje = new Date().toISOString().split('T')[0];
+    const res  = await groq.chat.completions.create({
+      model: 'meta-llama/llama-4-scout-17b-16e-instruct',
+      messages: [{
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: `Analise essa imagem (nota fiscal, cupom ou comprovante) e extraia TODAS as transações financeiras.
+Retorne SOMENTE JSON: {"transactions":[{"category":"comida|variavel|entrada|saida-fixa|funcionario","description":"texto curto","value":numero,"date":"${hoje}"}]}
+Se não for uma nota/comprovante financeiro, retorne {"transactions":[]}.`
+          },
+          { type: 'image_url', image_url: { url: `data:${media.mimetype};base64,${media.data}` } }
+        ]
+      }],
       temperature: 0,
-      max_tokens: 300,
+      max_tokens:  400,
       response_format: { type: 'json_object' }
     });
 
-    const raw  = response.choices[0]?.message?.content || '{}';
-    const data = JSON.parse(raw);
-
-    // ── PIPELINE DE NORMALIZAÇÃO PÓS-GPT ──────────────────────
-    // Mesmo que o GPT ignore as instruções e retorne variações de cor,
-    // normalizamos aqui antes de qualquer cálculo.
-
-    // 1. Normalizar cor → "Preta" | "Branca" | null
-    const corNorm = normalizarCor(data.cor);
-    data.cor = corNorm;
-
-    // 2. Se cor desconhecida, forçar REVISAR
-    if (data.cor === null && (String(data.corOriginal || '')).length > 0) {
-      data.status = 'REVISAR';
-    }
-
-    // 3. Calcular valorUnitario e valorTotal com base na cor normalizada
-    //    (não confiamos no que o GPT calculou — recalculamos sempre)
-    const qtd = Number(data.quantidadeCx) || 0;
-    const preco = precoPorCorNorm(corNorm);
-    data.valorUnitario = preco;
-    data.valorTotal    = preco > 0 ? qtd * preco : 0;
-
-    // 4. Se cor null (cor não identificada), status deve ser REVISAR
-    if (!corNorm) {
-      data.status = 'REVISAR';
-    }
-
-    // 5. Garantir tipo válido
-    if (!['ENTRADA', 'SAÍDA'].includes(data.tipo)) {
-      data.tipo   = 'ENTRADA';
-      data.status = 'REVISAR';
-    }
-
-    console.log('[GPT] Dados extraídos e normalizados:', JSON.stringify(data));
-    return data;
-
+    const data = JSON.parse(res.choices[0].message.content);
+    const lista = Array.isArray(data.transactions) ? data.transactions : [];
+    return lista.filter(t => t?.description).map(t => ({
+      category:    normalizarCategoria(t.category),
+      description: String(t.description).trim(),
+      value:       Number(t.value) || 0,
+      date:        t.date || hoje
+    }));
   } catch (err) {
-    console.error('[GPT] Erro na extração:', err.message);
+    console.error('[Vision] Erro:', err.message);
     return null;
   }
 }
 
-// ─── SALVAR NO FIRESTORE ───────────────────────────────────────
-async function salvarNoFirestore(dados, from, origem) {
-  // ⚠ Todos os campos chegam já normalizados por extrairDadosComGPT:
-  //   - cor:          "Preta" | "Branca" | null → salvo como string vazia se null
-  //   - cliente:      string ou null → salvo como 'Não identificado' se null
-  //   - valorUnitario / valorTotal: sempre numéricos, calculados pelo pipeline
-  //
-  // Esquema canônico (espelho exato do addDoc em saveNewRecord do frontend):
-  //   tipo, data, cliente, fornecedor, quantidadeCx, cor,
-  //   valorUnitario, valorTotal, motorista, status, origem, createdAt
-  const docData = {
-    tipo:          dados.tipo                                        || 'ENTRADA',
-    data:          dados.data                                        || new Date().toISOString().split('T')[0],
-    cliente:       (dados.cliente || 'Não identificado').trim().toUpperCase(),
-    fornecedor:    '',        // bot não tem fornecedor — campo obrigatório no schema
-    quantidadeCx:  Number(dados.quantidadeCx)                       || 0,
-    cor:           dados.cor || '',   // já em Title Case ("Preta"/"Branca") ou vazio
-    valorUnitario: Number(dados.valorUnitario)                      || 0,
-    valorTotal:    Number(dados.valorTotal)                         || 0,
-    motorista:     (dados.motorista || '').trim().toUpperCase(),
-    status:        dados.status                                      || 'OK',
-    origem,
-    whatsappFrom:  from,
-    createdAt:     admin.firestore.FieldValue.serverTimestamp()
-  };
-
-  const ref = await db.collection('controle_caixas').add(docData);
-  console.log(`[Firestore] Salvo com ID: ${ref.id}`);
-  return ref.id;
+// ─── PERGUNTA FINANCEIRA ───────────────────────────────────────
+async function ePerguntaFinanceira(texto) {
+  return /quanto\s*(gastei|recebi|entrou|saiu)|t[oó]\s*(no\s*)?(azul|vermelho)|maior\s*gasto|saldo|lucro|preju[ií]zo|comparar?|compara/i.test(texto);
 }
 
-// ─── PIPELINE PRINCIPAL (TEXTO → REGISTRO) ────────────────────
-async function processTextToRecord(texto, from, origem) {
-  // Extrai dados com GPT
-  const dados = await extrairDadosComGPT(texto);
+async function responderPergunta(pergunta, companyId, nome) {
+  try {
+    const hoje = new Date();
+    const inicioMes = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-01`;
+    const snap = await db.collection('transactions')
+      .where('companyId', '==', companyId)
+      .get();
 
-  if (!dados || !dados.cliente) {
-    await enviarMensagemWhatsapp(from,
-      '⚠ Não consegui identificar os dados completos.\nVerifique se informou: tipo (entrada/saída), cliente, quantidade e cor das caixas.'
-    );
-    return;
+    const txs    = snap.docs.map(d => d.data()).filter(t => (t.date || '') >= inicioMes);
+    const resumo = JSON.stringify(txs.map(t => ({ cat: t.category, desc: t.description, val: t.amount, date: t.date })));
+
+    const res = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        {
+          role: 'system',
+          content: `Você é um assistente financeiro brasileiro, direto e descolado. Dados do mês de "${nome}": ${resumo}
+
+FORMATO OBRIGATÓRIO: responda em 1 a 3 mensagens curtas separadas por |||. Cada mensagem tem no máximo 2 frases. Sem listas, sem negrito, só texto natural com 1 emoji no máximo por mensagem.`
+        },
+        { role: 'user', content: pergunta }
+      ],
+      temperature: 0.4,
+      max_tokens:  250
+    });
+
+    const raw = res.choices[0].message.content.trim();
+    const partes = raw.split('|||').map(p => p.trim()).filter(p => p.length > 0);
+    return partes.length > 0 ? partes : [raw];
+  } catch (err) {
+    console.error('[Pergunta] Erro:', err.message);
+    return [`🤔 Deu ruim aqui pra responder isso. Tenta de novo daqui a pouco!`];
+  }
+}
+
+// ─── DETECÇÃO DE CONSULTA / CONSELHO DE NEGÓCIO ───────────────
+function eConsulta(texto) {
+  // Detecta perguntas abertas de conselho, investimento, compra, parcelamento
+  return /\?/.test(texto) && (
+    /parcelo?|parcelamento|presta[çc][aã]o|vezes|em\s*\d+x/i.test(texto) ||
+    /compro?|comprar?|adquir|investir|investimento|vale\s*a\s*pena|compensa/i.test(texto) ||
+    /devo|deveria|seria\s*bom|é\s*bom|é\s*certo|faz\s*sentido/i.test(texto) ||
+    /conselho|dica|me\s*ajuda|o\s*que\s*voc[eê]\s*(acha|indica|sugere?)/i.test(texto) ||
+    /consigo\s*pagar|tenho\s*como\s*pagar|cabe\s*no\s*or[çc]amento/i.test(texto) ||
+    /empr[eé]stimo|financiamento|capital\s*de\s*giro|cr[eé]dito/i.test(texto) ||
+    /contratar|demitir|aumentar|reduzir|cortar\s*gasto/i.test(texto) ||
+    /meta|objetivo|planejamento|previs[aã]o/i.test(texto)
+  );
+}
+
+// ─── CONSULTORIA FINANCEIRA INTELIGENTE (Groq + dados reais) ──
+async function responderConsultoria(pergunta, companyId, nome) {
+  try {
+    // Busca os últimos 3 meses de transações para contexto completo
+    const hoje   = new Date();
+    const h3Meses = new Date(hoje);
+    h3Meses.setMonth(h3Meses.getMonth() - 3);
+    const dataInicio = h3Meses.toISOString().split('T')[0];
+
+    const snap = await db.collection('transactions')
+      .where('companyId', '==', companyId)
+      .get();
+
+    // Filtra em memória para não precisar de índice composto no Firestore
+    const txs = snap.docs.map(d => d.data()).filter(t => t.date >= dataInicio);
+
+    // Calcula métricas financeiras reais da empresa
+    const entradas  = txs.filter(t => t.category === 'entrada').reduce((a, t) => a + Number(t.amount || 0), 0);
+    const saidas    = txs.filter(t => t.category !== 'entrada').reduce((a, t) => a + Number(t.amount || 0), 0);
+    const saldo     = entradas - saidas;
+    const mediaMens = entradas / 3;
+    const fixasTotal = txs.filter(t => t.category === 'saida-fixa').reduce((a, t) => a + Number(t.amount || 0), 0);
+    const folhaTotal = txs.filter(t => t.category === 'funcionario').reduce((a, t) => a + Number(t.amount || 0), 0);
+    const fmt = v => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+    const contextoFinanceiro = `
+Empresa: ${nome}
+Período analisado: últimos 3 meses (${dataInicio} até hoje)
+Total de Entradas: ${fmt(entradas)}
+Total de Saídas:   ${fmt(saidas)}
+Saldo acumulado:   ${fmt(saldo)}
+Média mensal de receita: ${fmt(mediaMens)}
+Total em contas fixas (3 meses): ${fmt(fixasTotal)}
+Total em folha de pagamento (3 meses): ${fmt(folhaTotal)}
+Número de transações registradas: ${txs.length}
+`.trim();
+
+    const res = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        {
+          role: 'system',
+          content: `Você é o Lumin Advisor — um consultor financeiro de pequenas empresas brasileiras. Fala como um amigo que entende de dinheiro: direto, simples, sem enrolação.
+
+DADOS FINANCEIROS DA EMPRESA:
+${contextoFinanceiro}
+
+REGRAS OBRIGATÓRIAS DE FORMATO:
+- Divida a resposta em 2 a 4 mensagens curtas separadas EXATAMENTE por |||
+- Cada mensagem: máximo 2 frases curtas
+- Sem bullet points, sem listas, sem negrito — só texto natural
+- Use 1 emoji por mensagem no máximo
+- Baseie nos dados financeiros reais acima
+- Princípios: parcela saudável = até 15% da receita mensal; capital de giro = 3-6x as fixas; payback antes de investir
+- Se não tiver dados suficientes, diga o que precisa saber
+
+EXEMPLO de formato correto:
+"olha, com base no que você tem aí, dá pra pensar sim 🤔|||mas o ideal é esperar mais 2 meses antes de fechar o negócio|||vai depender muito de como vão entrar as receitas nos próximos dias"`
+        },
+        { role: 'user', content: pergunta }
+      ],
+      temperature: 0.6,
+      max_tokens:  350
+    });
+
+    const raw = res.choices[0].message.content.trim();
+    const partes = raw.split('|||').map(p => p.trim()).filter(p => p.length > 0);
+    console.log(`[Consultoria] ✅ ${partes.length} mensagens para: "${pergunta.substring(0, 50)}"`);
+    return partes.length > 0 ? partes : [raw];
+  } catch (err) {
+    console.error('[Consultoria] Erro:', err.message);
+    return [`🤔 Deu um probleminha aqui pra analisar. Tenta de novo daqui a pouco!`];
+  }
+}
+
+// ─── LEMBRETE DE CONTAS FIXAS ──────────────────────────────────
+async function gerarLembreteFixas(companyId, nome) {
+  const mesPassado = new Date();
+  mesPassado.setMonth(mesPassado.getMonth() - 1);
+  const inicio = `${mesPassado.getFullYear()}-${String(mesPassado.getMonth() + 1).padStart(2, '0')}-01`;
+  const fim    = `${mesPassado.getFullYear()}-${String(mesPassado.getMonth() + 1).padStart(2, '0')}-31`;
+
+  const snap = await db.collection('transactions')
+    .where('companyId', '==', companyId)
+    .where('category', '==', 'saida-fixa')
+    .where('date', '>=', inicio)
+    .where('date', '<=', fim)
+    .get();
+
+  if (snap.empty) return null;
+
+  const fmt  = v => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const txs  = snap.docs.map(d => d.data());
+  const linhas = txs.map(t => `  • ${t.description}: ${fmt(t.amount)}`).join('\n');
+  const total  = txs.reduce((a, t) => a + Number(t.amount || 0), 0);
+
+  return [
+    `📅 *Ei, ${nome}! Começo de mês chegou!*\n`,
+    `Mês passado você teve essas contas fixas. Lembra de registrar quando pagar:`,
+    ``,
+    linhas,
+    ``,
+    `💰 Total fixo previsto: *${fmt(total)}*`,
+    ``,
+    `Bora manter o controle! 💪`
+  ].join('\n');
+}
+
+// ─── EXPORTAR PDF DO MÊS ───────────────────────────────────────
+async function enviarPDFMes(companyId, nomeEmpresa, chatId) {
+  try {
+    const hoje  = new Date();
+    const ano   = hoje.getFullYear();
+    const mes   = hoje.getMonth() + 1;
+    const nomeMes = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][mes - 1];
+    const inicio  = `${ano}-${String(mes).padStart(2, '0')}-01`;
+
+    const snap = await db.collection('transactions')
+      .where('companyId', '==', companyId)
+      .where('date', '>=', inicio)
+      .orderBy('date', 'asc')
+      .get();
+
+    const txs = snap.docs.map(d => d.data());
+    const fmt = v => `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+    const fD  = d => d?.split('-').reverse().join('/');
+
+    const totalEntrada = txs.filter(t => t.category === 'entrada').reduce((a, t) => a + Number(t.amount || 0), 0);
+    const totalSaida   = txs.filter(t => t.category !== 'entrada').reduce((a, t) => a + Number(t.amount || 0), 0);
+    const saldo        = totalEntrada - totalSaida;
+
+    // ── Gera o PDF
+    const tmpPath = path.join(__dirname, `relatorio_${companyId}_${ano}${mes}.pdf`);
+    const doc     = new PDFDocument({ margin: 40, size: 'A4' });
+    const stream  = fs.createWriteStream(tmpPath);
+    doc.pipe(stream);
+
+    // Cabeçalho
+    doc.fontSize(20).fillColor('#1a1a2e').text(`Lumin — Relatório Financeiro`, { align: 'center' });
+    doc.fontSize(13).fillColor('#555').text(`${nomeEmpresa} · ${nomeMes} ${ano}`, { align: 'center' });
+    doc.moveDown();
+    doc.moveTo(40, doc.y).lineTo(555, doc.y).strokeColor('#ddd').stroke();
+    doc.moveDown(0.5);
+
+    // Resumo
+    doc.fontSize(11).fillColor('#222');
+    doc.text(`Entradas:  ${fmt(totalEntrada)}`, 40);
+    doc.text(`Saídas:    ${fmt(totalSaida)}`);
+    doc.text(`Saldo:     ${fmt(saldo)}`, { continued: false });
+    doc.moveDown(0.5);
+    doc.moveTo(40, doc.y).lineTo(555, doc.y).strokeColor('#ddd').stroke();
+    doc.moveDown(0.5);
+
+    // Cabeçalho da tabela
+    doc.fontSize(10).fillColor('#888');
+    doc.text('Data',        40,  doc.y, { width: 70,  continued: true });
+    doc.text('Descrição',   110, doc.y, { width: 200, continued: true });
+    doc.text('Categoria',   310, doc.y, { width: 120, continued: true });
+    doc.text('Valor',       430, doc.y, { width: 80,  align: 'right' });
+    doc.moveDown(0.3);
+    doc.moveTo(40, doc.y).lineTo(555, doc.y).strokeColor('#ccc').stroke();
+
+    // Linhas
+    for (const t of txs) {
+      const isIn    = t.category === 'entrada';
+      const cor     = isIn ? '#1a7a4a' : '#b00020';
+      const catLabel= CATS[t.category] || t.category;
+      const yLinha  = doc.y + 4;
+
+      doc.fontSize(9).fillColor('#222');
+      doc.text(fD(t.date),        40,  yLinha, { width: 70,  continued: true });
+      doc.text(t.description||'', 110, yLinha, { width: 200, continued: true });
+      doc.text(catLabel,          310, yLinha, { width: 120, continued: true });
+      doc.fillColor(cor).text((isIn ? '+' : '-') + ' ' + fmt(t.amount), 430, yLinha, { width: 80, align: 'right' });
+      doc.fillColor('#222');
+
+      if (doc.y > 740) { doc.addPage(); }
+    }
+
+    doc.moveDown();
+    doc.moveTo(40, doc.y).lineTo(555, doc.y).strokeColor('#ddd').stroke();
+    doc.moveDown(0.5);
+    doc.fontSize(9).fillColor('#aaa').text(`Gerado por Lumin Bot em ${new Date().toLocaleDateString('pt-BR')}`, { align: 'center' });
+
+    doc.end();
+
+    await new Promise(resolve => stream.on('finish', resolve));
+
+    // Envia via WhatsApp
+    const media = MessageMedia.fromFilePath(tmpPath);
+    await waClient.sendMessage(chatId, media, { caption: `📊 *Relatório de ${nomeMes} ${ano}* — ${nomeEmpresa}\n${txs.length} lançamentos · Saldo: ${fmt(saldo)}` });
+
+    fs.unlinkSync(tmpPath);
+    console.log(`[PDF] ✅ Enviado para ${chatId}`);
+  } catch (err) {
+    console.error('[PDF] Erro:', err.message);
+    await waClient.sendMessage(chatId, `❌ Deu ruim gerando o PDF. Tenta de novo daqui a pouco!`);
+  }
+}
+
+// ─── VERIFICAÇÃO DE LID — vincula LID a um número de telefone ─
+async function tentarVerificacaoLid(msg, lidId) {
+  const texto  = (msg.body || '').trim();
+  const digits = texto.replace(/\D/g, '');
+
+  // Se a mensagem é um número de telefone válido (12 ou 13 dígitos: DDI+DDD+8/9)
+  if (digits.length >= 12 && digits.length <= 13) {
+    const empresa = await buscarEmpresaPorTelefone(digits);
+    if (empresa) {
+      await db.collection('whatsapp_lid_mappings').doc(lidId).set({
+        lid:          lidId,
+        phone:        digits,
+        companyId:    empresa.id,
+        verifiedAt:   admin.firestore.FieldValue.serverTimestamp()
+      });
+      console.log(`[WA] ✓ LID ${lidId} vinculado a ${digits} (${empresa.nome})`);
+
+      await msg.reply(
+        `🔥 *Opa, ${empresa.nome}! Verificado com sucesso!*\n\n` +
+        `Tô aqui pra te ajudar a registrar tudo sem enrolação. ` +
+        `Manda pra mim direto no chat — pode ser texto ou áudio mesmo!\n\n` +
+        `Exemplos do que posso entender:\n` +
+        `• "Entrada 500 cliente João"\n` +
+        `• "Aluguel 1200"\n` +
+        `• "Almoço 45 reais"\n` +
+        `• "Gasolina 80"\n\n` +
+        `Bora! 🚀`
+      );
+      // Retorna null para que o handler principal NÃO tente processar
+      // o número de telefone como uma transação financeira
+      return null;
+    } else {
+      await msg.reply(
+        `⚠ Eita! O número *${digits}* não tá cadastrado aqui não, mano.\n\n` +
+        `Cola com o admin do Lumin e pede pra ele te cadastrar primeiro. 👍`
+      );
+      return null;
+    }
   }
 
-  // Salva no Firestore
-  const docId = await salvarNoFirestore(dados, from, origem);
+  // Mensagem não é um telefone — pede o cadastro
+  console.log(`[WA] 🆕 LID ${lidId} ainda não vinculado — solicitando número`);
+  await msg.reply(
+    `👋 *E aí! Bem-vindo ao Lumin Bot!*\n\n` +
+    `Pra eu te reconhecer aqui, manda seu *número de telefone* pra mim:\n\n` +
+    `\`5511999990001\`\n` +
+    `_(DDI 55 + DDD + número, sem espaço ou traço)_\n\n` +
+    `Esse número precisa estar cadastrado no sistema pelo admin. Rapidinho! ⚡`
+  );
+  return null;
+}
 
-  // Monta confirmação formatada
-  const corEmoji = (dados.cor || '').toLowerCase().includes('pret') ? '⬛'
-                 : (dados.cor || '').toLowerCase().includes('branc') ? '⬜' : '🔲';
+// ─── BUSCAR EMPRESA POR TELEFONE (suporta phone único ou array phones[]) ─
+async function buscarEmpresaPorTelefone(phone) {
+  // 1) campo phone (principal)
+  let snap = await db.collection('companies').where('phone', '==', phone).limit(1).get();
+  if (!snap.empty) {
+    const doc = snap.docs[0];
+    return { id: doc.id, nome: doc.data().name, ...doc.data() };
+  }
+  // 2) campo phones[] (multi-usuário — vários números por empresa)
+  snap = await db.collection('companies').where('phones', 'array-contains', phone).limit(1).get();
+  if (!snap.empty) {
+    const doc = snap.docs[0];
+    return { id: doc.id, nome: doc.data().name, ...doc.data() };
+  }
+  // 3) Checa mapping LID reverso (fallback para usuários já verificados)
+  const lidSnap = await db.collection('whatsapp_lid_mappings').where('phone', '==', phone).limit(1).get();
+  if (!lidSnap.empty) {
+    const { companyId } = lidSnap.docs[0].data();
+    const compDoc = await db.collection('companies').doc(companyId).get();
+    if (compDoc.exists) return { id: compDoc.id, nome: compDoc.data().name, ...compDoc.data() };
+  }
+  return null;
+}
 
-  const confirmacao = [
-    `✅ *Registro salvo com sucesso!*`,
+// ─── TRANSCRIÇÃO DE ÁUDIO (Groq Whisper) ──────────────────────
+async function transcreverAudio(msg) {
+  try {
+    const media = await msg.downloadMedia();
+    if (!media?.data) return null;
+
+    // Salva temporariamente
+    const ext     = media.mimetype?.includes('ogg') ? 'ogg' : 'mp4';
+    const tmpPath = path.join(__dirname, `tmp_audio_${Date.now()}.${ext}`);
+    fs.writeFileSync(tmpPath, Buffer.from(media.data, 'base64'));
+
+    const response = await groq.audio.transcriptions.create({
+      file:            fs.createReadStream(tmpPath),
+      model:           'whisper-large-v3',
+      language:        'pt',
+      response_format: 'text'
+    });
+
+    fs.unlinkSync(tmpPath); // remove arquivo temporário
+    return String(response).trim();
+  } catch (err) {
+    console.error('[Whisper] Erro:', err.message);
+    return null;
+  }
+}
+
+// ─── CATEGORIAS VÁLIDAS ────────────────────────────────────────
+const CATS_VALIDAS = new Set(['entrada', 'saida-fixa', 'funcionario', 'comida', 'variavel']);
+
+function normalizarCategoria(cat) {
+  if (!cat) return 'variavel';
+  const c = String(cat).toLowerCase().trim();
+  if (CATS_VALIDAS.has(c)) return c;
+  // Mapeamento de variações comuns que o Groq pode retornar
+  if (/entrada|receita|receb|pix.*rec|depósit/i.test(c))       return 'entrada';
+  if (/aluguel|fixa|água|luz|internet|telefon|assinatur/i.test(c)) return 'saida-fixa';
+  if (/funcio|salário|salario|folha|empregad/i.test(c))         return 'funcionario';
+  if (/comida|aliment|restaur|mercado|delivery|padaria/i.test(c)) return 'comida';
+  return 'variavel'; // fallback: tudo que não encaixar vai em despesa variável
+}
+
+// ─── INTERPRETAR TRANSAÇÕES COM GROQ (suporta múltiplas) ──────
+async function interpretarTransacoes(texto) {
+  const hoje = new Date().toISOString().split('T')[0];
+
+  const prompt = `
+Você é um assistente financeiro brasileiro. Analise o texto e extraia TODAS as transações financeiras mencionadas.
+Retorne APENAS um JSON válido, sem explicações.
+
+CATEGORIAS (use exatamente estas strings):
+- "entrada"     → Receita, depósito, pagamento recebido, Pix recebido, entrada de dinheiro
+- "saida-fixa"  → Aluguel, conta fixa (água, luz, internet, telefone), assinatura mensal
+- "funcionario" → Salário, pagamento de funcionário, folha de pagamento
+- "comida"      → Supermercado, restaurante, delivery, padaria, alimentação
+- "variavel"    → Outros: combustível, farmácia, compras, transferência enviada, saques, poupança, caixinha
+
+FORMATO DE RETORNO (sempre um objeto com array "transactions"):
+{
+  "transactions": [
+    {
+      "category":    string (uma das categorias acima — obrigatório),
+      "description": string (descrição curta e clara em português),
+      "value":       number (valor positivo — use 0 se não mencionado),
+      "date":        string (YYYY-MM-DD — use ${hoje} se não mencionado)
+    }
+  ]
+}
+
+REGRAS:
+1. Se o texto tiver VÁRIAS transações, retorne TODAS no array.
+2. Se não houver NENHUMA transação financeira (só conversa), retorne {"transactions":[]}.
+3. Se tiver valor mas categoria ambígua, escolha a mais próxima ou use "variavel".
+4. "caixinha", "poupança", "guardar dinheiro" → category: "variavel", description: "Caixinha/Poupança".
+5. Nunca omita uma transação que foi claramente mencionada.
+
+EXEMPLOS:
+"gastei 300 no almoço, recebi 1000 do cliente, paguei funcionário 500 e juntei 200 na caixinha"
+→ {"transactions":[
+  {"category":"comida","description":"Almoço","value":300,"date":"${hoje}"},
+  {"category":"entrada","description":"Recebimento cliente","value":1000,"date":"${hoje}"},
+  {"category":"funcionario","description":"Pagamento funcionário","value":500,"date":"${hoje}"},
+  {"category":"variavel","description":"Caixinha","value":200,"date":"${hoje}"}
+]}
+
+"paguei aluguel 1200" → {"transactions":[{"category":"saida-fixa","description":"Aluguel","value":1200,"date":"${hoje}"}]}
+"oi tudo bem" → {"transactions":[]}
+`.trim();
+
+  try {
+    const res = await groq.chat.completions.create({
+      model:       'llama-3.3-70b-versatile',
+      messages: [
+        { role: 'system', content: prompt },
+        { role: 'user',   content: `Texto: "${texto}"` }
+      ],
+      temperature:     0,
+      max_tokens:      800,
+      response_format: { type: 'json_object' }
+    });
+
+    const data = JSON.parse(res.choices[0].message.content);
+    const lista = Array.isArray(data.transactions) ? data.transactions : [];
+
+    return lista
+      .filter(t => t && t.description)
+      .map(t => ({
+        category:    normalizarCategoria(t.category),
+        description: String(t.description).trim(),
+        value:       Number(t.value) || 0,
+        date:        t.date || hoje
+      }));
+  } catch (err) {
+    console.error('[Groq] Erro ao interpretar:', err.message);
+    return null;
+  }
+}
+
+// ─── FORMATAR CONFIRMAÇÃO ──────────────────────────────────────
+function formatConfirmacao(tx, nomeEmpresa, docId) {
+  const catLabel  = CATS[tx.category] || tx.category;
+  const isEntrada = tx.category === 'entrada';
+  const valorFmt  = Number(tx.value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const dataFmt   = tx.date?.split('-').reverse().join('/');
+  const emoji     = isEntrada ? '💸' : '📤';
+  const intro     = isEntrada
+    ? `${emoji} *Chegou dinheiro, ${nomeEmpresa}!* Anotei aqui:`
+    : `${emoji} *Saída registrada, ${nomeEmpresa}!* Tá no sistema:`;
+
+  return [
+    intro,
     ``,
-    `📋 *Resumo:*`,
-    `• Tipo: *${dados.tipo || '—'}*`,
-    `• Data: *${dados.data || '—'}*`,
-    `• Cliente: *${dados.cliente || '—'}*`,
-    `• Qtd Caixas: *${dados.quantidadeCx || 0}*`,
-    `• Cor: ${corEmoji} *${dados.cor || 'Não informado'}*`,
-    `• Valor Unitário: *R$ ${(dados.valorUnitario || 0).toFixed(2).replace('.', ',')}*`,
-    `• Valor Total: *R$ ${(dados.valorTotal || 0).toFixed(2).replace('.', ',')}*`,
-    `• Motorista: *${dados.motorista || 'Não informado'}*`,
-    dados.status === 'REVISAR' ? `\n⚠ *Status: REVISAR* — Alguns dados precisam conferência manual.` : '',
+    `📋 Categoria: *${catLabel}*`,
+    `📝 Descrição: *${tx.description}*`,
+    `💰 Valor: *${valorFmt}*`,
+    `📅 Data: *${dataFmt}*`,
     ``,
     `_ID: ${docId}_`
-  ].filter(Boolean).join('\n');
-
-  await enviarMensagemWhatsapp(from, confirmacao);
+  ].join('\n');
 }
 
-// ─── ENVIAR MENSAGEM WHATSAPP ──────────────────────────────────
-async function enviarMensagemWhatsapp(para, texto) {
-  try {
-    await axios.post(
-      `https://graph.facebook.com/v19.0/${WA_CONFIG.phoneNumberId}/messages`,
-      {
-        messaging_product: 'whatsapp',
-        to: para,
-        type: 'text',
-        text: { body: texto }
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${WA_CONFIG.accessToken}`,
-          'Content-Type': 'application/json'
-        }
+function formatConfirmacaoMultipla(refs, nomeEmpresa) {
+  const fmt = v => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  const total = refs.length;
+  let linhas = [`🔥 *${total} transações registradas, ${nomeEmpresa}!*\n`];
+
+  refs.forEach(({ tx }, i) => {
+    const catLabel  = CATS[tx.category] || tx.category;
+    const isEntrada = tx.category === 'entrada';
+    const emoji     = isEntrada ? '💸' : '📤';
+    const valorStr  = tx.value ? fmt(tx.value) : '_(sem valor)_';
+    const semValor  = !tx.value ? ' ⚠' : '';
+    linhas.push(`${emoji} *${catLabel}* — ${tx.description} — ${valorStr}${semValor}`);
+  });
+
+  const semValor = refs.some(({ tx }) => !tx.value);
+  if (semValor) linhas.push(`\n⚠ Itens marcados com ⚠ estão com R$ 0,00 — edita lá no app!`);
+
+  return linhas.join('\n');
+}
+
+function formatAjuda(nome) {
+  const saudacao = nome ? `E aí, ${nome}! ` : `E aí! `;
+  return [
+    `🤖 *${saudacao}Sou o Lumin Bot!*`,
+    ``,
+    `📝 *Registrar transação* — manda texto ou áudio:`,
+    `_"Recebi 500 do cliente João"_`,
+    `_"Paguei aluguel 1200"_`,
+    `_"Salário da Maria 2000"_`,
+    `_"Almoço 45, gasolina 150, recebi Pix 800"_`,
+    ``,
+    `📊 *Comandos rápidos:*`,
+    `• *resumo* → últimos 7 dias`,
+    `• *mês* → resumo do mês atual`,
+    `• *ultimos* → últimos 5 lançamentos`,
+    `• *cancela* → desfaz o último lançamento`,
+    `• *exportar* → PDF do mês`,
+    `• *projeção* → como vai fechar o mês`,
+    ``,
+    `🎯 *Metas:*`,
+    `• *meta 10000* → define meta de faturamento`,
+    `• *minha meta* → ver progresso da meta`,
+    ``,
+    `⏰ *Lembretes:*`,
+    `• "me lembra de pagar o aluguel dia 5"`,
+    `• *lembretes* → ver seus lembretes ativos`,
+    ``,
+    `🔍 *Busca:*`,
+    `• "quanto gastei com gasolina"`,
+    `• "total de comida esse mês"`,
+    ``,
+    `🔊 *Extras:*`,
+    `• *voz* → ativar/desativar resposta em áudio`,
+    `• "era 350 não 500" → corrigir último valor`,
+    ``,
+    `🧠 *Consultoria* — manda qualquer dúvida com "?":`,
+    `_"Devo comprar um equipamento de R$ 10 mil?"_`,
+    `_"Consigo parcelar em 12x?"_`,
+    ``,
+    `💡 Texto, áudio ou foto de nota fiscal — pode mandar tudo!`,
+    ``,
+    `Manda bala! 🚀`
+  ].join('\n');
+}
+
+// ─── ENVIAR RESPOSTA (texto ou áudio, dependendo da preferência) ─
+// Wrapper resiliente: tenta múltiplos métodos com timeout e logging detalhado
+async function responder(msg, conteudo, options) {
+  const trySend = async (descricao, fn) => {
+    try {
+      console.log(`[WA] 📤 Enviando via ${descricao}...`);
+      const result = await Promise.race([
+        fn(),
+        new Promise((_, rej) => setTimeout(() => rej(new Error('timeout 15s')), 15000))
+      ]);
+      console.log(`[WA] ✅ Enviado com sucesso via ${descricao}`);
+      return result;
+    } catch (err) {
+      console.error(`[WA] ❌ ${descricao} falhou: ${err.message}`);
+      return null;
+    }
+  };
+
+  // 1. Tenta via chat.sendMessage (mais confiável para @lid)
+  const chat = await msg.getChat().catch(e => { console.error(`[WA] ❌ getChat falhou: ${e.message}`); return null; });
+  if (chat) {
+    const r = await trySend('chat.sendMessage', () => chat.sendMessage(conteudo, options));
+    if (r) return r;
+  }
+
+  // 2. Tenta via client.sendMessage com msg.from
+  const r2 = await trySend(`client.sendMessage(${msg.from})`, () => waClient.sendMessage(msg.from, conteudo, options));
+  if (r2) return r2;
+
+  console.error(`[WA] ❌ TODOS os métodos de envio falharam para ${msg.from}`);
+}
+
+async function enviarResposta(msg, texto) {
+  if (_voiceUsers.has(msg.from)) {
+    try {
+      const tmpMp3 = path.join(__dirname, `tts_${Date.now()}.mp3`);
+      const tmpOgg = path.join(__dirname, `tts_${Date.now()}.ogg`);
+      await new Promise((res, rej) => gTTS.save(tmpMp3, texto.replace(/[*_~`]/g, ''), err => err ? rej(err) : res()));
+      await new Promise((res, rej) => execFile(ffmpegPath, ['-y','-i',tmpMp3,'-c:a','libopus','-b:a','32k',tmpOgg], err => err ? rej(err) : res()));
+      const media = MessageMedia.fromFilePath(tmpOgg);
+      media.mimetype = 'audio/ogg; codecs=opus';
+      await responder(msg, media, { sendAudioAsVoice: true });
+      try { fs.unlinkSync(tmpMp3); fs.unlinkSync(tmpOgg); } catch(_) {}
+      return;
+    } catch(e) {
+      console.error('[TTS] Erro:', e.message);
+      // fallback para texto se der erro
+    }
+  }
+  await responder(msg, texto);
+}
+
+// ─── PROJEÇÃO DO MÊS ──────────────────────────────────────────
+async function gerarProjecaoMes(companyId, nome) {
+  const hoje = new Date();
+  const diaAtual = hoje.getDate();
+  const diasNoMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).getDate();
+  const inicioMes = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-01`;
+  const fmt = v => Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+
+  const snap = await db.collection('transactions').where('companyId','==',companyId).get();
+  const txs  = snap.docs.map(d=>d.data()).filter(t=>(t.date||'')>=inicioMes);
+
+  const entrada = txs.filter(t=>t.category==='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
+  const saida   = txs.filter(t=>t.category!=='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
+
+  if (!entrada && !saida) return `📈 Ainda sem lançamentos esse mês pra eu projetar, ${nome}. Registra uns gastos pra eu calcular!`;
+
+  const fator = diasNoMes / diaAtual;
+  const entradaP = entrada * fator;
+  const saidaP   = saida   * fator;
+  const saldoP   = entradaP - saidaP;
+
+  return [
+    `📈 *Projeção de ${MONTHS_BR[hoje.getMonth()]} — ${nome}*`,
+    `_Dia ${diaAtual} de ${diasNoMes}_\n`,
+    `Até agora: 💸 ${fmt(entrada)} entradas / 📤 ${fmt(saida)} saídas`,
+    `\nSe continuar nesse ritmo:`,
+    `💸 Entradas projetadas: *${fmt(entradaP)}*`,
+    `📤 Saídas projetadas: *${fmt(saidaP)}*`,
+    `${saldoP>=0?'✅':'🔴'} Saldo projetado: *${fmt(saldoP)}*`,
+    `\n${saldoP>=0 ? `Caminhando pro positivo! 💪` : `Atenção — no ritmo atual o mês fecha no vermelho. Bora segurar os gastos! 👀`}`
+  ].join('\n');
+}
+
+// ─── METAS FINANCEIRAS ─────────────────────────────────────────
+async function definirMeta(companyId, valor, nome, chatId) {
+  const fmt = v => Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+  await db.collection('metas').doc(companyId).set({ valor, companyId, chatId, atualizadaEm: admin.firestore.FieldValue.serverTimestamp() });
+  await waClient.sendMessage(chatId, `🎯 *Meta definida!*\n\nMeta de faturamento de *${fmt(valor)}* pra ${MONTHS_BR[new Date().getMonth()]}!\nVou te avisar quando chegar perto. Bora! 💪`);
+}
+
+async function verMeta(companyId, nome) {
+  const fmt = v => Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+  const metaDoc = await db.collection('metas').doc(companyId).get();
+  if (!metaDoc.exists) return `🎯 Você não tem meta definida ainda.\n\nDefine assim: *"meta 10000"* 🚀`;
+
+  const meta = metaDoc.data().valor;
+  const inicioMes = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-01`;
+  const snap = await db.collection('transactions').where('companyId','==',companyId).get();
+  const entrada = snap.docs.map(d=>d.data()).filter(t=>(t.date||'')>=inicioMes && t.category==='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
+
+  const pct = Math.min(100, Math.round(entrada / meta * 100));
+  const bar = '█'.repeat(Math.round(pct/10)) + '░'.repeat(10 - Math.round(pct/10));
+
+  return [
+    `🎯 *Meta de ${MONTHS_BR[new Date().getMonth()]} — ${nome}*\n`,
+    `Meta: *${fmt(meta)}*`,
+    `Realizado: *${fmt(entrada)}* (${pct}%)\n`,
+    `[${bar}] ${pct}%\n`,
+    pct >= 100 ? `🏆 *META BATIDA! Parabéns!* 🔥🔥🔥` :
+    pct >= 80  ? `Quase lá! Faltam apenas *${fmt(meta-entrada)}* 💪` :
+    `Bora! Faltam *${fmt(meta-entrada)}* pra bater.`
+  ].join('\n');
+}
+
+// ─── LEMBRETES CUSTOMIZADOS ────────────────────────────────────
+async function criarLembrete(companyId, chatId, texto, nome) {
+  const diaMatch = texto.match(/dia\s*(\d{1,2})/i);
+  if (!diaMatch) {
+    await waClient.sendMessage(chatId, `⏰ Fala o dia do lembrete!\nEx: *"me lembra de pagar o aluguel dia 5"*`);
+    return;
+  }
+  const dia = parseInt(diaMatch[1]);
+  // Remove comando da mensagem pra deixar só o conteúdo
+  const conteudo = texto.replace(/me\s+lembra(r)?\s*(de|que)?/i,'').replace(/dia\s*\d+/i,'').trim() || texto;
+  await db.collection('lembretes').add({ companyId, chatId, conteudo, dia, ativo: true, criadoEm: admin.firestore.FieldValue.serverTimestamp() });
+  await waClient.sendMessage(chatId, `⏰ *Lembrete criado!*\n\nVou te avisar todo dia *${dia}* de cada mês:\n_"${conteudo}"_`);
+}
+
+async function listarLembretes(companyId) {
+  const snap = await db.collection('lembretes').where('companyId','==',companyId).where('ativo','==',true).get();
+  if (snap.empty) return `⏰ Você não tem lembretes ativos.\n\nCrie com: *"me lembra de pagar o aluguel dia 5"*`;
+  return `⏰ *Seus lembretes:*\n\n` + snap.docs.map(d=>{
+    const {conteudo,dia}=d.data(); return `• Dia ${dia}: ${conteudo}`;
+  }).join('\n');
+}
+
+// ─── BUSCA POR TERMO/CATEGORIA ─────────────────────────────────
+async function buscarPorTermo(texto, companyId) {
+  const fmt = v => Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+  const termoMatch = texto.match(/(?:gastei|foi|custou|saiu)\s+(?:com|em|no|na|de)\s+(.+)|total\s+(?:de|com|em|no|na)\s+(.+)/i);
+  const termo = (termoMatch?.[1] || termoMatch?.[2] || '').replace(/[?!.]/g,'').trim().toLowerCase();
+  if (!termo) return `🤔 O que você quer buscar? Ex: *"quanto gastei com gasolina"*`;
+
+  const inicioMes = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-01`;
+  const snap = await db.collection('transactions').where('companyId','==',companyId).get();
+  const txs  = snap.docs.map(d=>d.data()).filter(t => (t.date||'')>=inicioMes && (t.description||'').toLowerCase().includes(termo));
+
+  if (!txs.length) return `🔍 Nada encontrado com *"${termo}"* esse mês.`;
+  const total = txs.reduce((a,t)=>a+Number(t.amount||0),0);
+  const fD2 = d => d?.split('-').reverse().join('/');
+  return [`🔍 *"${termo}" — esse mês:*\n`, ...txs.map(t=>`• ${fD2(t.date)} — ${t.description}: ${fmt(t.amount)}`), `\n💰 Total: *${fmt(total)}*`].join('\n');
+}
+
+// ─── EDITAR VALOR DA ÚLTIMA TRANSAÇÃO ─────────────────────────
+async function editarUltimaValor(companyId, novoValor) {
+  const snap = await db.collection('transactions').where('companyId','==',companyId).orderBy('createdAt','desc').limit(1).get();
+  if (snap.empty) return false;
+  await snap.docs[0].ref.update({ amount: novoValor, editadoEm: admin.firestore.FieldValue.serverTimestamp() });
+  return true;
+}
+
+// ─── ALERTA DE CATEGORIA ACIMA DA MÉDIA ───────────────────────
+async function verificarAlertaCategoria(refs, empresa) {
+  const fmt = v => Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+  const hoje = new Date();
+  const inicioMes = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-01`;
+  const inicioMesPassado = new Date(hoje.getFullYear(), hoje.getMonth()-1, 1).toISOString().split('T')[0];
+  const fimMesPassado    = new Date(hoje.getFullYear(), hoje.getMonth(),   0).toISOString().split('T')[0];
+
+  const snap = await db.collection('transactions').where('companyId','==',empresa.id).get();
+  const todos = snap.docs.map(d=>d.data());
+
+  for (const {tx} of refs) {
+    if (tx.category === 'entrada') continue;
+    const totalMesAtual  = todos.filter(t=>(t.date||'')>=inicioMes && t.category===tx.category).reduce((a,t)=>a+Number(t.amount||0),0);
+    const totalMesPassado = todos.filter(t=>(t.date||'')>=inicioMesPassado && (t.date||'')<=fimMesPassado && t.category===tx.category).reduce((a,t)=>a+Number(t.amount||0),0);
+    if (totalMesPassado > 0 && totalMesAtual > totalMesPassado * 1.3) {
+      const cat = CATS[tx.category] || tx.category;
+      const mapsSnap = await db.collection('whatsapp_lid_mappings').where('companyId','==',empresa.id).limit(1).get();
+      if (!mapsSnap.empty) {
+        const {lid, phone} = mapsSnap.docs[0].data();
+        const chatId = lid || `${phone}@c.us`;
+        await waClient.sendMessage(chatId,
+          `📊 *Alerta de categoria!*\n\n` +
+          `Seus gastos em *${cat}* esse mês chegaram a *${fmt(totalMesAtual)}* — ` +
+          `30% a mais do que no mês passado (${fmt(totalMesPassado)}).\n\nFica de olho! 👀`
+        );
       }
-    );
-  } catch (err) {
-    console.error('[WhatsApp] Erro ao enviar mensagem:', err.response?.data || err.message);
+    }
   }
 }
 
-// ─── ROTA DE SAÚDE ─────────────────────────────────────────────
-app.get('/health', (_, res) => res.json({ status: 'ok', service: 'lumin-webhook', ts: new Date().toISOString() }));
+// ─── RESUMO DO DIA ─────────────────────────────────────────────
+async function enviarResumoDia() {
+  const fmt = v => Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+  const hoje = new Date().toISOString().split('T')[0];
+  const mapsSnap = await db.collection('whatsapp_lid_mappings').get();
+  if (mapsSnap.empty) return;
+  const vistos = new Set();
+  for (const mapDoc of mapsSnap.docs) {
+    const { lid, phone, companyId } = mapDoc.data();
+    if (vistos.has(companyId)) continue; vistos.add(companyId);
+    const chatId = lid || `${phone}@c.us`;
+    try {
+      const snap = await db.collection('transactions').where('companyId','==',companyId).get();
+      const txsHoje = snap.docs.map(d=>d.data()).filter(t=>t.date===hoje);
+      if (!txsHoje.length) continue;
+      const compDoc = await db.collection('companies').doc(companyId).get();
+      const nome = compDoc.data()?.name || 'você';
+      const entrada = txsHoje.filter(t=>t.category==='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
+      const saida   = txsHoje.filter(t=>t.category!=='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
+      const saldo   = entrada - saida;
+      await waClient.sendMessage(chatId,
+        `🌙 *Resumo do dia — ${nome}*\n\n` +
+        `💸 Entradas: *${fmt(entrada)}*\n` +
+        `📤 Saídas: *${fmt(saida)}*\n` +
+        `${saldo>=0?'✅':'🔴'} Resultado: *${fmt(saldo)}*\n\n` +
+        `_${txsHoje.length} lançamento${txsHoje.length!==1?'s':''} hoje_\n\n` +
+        `${saldo>=0 ? 'Dia positivo! 💪' : 'Dia no vermelho, mas amanhã é novo dia! 💙'}`
+      );
+    } catch(e) { console.error('[ResumoDia]', e.message); }
+  }
+}
+
+// ─── VERIFICAR LEMBRETES (roda a cada hora) ────────────────────
+async function verificarLembretesHoje() {
+  const dia = new Date().getDate();
+  const hora = new Date().getHours();
+  if (hora !== 8) return; // só dispara às 8h
+  try {
+    const snap = await db.collection('lembretes').where('dia','==',dia).where('ativo','==',true).get();
+    for (const doc of snap.docs) {
+      const { chatId, conteudo } = doc.data();
+      await waClient.sendMessage(chatId, `⏰ *Lembrete de hoje!*\n\n${conteudo}`);
+    }
+  } catch(e) { console.error('[Lembretes]', e.message); }
+}
+
+// ─── ALERTA DE SALDO NEGATIVO PROATIVO ────────────────────────
+async function verificarSaldoNegativo(companyId, empresa, chatId) {
+  const fmt = v => Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+  const snap = await db.collection('transactions').where('companyId','==',companyId).get();
+  const todos = snap.docs.map(d=>d.data());
+  const entrada = todos.filter(t=>t.category==='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
+  const saida   = todos.filter(t=>t.category!=='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
+  if (saida > entrada) {
+    await waClient.sendMessage(chatId,
+      `🔴 *${empresa.nome}, seu saldo acumulado ficou negativo!*\n\n` +
+      `Total de entradas: ${fmt(entrada)}\nTotal de saídas: ${fmt(saida)}\n` +
+      `Saldo: *${fmt(entrada-saida)}*\n\nBora verificar os lançamentos! 👀`
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  SERVIDOR EXPRESS (Pluggy endpoints)
+// ═══════════════════════════════════════════════════════════════
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// ── GET /pluggy/connect-token?companyId=xxx
+app.get('/pluggy/connect-token', async (req, res) => {
+  try {
+    const apiKey = await getPluggyApiKey();
+    const { companyId } = req.query;
+    let body = {};
+    if (companyId) {
+      const snap = await db.collection('companies').doc(companyId).get();
+      const itemId = snap.data()?.pluggyItemId;
+      if (itemId) body.itemId = itemId;
+    }
+    const tokenRes = await axios.post(
+      `${PLUGGY_BASE_URL}/connect_token`,
+      body,
+      { headers: { 'X-API-KEY': apiKey } }
+    );
+    res.json({ connectToken: tokenRes.data.accessToken });
+  } catch (err) {
+    console.error('[Pluggy] connect-token:', err.response?.data || err.message);
+    res.status(500).json({ error: 'Não foi possível conectar ao Pluggy. Verifique as credenciais.' });
+  }
+});
+
+// ── POST /pluggy/save-item
+app.post('/pluggy/save-item', async (req, res) => {
+  try {
+    const { companyId, itemId } = req.body;
+    if (!companyId || !itemId) return res.status(400).json({ error: 'companyId e itemId obrigatórios.' });
+    await db.collection('companies').doc(companyId).update({ pluggyItemId: itemId });
+    console.log(`[Pluggy] Item ${itemId} salvo para ${companyId}`);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── POST /pluggy/sync  (retorna transações para o frontend revisar)
+app.post('/pluggy/sync', async (req, res) => {
+  try {
+    const { companyId, itemId, dias = 30 } = req.body;
+    if (!itemId) return res.status(400).json({ error: 'itemId obrigatório.' });
+
+    const { rawTxs, from, to } = await fetchPluggyRaw(itemId, dias);
+    if (!rawTxs.length) return res.json({ transactions: [], period: { from, to } });
+
+    const categorized = await categorizarComGroq(rawTxs);
+    console.log(`[Pluggy] ${categorized.length} transações para ${companyId}`);
+    res.json({ transactions: categorized, period: { from, to } });
+
+  } catch (err) {
+    console.error('[Pluggy] sync:', err.response?.data || err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── POST /pluggy/auto-sync  (salva direto no Firestore, sem revisão manual)
+app.post('/pluggy/auto-sync', async (req, res) => {
+  try {
+    const { companyId, itemId, dias = 7 } = req.body;
+    if (!companyId || !itemId) return res.status(400).json({ error: 'companyId e itemId obrigatórios.' });
+
+    const resultado = await autoSyncEmpresa(companyId, itemId, dias);
+    res.json(resultado);
+  } catch (err) {
+    console.error('[Pluggy] auto-sync:', err.response?.data || err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ── Obtém API Key do Pluggy
+async function getPluggyApiKey() {
+  const res = await axios.post(`${PLUGGY_BASE_URL}/auth`, {
+    clientId:     PLUGGY_CLIENT_ID,
+    clientSecret: PLUGGY_CLIENT_SECRET
+  });
+  return res.data.apiKey;
+}
+
+// ── Busca transações brutas do Pluggy (compartilhado entre sync e auto-sync)
+async function fetchPluggyRaw(itemId, dias = 7) {
+  const apiKey = await getPluggyApiKey();
+  const accountsRes = await axios.get(`${PLUGGY_BASE_URL}/accounts?itemId=${itemId}`, {
+    headers: { 'X-API-KEY': apiKey }
+  });
+  const accounts = accountsRes.data.results || [];
+
+  const to   = new Date().toISOString().split('T')[0];
+  const from = new Date(Date.now() - dias * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+  let rawTxs = [];
+  for (const account of accounts) {
+    let page = 1;
+    while (true) {
+      const txRes = await axios.get(
+        `${PLUGGY_BASE_URL}/transactions?accountId=${account.id}&from=${from}&to=${to}&pageSize=100&page=${page}`,
+        { headers: { 'X-API-KEY': apiKey } }
+      );
+      const results = txRes.data.results || [];
+      rawTxs.push(...results.map(t => ({
+        pluggyTxId:  t.id,                              // ID único do Pluggy — usado para deduplicar
+        date:        t.date?.split('T')[0] || to,
+        description: t.description || t.name || 'Transação',
+        amount:      Math.abs(t.amount),
+        type:        t.type
+      })));
+      if (results.length < 100) break;
+      page++;
+    }
+  }
+  return { rawTxs, from, to, apiKey };
+}
+
+// ── Auto-sync: busca, categoriza e salva direto no Firestore (sem revisão)
+async function autoSyncEmpresa(companyId, itemId, dias = 7) {
+  console.log(`[AutoSync] Iniciando para ${companyId}...`);
+  const { rawTxs, from, to } = await fetchPluggyRaw(itemId, dias);
+  if (!rawTxs.length) return { novas: 0, from, to };
+
+  // IDs do Pluggy já salvos (evita duplicatas)
+  const existSnap = await db.collection('transactions')
+    .where('companyId', '==', companyId)
+    .where('origem', '==', 'pluggy')
+    .where('date', '>=', from)
+    .get();
+  const jaExistem = new Set(existSnap.docs.map(d => d.data().pluggyTxId).filter(Boolean));
+
+  const novas = rawTxs.filter(t => !jaExistem.has(t.pluggyTxId));
+  if (!novas.length) {
+    console.log(`[AutoSync] Nenhuma transação nova para ${companyId}`);
+    return { novas: 0, from, to };
+  }
+
+  const categorizadas = await categorizarComGroq(novas);
+  const batch = db.batch();
+  for (const tx of categorizadas) {
+    const ref = db.collection('transactions').doc();
+    batch.set(ref, {
+      date:         tx.date,
+      category:     normalizarCategoria(tx.category),
+      description:  tx.description,
+      amount:       Number(tx.value),
+      companyId,
+      isRecorrente: false,
+      createdBy:    'pluggy-auto',
+      origem:       'pluggy',
+      pluggyTxId:   tx.pluggyTxId || null,
+      syncedAt:     admin.firestore.FieldValue.serverTimestamp(),
+      createdAt:    admin.firestore.FieldValue.serverTimestamp()
+    });
+  }
+  await batch.commit();
+
+  // Atualiza timestamp do último sync na empresa
+  await db.collection('companies').doc(companyId).update({
+    pluggyLastSync: admin.firestore.FieldValue.serverTimestamp()
+  });
+
+  console.log(`[AutoSync] ✅ ${categorizadas.length} transações novas salvas para ${companyId}`);
+  return { novas: categorizadas.length, from, to };
+}
+
+// ── Categoriza extrato bancário com Groq
+async function categorizarComGroq(txs) {
+  if (!txs.length) return [];
+
+  const CATS_PROMPT = `
+Categorias (use EXATAMENTE esta string):
+- "entrada"     → Receitas, depósitos, Pix recebido, transferências recebidas
+- "saida-fixa"  → Aluguel, contas fixas (água, luz, internet, telefone), assinaturas
+- "funcionario" → Salário, pagamento de funcionários, FGTS, INSS
+- "comida"      → Supermercado, restaurante, delivery, alimentação
+- "variavel"    → Outros: combustível, farmácia, compras, saques, transferências enviadas
+`.trim();
+
+  const BATCH = 40;
+  let result = [];
+
+  for (let i = 0; i < txs.length; i += BATCH) {
+    const lote = txs.slice(i, i + BATCH);
+    try {
+      const response = await groq.chat.completions.create({
+        model: 'llama-3.3-70b-versatile',
+        messages: [
+          {
+            role: 'system',
+            content: `Você é um categorizador de extratos bancários brasileiros.\n${CATS_PROMPT}\nRetorne SOMENTE JSON com chave "items": [{"pluggyTxId":"id_original","date":"YYYY-MM-DD","description":"texto limpo","category":"categoria","value":número_positivo}]. Preserve o pluggyTxId exatamente como recebido.`
+          },
+          { role: 'user', content: JSON.stringify(lote) }
+        ],
+        temperature:     0,
+        response_format: { type: 'json_object' }
+      });
+      const parsed = JSON.parse(response.choices[0].message.content);
+      result.push(...(parsed.items || []));
+    } catch (e) {
+      console.error('[Groq-Pluggy] Falha no lote:', e.message);
+    }
+  }
+
+  return result;
+}
+
+// ── Log de atividades em memória (últimas 100 entradas)
+const _logs = [];
+function addLog(tipo, msg, extra = '') {
+  const entry = { tipo, msg, extra, ts: new Date().toLocaleTimeString('pt-BR') };
+  _logs.unshift(entry);
+  if (_logs.length > 100) _logs.pop();
+}
+
+// Sobrescreve console.log para capturar logs do bot
+const _origLog = console.log.bind(console);
+const _origWarn = console.warn.bind(console);
+const _origErr = console.error.bind(console);
+console.log = (...a) => { _origLog(...a); const t = a.join(' '); if (t.includes('[WA]') || t.includes('[CRON]') || t.includes('[Pluggy]') || t.includes('[WhatsApp]')) addLog('info', t); };
+console.warn = (...a) => { _origWarn(...a); addLog('warn', a.join(' ')); };
+console.error = (...a) => { _origErr(...a); addLog('error', a.join(' ')); };
+
+// ── Rota de saúde
+app.get('/health', (_, res) => res.json({
+  status:    'ok',
+  service:   'lumin-backend',
+  whatsapp:  _waReady ? 'conectado' : 'aguardando QR',
+  logs:      _logs.slice(0, 5),
+  ts:        new Date().toISOString()
+}));
+
+// ── Monitor em tempo real
+app.get('/monitor', (req, res) => {
+  const cor = { info: '#4ade80', warn: '#fbbf24', error: '#f87171' };
+  const linhas = _logs.map(l =>
+    `<div style="padding:6px 10px;border-bottom:1px solid #1e1e2e;display:flex;gap:12px;align-items:flex-start">
+      <span style="color:#555;font-size:11px;white-space:nowrap;margin-top:2px">${l.ts}</span>
+      <span style="color:${cor[l.tipo]||'#aaa'};font-size:13px;word-break:break-all">${l.msg.replace(/</g,'&lt;')}</span>
+    </div>`
+  ).join('');
+
+  res.send(`<!DOCTYPE html><html><head><title>Lumin Monitor</title>
+  <meta charset="utf-8"/>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:#0d0d1a;color:#fff;font-family:'Courier New',monospace;height:100vh;display:flex;flex-direction:column}
+    header{background:#1a1a2e;padding:16px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid #2a2a4a;flex-shrink:0}
+    h1{font-size:18px;font-weight:700;color:#fff}
+    .badge{padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600}
+    .online{background:#14532d;color:#4ade80}
+    .offline{background:#450a0a;color:#f87171}
+    .stats{display:flex;gap:16px;padding:12px 24px;background:#111827;border-bottom:1px solid #1e293b;flex-shrink:0}
+    .stat{font-size:12px;color:#6b7280}
+    .stat b{color:#e5e7eb;font-size:14px}
+    #logs{flex:1;overflow-y:auto;padding:0}
+    .empty{text-align:center;padding:40px;color:#374151}
+    footer{padding:10px 24px;background:#1a1a2e;font-size:11px;color:#4b5563;border-top:1px solid #2a2a4a;display:flex;justify-content:space-between;flex-shrink:0}
+  </style>
+  </head><body>
+  <header>
+    <h1>🤖 Lumin Bot — Monitor</h1>
+    <span class="badge ${_waReady ? 'online' : 'offline'}">${_waReady ? '● WhatsApp Online' : '○ WhatsApp Offline'}</span>
+  </header>
+  <div class="stats">
+    <div class="stat">Atividades <b>${_logs.length}</b></div>
+    <div class="stat">Uptime <b id="up">calculando...</b></div>
+    <div class="stat">Atualiza <b>a cada 3s</b></div>
+  </div>
+  <div id="logs">${linhas || '<div class="empty">Nenhuma atividade ainda. Manda uma mensagem pro bot!</div>'}</div>
+  <footer>
+    <span>http://localhost:3001/monitor</span>
+    <span id="clock"></span>
+  </footer>
+  <script>
+    const start = Date.now();
+    function tick(){
+      const s=Math.floor((Date.now()-start)/1000);
+      document.getElementById('up').textContent = s<60?s+'s':Math.floor(s/60)+'m '+s%60+'s';
+      document.getElementById('clock').textContent = new Date().toLocaleTimeString('pt-BR');
+    }
+    tick(); setInterval(tick,1000);
+    setInterval(()=>location.reload(), 3000);
+  </script>
+  </body></html>`);
+});
+
+// ── QR Code + Pairing Code no navegador
+app.get('/qr', async (req, res) => {
+  if (_waReady) {
+    return res.send(`<!DOCTYPE html><html><body style="font-family:sans-serif;text-align:center;padding:40px;background:#111;color:#fff">
+      <h2>✅ WhatsApp conectado!</h2><p>O bot está online e funcionando normalmente.</p></body></html>`);
+  }
+
+  const base = `<!DOCTYPE html><html><head><title>Lumin Bot - Conectar</title>
+  <style>body{font-family:sans-serif;text-align:center;padding:40px;background:#111;color:#fff;margin:0}
+  h2{margin-bottom:8px} p{color:#aaa;margin:4px 0} .card{background:#1a1a2e;border-radius:16px;padding:24px;margin:16px auto;max-width:420px;border:1px solid #333}
+  input{background:#0d0d1a;border:1px solid #444;color:#fff;padding:12px 16px;border-radius:8px;font-size:16px;width:200px;text-align:center}
+  button{background:#25d366;color:#fff;border:none;padding:12px 24px;border-radius:8px;font-size:15px;cursor:pointer;margin-top:8px;font-weight:600}
+  button:hover{background:#1da851} .divider{color:#555;margin:16px 0;font-size:13px} #msg{margin-top:12px;font-size:14px;min-height:20px}</style></head><body>`;
+
+  const qrPngPath = path.join(DATA_DIR, 'qrcode.png');
+  const hasQr = _qrAtual || fs.existsSync(qrPngPath);
+
+  if (!hasQr) {
+    return res.send(base + `<div class="card"><h2>⏳ Inicializando...</h2>
+      <p>Aguarde, o bot está carregando o WhatsApp Web.</p>
+      <p style="margin-top:16px;color:#666;font-size:13px">A página atualiza sozinha</p></div>
+      <script>setTimeout(()=>location.reload(),5000)</script></body></html>`);
+  }
+
+  // Serve a imagem diretamente do arquivo PNG em disco (cache-bust com timestamp)
+  const ts = Date.now();
+  res.send(base + `
+    <h2 style="margin-bottom:4px">📱 Conectar Lumin Bot</h2>
+    <p>Escolha uma das opções abaixo</p>
+
+    <div class="card">
+      <h3 style="margin:0 0 8px">Opção 1 — Escanear QR Code</h3>
+      <p>WhatsApp → Dispositivos vinculados → Vincular dispositivo</p>
+      <img src="/qr-image.png?t=${ts}" style="border-radius:12px;margin:12px auto;display:block;width:320px"/>
+      <p style="font-size:12px;color:#666">Expira em ~60s — a página atualiza automaticamente</p>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0 0 8px">Opção 2 — Vincular pelo número 📞</h3>
+      <p>Se o QR der erro, use seu número com DDI (ex: 5511999990001)</p>
+      <input type="text" id="phone" placeholder="5511999990001" maxlength="15"/>
+      <br/>
+      <button onclick="pedir()">Gerar código de 8 dígitos</button>
+      <div id="msg"></div>
+    </div>
+
+    <script>
+      setTimeout(()=>location.reload(), 28000);
+      async function pedir(){
+        const phone = document.getElementById('phone').value.replace(/\\D/g,'');
+        if(phone.length < 12){ document.getElementById('msg').textContent='⚠ Digite o número completo com DDI'; return; }
+        document.getElementById('msg').textContent='⏳ Gerando código...';
+        try{
+          const r = await fetch('/qr/pair?phone='+phone);
+          const d = await r.json();
+          if(d.code) document.getElementById('msg').innerHTML='<b style="font-size:28px;letter-spacing:4px;color:#25d366">'+d.code+'</b><br><small>Digite esse código no WhatsApp → Dispositivos vinculados → Vincular com número</small>';
+          else document.getElementById('msg').textContent = d.error || 'Erro ao gerar código';
+        }catch(e){ document.getElementById('msg').textContent='Erro: '+e.message; }
+      }
+    </script></body></html>`);
+});
+
+// ── Serve o PNG do QR Code diretamente do disco
+app.get('/qr-image.png', (req, res) => {
+  const qrPngPath = path.join(DATA_DIR, 'qrcode.png');
+  if (!fs.existsSync(qrPngPath)) {
+    return res.status(404).send('QR ainda não gerado');
+  }
+  res.setHeader('Content-Type', 'image/png');
+  res.setHeader('Cache-Control', 'no-store');
+  res.sendFile(qrPngPath);
+});
+
+// ── Gera pairing code pelo número de telefone
+app.get('/qr/pair', async (req, res) => {
+  try {
+    const phone = String(req.query.phone || '').replace(/\D/g, '');
+    if (phone.length < 12) return res.json({ error: 'Número inválido' });
+    if (_waReady) return res.json({ error: 'WhatsApp já está conectado!' });
+    const code = await waClient.requestPairingCode(phone);
+    console.log(`[WA] 🔑 Pairing code para ${phone}: ${code}`);
+    res.json({ code });
+  } catch (err) {
+    console.error('[PairingCode]', err.message);
+    res.json({ error: 'Não foi possível gerar o código. Tente o QR Code.' });
+  }
+});
 
 // ─── INICIAR SERVIDOR ──────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  console.log(`[Lumin Webhook] Servidor rodando na porta ${PORT}`);
-  console.log(`Endpoint: POST /webhook/whatsapp`);
+  console.log(`\n[Lumin] Servidor rodando na porta ${PORT}`);
+  console.log(`[Lumin] Aguardando QR Code do WhatsApp...\n`);
 });
 
-module.exports = app; // Para Firebase Functions: exports.webhook = functions.https.onRequest(app);
+module.exports = app;
 
 /*
  ═══════════════════════════════════════════════════════════════
- INSTRUÇÕES DE DEPLOY
+ COMO USAR
  ═══════════════════════════════════════════════════════════════
 
- ── OPÇÃO A: Firebase Functions ─────────────────────────────
+ 1. Instale as dependências:
+    npm install express whatsapp-web.js qrcode-terminal groq-sdk firebase-admin cors axios dotenv
 
- 1. cd functions/
- 2. npm install express axios form-data openai firebase-admin
- 3. No index.js da Function, substitua o module.exports final por:
-      const functions = require('firebase-functions');
-      exports.webhook = functions.https.onRequest(app);
- 4. firebase deploy --only functions
+ 2. Coloque o arquivo serviceAccountKey.json na mesma pasta
+    (baixe do Firebase Console → Configurações do Projeto → Contas de Serviço)
 
- Configurar variáveis de ambiente:
-      firebase functions:config:set \
-        openai.key="sk-SUA_CHAVE" \
-        wa.token="SEU_TOKEN" \
-        wa.phone_id="SEU_PHONE_ID" \
-        wa.verify="lumin_verify_2026"
+ 3. Configure o .env com suas chaves (já está criado)
 
- ── OPÇÃO B: Servidor Node.js (ex: Railway, Render) ──────────
+ 4. Rode o servidor:
+    node webhook-handler.js
 
- 1. npm install
- 2. Crie .env com as variáveis:
-      OPENAI_API_KEY=sk-SUA_CHAVE
-      WA_ACCESS_TOKEN=SEU_TOKEN
-      WA_PHONE_ID=SEU_PHONE_ID
-      WA_VERIFY_TOKEN=lumin_verify_2026
-      PORT=3001
- 3. node webhook-handler.js
+ 5. Um QR Code aparecerá no terminal — escaneie com o WhatsApp do celular
+    (igual ao WhatsApp Web). A sessão fica salva em .wwebjs_auth/
 
- ── CONFIGURAR WEBHOOK NO META DASHBOARD ─────────────────────
+ 6. No painel admin do Lumin, cadastre o número de cada empresa
+    no campo "Número do Bot (WhatsApp)" no formato: 5511999990001
+    (com DDI 55, DDD, número — sem espaços ou traços)
 
- 1. Acesse: developers.facebook.com → seu App → WhatsApp → Webhooks
- 2. URL do Webhook: https://SEU_DOMINIO/webhook/whatsapp
- 3. Token de Verificação: lumin_verify_2026 (ou o que definiu)
- 4. Assinar campos: messages
+ 7. A partir daí, quando alguém cujo número está cadastrado mandar
+    mensagem para o bot, a transação é salva automaticamente!
 
  ═══════════════════════════════════════════════════════════════
- EXEMPLO DE ÁUDIO QUE O SISTEMA ENTENDE:
- "Entrada de 8 caixas pretas do cliente Unidade Shallom
-  pelo motorista William Fernando"
+ EXEMPLOS DE MENSAGENS QUE O BOT ENTENDE:
+ ═══════════════════════════════════════════════════════════════
 
- GPT irá retornar:
- {
-   "tipo": "ENTRADA",
-   "data": "2026-04-29",
-   "cliente": "Unidade Shallom",
-   "quantidadeCx": 8,
-   "cor": "Preta",
-   "valorUnitario": 20.00,
-   "valorTotal": 160.00,
-   "motorista": "William Fernando",
-   "status": "OK"
- }
+ "Entrada de 500 reais do cliente João"
+ "Paguei aluguel 1200"
+ "Salário da Maria 2000 reais"
+ "Almocei 45 reais"
+ "Gasolina 150"
+ "Recebi Pix de 800 reais"
+ "Conta de luz 230 reais"
+
+ Também funciona com ÁUDIO — fale a transação!
+
  ═══════════════════════════════════════════════════════════════
 */

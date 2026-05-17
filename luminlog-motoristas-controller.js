@@ -13,7 +13,7 @@
 import { db } from './firebase-config.js';
 import {
   collection, doc, addDoc, updateDoc, setDoc, deleteDoc,
-  onSnapshot, query, orderBy, writeBatch, serverTimestamp, getDocs
+  onSnapshot, query, orderBy, limit, writeBatch, serverTimestamp, getDocs
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 // ── Coleções ────────────────────────────────────────────────────
@@ -25,8 +25,10 @@ const COL_CAIXAS   = 'controle_caixas';
 // ── Estado ──────────────────────────────────────────────────────
 let _drivers = [];
 let _clients = [];
+let _events  = [];
 let _unsubDrivers = null;
 let _unsubClients = null;
+let _unsubEvents  = null;
 
 // ── Helpers ─────────────────────────────────────────────────────
 const $   = id => document.getElementById(id);
@@ -162,26 +164,27 @@ function openEditModal(driverId, driverName) {
   setTimeout(() => $('llm-edit-name')?.select(), 80);
 }
 
-// ═══════════════════════════════════════════════════════════════
 // SUB-TAB SWITCH
 // ═══════════════════════════════════════════════════════════════
 window.llmSwitchTab = function(tab) {
-  const panRegistros  = $('llm-panel-registros');
-  const panMotoristas = $('llm-panel-motoristas');
-  const btnR = $('llm-btn-registros');
-  const btnM = $('llm-btn-motoristas');
+  const tabs = ['dashboard', 'registros', 'motoristas', 'clientes'];
 
-  const isRegistros = tab === 'registros';
-
-  if (panRegistros)  panRegistros.style.display  = isRegistros ? 'block' : 'none';
-  if (panMotoristas) panMotoristas.style.display = isRegistros ? 'none'  : 'block';
-
-  const base     = 'flex:1;padding:12px;border-radius:12px;font-size:13px;font-weight:800;cursor:pointer;transition:.2s;';
+  const base     = 'flex:1;padding:10px 6px;border-radius:10px;font-size:11px;font-weight:800;cursor:pointer;transition:.2s;white-space:nowrap;';
   const active   = base + 'background:rgba(0,212,255,.15);border:1px solid rgba(0,212,255,.3);color:var(--accent);';
   const inactive = base + 'background:transparent;border:1px solid transparent;color:rgba(228,240,246,.45);';
 
-  if (btnR) btnR.style.cssText = isRegistros ? active : inactive;
-  if (btnM) btnM.style.cssText = isRegistros ? inactive : active;
+  tabs.forEach(t => {
+    const panel = document.getElementById(`llm-panel-${t}`);
+    const btn   = document.getElementById(`llm-btn-${t}`);
+    const isActive = t === tab;
+    if (panel) panel.style.display = isActive ? 'block' : 'none';
+    if (btn)   btn.style.cssText   = isActive ? active : inactive;
+  });
+
+  // Renderiza gráficos ao entrar no Dashboard
+  if (tab === 'dashboard' && typeof window.llRenderCharts === 'function') {
+    setTimeout(window.llRenderCharts, 80);
+  }
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -294,55 +297,83 @@ function renderDrivers() {
   el.innerHTML = _drivers.map(d => {
     const b = nn(d.truckBlack), w = nn(d.truckWhite), total = b + w;
     const link = `${location.origin}${location.pathname.replace('index.html','')}lumin-log.html?user=${encodeURIComponent(d.name)}`;
-    return `
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;
-        padding:16px 0;border-bottom:1px solid rgba(255,255,255,.08);" class="llm-driver-row">
 
-        <div style="min-width:0;flex:1;">
-          <div style="font-size:15px;font-weight:700;margin-bottom:6px;">${esc(d.name)}</div>
-          <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-            <span style="font-size:13px;color:rgba(228,240,246,.5);">
-              Pretas: <strong style="color:var(--text);">${b}</strong>
-            </span>
-            <span style="font-size:13px;color:rgba(228,240,246,.5);">
-              Brancas: <strong style="color:var(--text);">${w}</strong>
-            </span>
-            ${total > 0
-              ? `<span style="font-size:11px;font-weight:800;color:var(--accent);background:rgba(0,212,255,.1);
-                  padding:2px 10px;border-radius:20px;border:1px solid rgba(0,212,255,.2);">${total} total</span>`
-              : `<span style="font-size:11px;color:rgba(228,240,246,.35);">caminhão vazio</span>`}
+    // Fotos recentes deste motorista (últimos eventos com foto)
+    const driverEvs = _events.filter(ev => ev.driverName === d.name);
+    const fotos = [];
+    driverEvs.forEach(ev => {
+      if (ev.fotoUrl)      fotos.push({ url: ev.fotoUrl,      label: 'Retirada CD' });
+      if (ev.fotoEntrega)  fotos.push({ url: ev.fotoEntrega,  label: 'Entrega' });
+      if (ev.fotoColeta)   fotos.push({ url: ev.fotoColeta,   label: 'Coleta' });
+    });
+    // Máximo 4 fotos mais recentes
+    const fotosRecentes = fotos.slice(0, 4);
+
+    const fotosHtml = fotosRecentes.length ? `
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+        ${fotosRecentes.map((f, i) => `
+          <div style="position:relative;cursor:pointer;" onclick="llmVerFoto('${encodeURIComponent(f.url)}','${esc(f.label)}','${esc(d.name)}')">
+            <img src="${f.url}" alt="${esc(f.label)}"
+              style="width:60px;height:60px;object-fit:cover;border-radius:10px;
+              border:1.5px solid rgba(0,212,255,.3);display:block;"/>
+            <div style="position:absolute;bottom:2px;left:0;right:0;text-align:center;
+              font-size:8px;font-weight:700;color:#fff;background:rgba(0,0,0,.55);
+              border-radius:0 0 8px 8px;padding:2px 0;">${esc(f.label)}</div>
           </div>
-        </div>
+        `).join('')}
+      </div>` : '';
 
-        <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">
-          <a href="${link}" target="_blank"
-            style="font-size:11px;font-weight:700;color:var(--accent);
-            padding:8px 12px;border:1px solid rgba(0,212,255,.2);border-radius:8px;
-            background:rgba(0,212,255,.06);display:inline-flex;align-items:center;gap:4px;
-            text-decoration:none;">
-            ↗ Link
-          </a>
-          <button class="llm-edit-btn"
-            data-driver-id="${esc(d.id)}" data-driver-name="${esc(d.name)}"
-            style="padding:8px 12px;border-radius:8px;background:rgba(255,179,71,.08);
-            border:1px solid rgba(255,179,71,.2);color:#ffb347;font-size:11px;
-            font-weight:700;cursor:pointer;">
-            ✏️ Editar
-          </button>
-          <button class="llm-reset-btn"
-            data-driver-id="${esc(d.id)}" data-driver-name="${esc(d.name)}"
-            style="padding:8px 12px;border-radius:8px;background:rgba(255,91,112,.08);
-            border:1px solid rgba(255,91,112,.2);color:var(--alert,#ff5b70);font-size:11px;
-            font-weight:700;cursor:pointer;">
-            ↺ Reset
-          </button>
-          <button class="llm-delete-btn"
-            data-driver-id="${esc(d.id)}" data-driver-name="${esc(d.name)}"
-            style="padding:8px 12px;border-radius:8px;background:rgba(180,40,60,.1);
-            border:1px solid rgba(180,40,60,.25);color:#ff3355;font-size:11px;
-            font-weight:700;cursor:pointer;">
-            🗑 Excluir
-          </button>
+    return `
+      <div style="padding:16px 0;border-bottom:1px solid rgba(255,255,255,.08);" class="llm-driver-row">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+
+          <div style="min-width:0;flex:1;">
+            <div style="font-size:15px;font-weight:700;margin-bottom:6px;">${esc(d.name)}</div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+              <span style="font-size:13px;color:rgba(228,240,246,.5);">
+                Pretas: <strong style="color:var(--text);">${b}</strong>
+              </span>
+              <span style="font-size:13px;color:rgba(228,240,246,.5);">
+                Brancas: <strong style="color:var(--text);">${w}</strong>
+              </span>
+              ${total > 0
+                ? `<span style="font-size:11px;font-weight:800;color:var(--accent);background:rgba(0,212,255,.1);
+                    padding:2px 10px;border-radius:20px;border:1px solid rgba(0,212,255,.2);">${total} total</span>`
+                : `<span style="font-size:11px;color:rgba(228,240,246,.35);">caminhão vazio</span>`}
+            </div>
+            ${fotosHtml}
+          </div>
+
+          <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">
+            <a href="${link}" target="_blank"
+              style="font-size:11px;font-weight:700;color:var(--accent);
+              padding:8px 12px;border:1px solid rgba(0,212,255,.2);border-radius:8px;
+              background:rgba(0,212,255,.06);display:inline-flex;align-items:center;gap:4px;
+              text-decoration:none;">
+              ↗ Link
+            </a>
+            <button class="llm-edit-btn"
+              data-driver-id="${esc(d.id)}" data-driver-name="${esc(d.name)}"
+              style="padding:8px 12px;border-radius:8px;background:rgba(255,179,71,.08);
+              border:1px solid rgba(255,179,71,.2);color:#ffb347;font-size:11px;
+              font-weight:700;cursor:pointer;">
+              ✏️ Editar
+            </button>
+            <button class="llm-reset-btn"
+              data-driver-id="${esc(d.id)}" data-driver-name="${esc(d.name)}"
+              style="padding:8px 12px;border-radius:8px;background:rgba(255,91,112,.08);
+              border:1px solid rgba(255,91,112,.2);color:var(--alert,#ff5b70);font-size:11px;
+              font-weight:700;cursor:pointer;">
+              ↺ Reset
+            </button>
+            <button class="llm-delete-btn"
+              data-driver-id="${esc(d.id)}" data-driver-name="${esc(d.name)}"
+              style="padding:8px 12px;border-radius:8px;background:rgba(180,40,60,.1);
+              border:1px solid rgba(180,40,60,.25);color:#ff3355;font-size:11px;
+              font-weight:700;cursor:pointer;">
+              🗑 Excluir
+            </button>
+          </div>
         </div>
       </div>
     `;
@@ -406,6 +437,97 @@ function renderClients() {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// RENDER GALERIA DE FOTOS
+// ═══════════════════════════════════════════════════════════════
+function renderPhotos() {
+  const el    = $('llm-photos-gallery');
+  const cnt   = $('llm-photos-count');
+  const card  = $('llm-photos-card');
+  if (!el) return;
+
+  // Monta lista: cada foto é um objeto {url, label, driver, ts}
+  const fotos = [];
+  _events.forEach(ev => {
+    const ts = ev.timestamp?.toDate ? ev.timestamp.toDate() : new Date(ev.timestamp || 0);
+    const driver = ev.driverName || '?';
+    if (ev.fotoUrl)     fotos.push({ url: ev.fotoUrl,     label: 'Retirada CD', driver, ts });
+    if (ev.fotoEntrega) fotos.push({ url: ev.fotoEntrega, label: 'Entrega → ' + (ev.clientName || ''), driver, ts });
+    if (ev.fotoColeta)  fotos.push({ url: ev.fotoColeta,  label: 'Coleta ← '  + (ev.clientName || ''), driver, ts });
+  });
+
+  // Ordenar mais recentes primeiro
+  fotos.sort((a, b) => b.ts - a.ts);
+
+  if (cnt) cnt.textContent = fotos.length;
+  if (card) card.style.display = fotos.length ? 'block' : 'none';
+
+  if (!fotos.length) {
+    el.innerHTML = '<p style="color:rgba(228,240,246,.4);font-size:13px;padding:6px 0;">Nenhuma foto enviada ainda.</p>';
+    return;
+  }
+
+  el.innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;">
+      ${fotos.map((f, i) => {
+        const hora = f.ts.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        const dia  = f.ts.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+        return `
+          <div style="cursor:pointer;border-radius:14px;overflow:hidden;
+            border:1.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);
+            transition:transform .15s,border-color .15s;"
+            onmouseover="this.style.transform='scale(1.03)';this.style.borderColor='rgba(0,212,255,.4)'"
+            onmouseout="this.style.transform='';this.style.borderColor='rgba(255,255,255,.1)'"
+            onclick="llmVerFoto('${encodeURIComponent(f.url)}','${esc(f.label)}','${esc(f.driver)}')">
+            <img src="${f.url}" alt="${esc(f.label)}"
+              style="width:100%;aspect-ratio:1/1;object-fit:cover;display:block;"/>
+            <div style="padding:8px 10px;">
+              <div style="font-size:11px;font-weight:700;color:var(--text);
+                white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(f.driver)}</div>
+              <div style="font-size:10px;color:rgba(0,212,255,.8);font-weight:600;
+                white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;">${esc(f.label)}</div>
+              <div style="font-size:10px;color:rgba(228,240,246,.4);margin-top:2px;">${dia} ${hora}</div>
+            </div>
+          </div>`;
+      }).join('')}
+    </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODAL DE FOTO (visualização em tela cheia)
+// ═══════════════════════════════════════════════════════════════
+window.llmVerFoto = function(encodedUrl, label, driverName) {
+  const url = decodeURIComponent(encodedUrl);
+  let modal = document.getElementById('llm-foto-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'llm-foto-modal';
+    modal.style.cssText = [
+      'display:none;position:fixed;inset:0;z-index:99999',
+      'background:rgba(0,0,0,.9);backdrop-filter:blur(10px)',
+      'align-items:center;justify-content:center;padding:20px;flex-direction:column;gap:16px'
+    ].join(';');
+    modal.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;
+        width:100%;max-width:600px;margin-bottom:4px;">
+        <div id="llm-foto-info" style="font-size:14px;font-weight:700;color:rgba(228,240,246,.8);"></div>
+        <button id="llm-foto-close"
+          style="width:36px;height:36px;border-radius:10px;font-size:20px;
+          background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);
+          color:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
+      </div>
+      <img id="llm-foto-img" style="max-width:100%;max-height:80vh;border-radius:16px;
+        border:2px solid rgba(0,212,255,.3);display:block;object-fit:contain;"/>
+    `;
+    document.body.appendChild(modal);
+    modal.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
+    document.getElementById('llm-foto-close').addEventListener('click', () => { modal.style.display = 'none'; });
+  }
+  document.getElementById('llm-foto-img').src = url;
+  document.getElementById('llm-foto-info').textContent = `📷 ${label} — ${driverName}`;
+  modal.style.display = 'flex';
+};
+
+// ═══════════════════════════════════════════════════════════════
 // LISTENERS FIRESTORE
 // ═══════════════════════════════════════════════════════════════
 function startListeners() {
@@ -425,6 +547,20 @@ function startListeners() {
       renderClients();
     },
     err => console.error('[LLM-Motoristas] Clients:', err)
+  );
+
+  // Eventos recentes com fotos
+  _unsubEvents = onSnapshot(
+    query(collection(db, COL_EVENTS), orderBy('timestamp', 'desc'), limit(60)),
+    snap => {
+      _events = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(ev => ev.fotoUrl || ev.fotoEntrega || ev.fotoColeta);
+      window._llmEventsList = _events; // expõe para o radar de suspeitas
+      renderDrivers();
+      renderPhotos();
+    },
+    err => console.error('[LLM-Motoristas] Events:', err)
   );
 }
 

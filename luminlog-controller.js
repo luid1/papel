@@ -31,6 +31,12 @@ let _registros      = [];
 let _dadosCarregados= false;   // true após primeiro snapshot do Firestore
 let _editandoId     = null;
 let _unsubscribe    = null;
+// Chart.js instances
+let _chartDaily   = null;
+let _chartDrivers = null;
+let _chartClients = null;
+// Radar
+let _radarFiltro  = 'risco';
 let _motoristasFreq = [];      // cache de motoristas frequentes (Firestore)
 let _clientesFreq   = [];      // cache de clientes frequentes (Firestore)
 
@@ -269,6 +275,13 @@ function renderKpis() {
       }).join('');
     }
   }
+
+  // Atualiza dashboard se estiver visível
+  const dashPanel = document.getElementById('llm-panel-dashboard');
+  if (dashPanel && dashPanel.style.display !== 'none') {
+    if (typeof window.llRenderCharts === 'function') window.llRenderCharts();
+    _renderRadar();
+  }
 }
 
 // ─── RENDER CARDS ──────────────────────────────────────────────
@@ -318,66 +331,56 @@ function renderTabela() {
     style.id = 'll-card-styles';
     style.textContent = `
       .ll-card {
-        background: rgba(255,255,255,.04);
-        border: 1px solid rgba(255,255,255,.08);
-        border-radius: 16px;
-        padding: 16px 18px;
-        display: grid;
-        grid-template-columns: 1fr auto;
-        gap: 10px 16px;
-        transition: border-color .2s, transform .15s;
+        background: rgba(255,255,255,.03);
+        border: 1px solid rgba(255,255,255,.07);
+        border-radius: 13px;
+        display: flex;
+        flex-direction: column;
+        transition: border-color .18s, box-shadow .18s;
         position: relative;
         overflow: hidden;
       }
-      .ll-card:hover { border-color: rgba(255,255,255,.16); transform: translateY(-1px); }
-      .ll-card.is-revisar { border-color: rgba(255,179,71,.25); background: rgba(255,179,71,.04); }
-      .ll-card::before {
-        content: ''; position: absolute; left: 0; top: 0; bottom: 0;
-        width: 3px; border-radius: 16px 0 0 16px;
+      .ll-card:hover { border-color: rgba(255,255,255,.13); box-shadow: 0 2px 16px rgba(0,0,0,.15); }
+      .ll-card.is-revisar { border-color: rgba(255,179,71,.18); background: rgba(255,179,71,.02); }
+      .ll-card-stripe { position:absolute; left:0; top:0; bottom:0; width:3px; }
+      .ll-card.is-entrada .ll-card-stripe { background: var(--success); }
+      .ll-card.is-saida   .ll-card-stripe { background: var(--alert); }
+      .ll-card.is-revisar .ll-card-stripe { background: var(--warning); }
+      /* ── Corpo ── */
+      .ll-card-body { padding: 11px 14px 10px 18px; display:flex; flex-direction:column; gap:5px; }
+      .ll-r1 { display:flex; align-items:center; gap:7px; min-width:0; }
+      .ll-r2 { display:flex; align-items:center; gap:0; flex-wrap:wrap; padding-left:1px; }
+      .ll-tipo-badge {
+        font-size:10px; font-weight:800; padding:2px 9px; border-radius:5px;
+        white-space:nowrap; flex-shrink:0; letter-spacing:.4px;
       }
-      .ll-card.is-entrada::before { background: var(--success); }
-      .ll-card.is-saida::before   { background: var(--alert); }
-      .ll-card.is-revisar::before { background: var(--warning); }
-      .ll-card-body   { display:flex; flex-direction:column; gap:8px; min-width:0; }
-      .ll-card-top    { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-      .ll-card-nome   {
-        font-size:15px; font-weight:800; letter-spacing:.1px;
-        white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:260px;
+      .ll-nome { font-size:14px; font-weight:700; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin:0 6px; }
+      .ll-data { font-family:'DM Mono',monospace; font-size:11px; color:rgba(228,240,246,.38); white-space:nowrap; flex-shrink:0; }
+      .ll-chip { font-size:11px; font-weight:600; color:rgba(228,240,246,.45); padding:0 7px 0 0; white-space:nowrap; }
+      .ll-chip-val { font-family:'DM Mono',monospace; font-weight:800; color:var(--text); }
+      .ll-chip-sep { display:inline-block; width:1px; height:10px; background:rgba(255,255,255,.09); margin:0 6px 0 0; vertical-align:middle; flex-shrink:0; }
+      /* ── Rodapé ── */
+      .ll-card-footer {
+        display:flex; align-items:center; justify-content:space-between; gap:10px;
+        padding: 8px 14px 10px 18px;
+        border-top: 1px solid rgba(255,255,255,.05);
+        background: rgba(255,255,255,.01);
       }
-      .ll-card-badge  {
-        font-size:10px; font-weight:800; padding:3px 9px;
-        border-radius:20px; text-transform:uppercase; letter-spacing:.5px;
-        white-space:nowrap; flex-shrink:0;
+      .ll-valor { font-family:'DM Mono',monospace; font-size:15px; font-weight:800; letter-spacing:-.3px; }
+      .ll-btns { display:flex; gap:5px; }
+      .ll-btns button {
+        padding:5px 12px; border-radius:7px; font-size:11px; font-weight:700;
+        cursor:pointer; transition:.15s; border-width:1px; border-style:solid;
+        display:inline-flex; align-items:center; gap:4px;
       }
-      .ll-card-meta   {
-        display:flex; gap:14px; flex-wrap:wrap; align-items:center; font-size:12px; color:var(--muted);
-      }
-      .ll-card-meta-item { display:flex; align-items:center; gap:4px; }
-      .ll-card-meta-label{ font-size:10px; text-transform:uppercase; letter-spacing:.4px; opacity:.55; }
-      .ll-card-meta-val  { font-weight:600; color:var(--text); }
-      .ll-card-cx-badge  {
-        display:inline-flex; align-items:center; gap:5px;
-        font-family:'DM Mono',monospace; font-size:13px; font-weight:800;
-        padding:4px 12px; border-radius:20px; white-space:nowrap;
-      }
-      .ll-card-valor  { font-family:'DM Mono',monospace; font-size:20px; font-weight:800; letter-spacing:-.5px; }
-      .ll-card-actions{ display:flex; gap:6px; }
-      .ll-card-actions button {
-        padding:6px 14px; border-radius:9px; font-size:12px; font-weight:700;
-        cursor:pointer; transition:.15s; border-width:1px; border-style:solid; white-space:nowrap;
-      }
-      .ll-card-actions button:hover { opacity:.8; transform:scale(.97); }
-      .ll-card-pill {
-        display:inline-flex; align-items:center; gap:5px;
-        font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px; white-space:nowrap;
-      }
-      /* Painel de caixas no caminhão */
+      .ll-btns button:hover { opacity:.8; transform:scale(.97); }
+      /* Painel trânsito */
       #ll-motoristas-panel { display:flex; gap:10px; flex-wrap:wrap; }
       /* Filtros colapsáveis */
       #ll-filtros-body { overflow:hidden; transition: max-height .3s ease, opacity .3s ease; }
       #ll-filtros-body.collapsed { max-height:0!important; opacity:0; pointer-events:none; }
       #ll-filtros-body.expanded  { opacity:1; }
-      #ll-tbody { display:flex; flex-direction:column; gap:8px; padding:4px 0; }
+      #ll-tbody { display:flex; flex-direction:column; gap:6px; padding:4px 0; }
     `;
     document.head.appendChild(style);
   }
@@ -393,101 +396,53 @@ function renderTabela() {
     const isRevisar  = r.status === 'REVISAR';
     const tipoColor  = isEntrada ? 'var(--success)' : 'var(--alert)';
     const tipoBg     = isEntrada ? 'rgba(0,229,160,.12)' : 'rgba(255,91,112,.12)';
-    const tipoBorder = isEntrada ? 'rgba(0,229,160,.3)'  : 'rgba(255,91,112,.3)';
+    const tipoBorder = isEntrada ? 'rgba(0,229,160,.28)'  : 'rgba(255,91,112,.28)';
     const tipoIcon   = isEntrada ? '▲' : '▼';
 
     const corIcon = (r.cor||'').toLowerCase().includes('pret') ? '⬛'
                   : (r.cor||'').toLowerCase().includes('branc') ? '⬜' : '🔲';
 
-    const statusBadge = isRevisar
-      ? `<span class="ll-card-pill" style="background:rgba(255,179,71,.15);border:1px solid rgba(255,179,71,.3);color:var(--warning);">⚠ REVISAR</span>`
-      : `<span class="ll-card-pill" style="background:rgba(0,229,160,.1);border:1px solid rgba(0,229,160,.2);color:var(--success);">✓ OK</span>`;
+    // Nome principal do card
+    const nomePrincipal = r.cliente || '—';
 
-    // Para SAÍDA: exibe cliente em destaque + caixas ainda com esse motorista
-    let extraInfoHtml = '';
+    // Caixas em rota (inline no r2, só para SAÍDA)
+    let extraCxHtml = '';
     if (!isEntrada && r.motorista) {
       const mot = r.motorista.trim().toUpperCase();
       const saldo = saldoMot[mot];
-      const cxRestantes = saldo ? Math.max(0, saldo.total) : 0;
-      if (cxRestantes > 0) {
-        extraInfoHtml = `
-          <div class="ll-card-meta-item" style="margin-top:2px;">
-            <span class="ll-card-cx-badge" style="background:rgba(255,179,71,.12);border:1px solid rgba(255,179,71,.25);color:var(--warning);">
-              🚚 ${cxRestantes} cx ainda no caminhão
-            </span>
-          </div>`;
-      } else {
-        extraInfoHtml = `
-          <div class="ll-card-meta-item" style="margin-top:2px;">
-            <span class="ll-card-cx-badge" style="background:rgba(0,229,160,.08);border:1px solid rgba(0,229,160,.2);color:var(--success);">
-              ✓ Caminhão zerado
-            </span>
-          </div>`;
-      }
+      const cxR = saldo ? Math.max(0, saldo.total) : 0;
+      extraCxHtml = cxR > 0
+        ? `<span class="ll-chip-sep"></span><span class="ll-chip" style="color:var(--warning);">🚚 ${cxR} cx em rota</span>`
+        : `<span class="ll-chip-sep"></span><span class="ll-chip" style="color:var(--success);">✓ Zerado</span>`;
     }
 
-    // Para ENTRADA: mostra fornecedor se existir
-    const fornecedorHtml = (isEntrada && r.fornecedor)
-      ? `<div class="ll-card-meta-item">
-           <span class="ll-card-meta-label">Fornec.</span>
-           <span class="ll-card-meta-val">${esc(r.fornecedor)}</span>
-         </div>`
-      : '';
-
-    const motoristaHtml = r.motorista
-      ? `<div class="ll-card-meta-item">
-           <span class="ll-card-meta-label">Motorista</span>
-           <span class="ll-card-meta-val">${esc(r.motorista)}</span>
-         </div>`
-      : '';
-
-    // Nome principal: para SAÍDA mostra CLIENTE, para ENTRADA mostra CLIENTE também
-    // (o cliente é sempre quem recebeu/pediu — igual ao comportamento atual)
-    const nomePrincipal = r.cliente || '—';
+    // Linha 2: motorista + cor + qtd + extras
+    const r2Parts = [];
+    if (r.motorista) r2Parts.push(`<span class="ll-chip">🚚 ${esc(r.motorista)}</span><span class="ll-chip-sep"></span>`);
+    r2Parts.push(`<span class="ll-chip">${corIcon} ${esc(r.cor||'—')}</span>`);
+    r2Parts.push(`<span class="ll-chip-sep"></span>`);
+    r2Parts.push(`<span class="ll-chip ll-chip-val">${r.quantidadeCx ?? '—'} cx</span>`);
+    if (isRevisar) r2Parts.push(`<span class="ll-chip-sep"></span><span class="ll-chip" style="color:var(--warning);">⚠ Revisar</span>`);
+    r2Parts.push(extraCxHtml);
 
     return `
       <div class="ll-card ${isEntrada ? 'is-entrada' : 'is-saida'} ${isRevisar ? 'is-revisar' : ''}" data-ll-id="${r.id}">
+        <div class="ll-card-stripe"></div>
         <div class="ll-card-body">
-          <div class="ll-card-top">
-            <span class="ll-card-badge" style="background:${tipoBg};border:1px solid ${tipoBorder};color:${tipoColor};">
-              ${tipoIcon} ${esc(r.tipo)}
-            </span>
-            <span class="ll-card-nome" title="${esc(nomePrincipal)}">${esc(nomePrincipal)}</span>
-            ${statusBadge}
+          <div class="ll-r1">
+            <span class="ll-tipo-badge" style="background:${tipoBg};border:1px solid ${tipoBorder};color:${tipoColor};">${tipoIcon} ${esc(r.tipo)}</span>
+            <span class="ll-nome" title="${esc(nomePrincipal)}">${esc(nomePrincipal)}</span>
+            <span class="ll-data">${fmtDt(r.data)}</span>
           </div>
-          <div class="ll-card-meta">
-            <div class="ll-card-meta-item">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" opacity=".5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-              <span style="font-family:'DM Mono',monospace;font-weight:600;color:var(--text);font-size:12px;">${fmtDt(r.data)}</span>
-            </div>
-            <div class="ll-card-meta-item">
-              <span class="ll-card-meta-label">Qtd</span>
-              <span style="font-family:'DM Mono',monospace;font-size:14px;font-weight:800;color:var(--text);">${r.quantidadeCx ?? '—'} cx</span>
-            </div>
-            <div class="ll-card-meta-item">
-              ${corIcon}
-              <span class="ll-card-meta-val">${esc(r.cor||'—')}</span>
-            </div>
-            <div class="ll-card-meta-item">
-              <span class="ll-card-meta-label">Unit.</span>
-              <span style="font-family:'DM Mono',monospace;font-weight:600;color:var(--text);font-size:12px;">${fmt(r.valorUnitario)}</span>
-            </div>
-            ${fornecedorHtml}
-            ${motoristaHtml}
-          </div>
-          ${extraInfoHtml}
+          <div class="ll-r2">${r2Parts.join('')}</div>
         </div>
-        <div style="display:flex;flex-direction:column;align-items:flex-end;justify-content:space-between;gap:8px;flex-shrink:0;">
-          <div class="ll-card-valor" style="color:${tipoColor};">${fmt(r.valorTotal)}</div>
-          <div class="ll-card-actions">
+        <div class="ll-card-footer">
+          <span class="ll-valor" style="color:${tipoColor};">${fmt(r.valorTotal)}</span>
+          <div class="ll-btns">
             <button data-ll-action="edit" data-ll-id="${r.id}"
-              style="background:rgba(0,212,255,.1);border-color:rgba(0,212,255,.25);color:var(--accent);">
-              ✎ Editar
-            </button>
+              style="background:rgba(0,212,255,.08);border-color:rgba(0,212,255,.2);color:var(--accent);">✎ Editar</button>
             <button data-ll-action="del" data-ll-id="${r.id}"
-              style="background:rgba(255,91,112,.08);border-color:rgba(255,91,112,.2);color:var(--alert);padding:6px 10px;">
-              ✕
-            </button>
+              style="background:rgba(255,91,112,.06);border-color:rgba(255,91,112,.18);color:var(--alert);">🗑</button>
           </div>
         </div>
       </div>`;
@@ -495,6 +450,399 @@ function renderTabela() {
 }
 
 // ─── TOGGLE FILTROS COLAPSÁVEL ─────────────────────────────────
+// ─── RADAR DE SUSPEITAS ────────────────────────────────────────
+window.llSetRadarFiltro = function(filtro) {
+  _radarFiltro = filtro;
+  const cores = {
+    risco:   { bg: 'rgba(255,91,112,.12)',  bdr: 'rgba(255,91,112,.3)',  cor: 'var(--alert)'   },
+    saldo:   { bg: 'rgba(255,179,71,.1)',   bdr: 'rgba(255,179,71,.25)', cor: 'var(--warning)' },
+    taxa:    { bg: 'rgba(167,139,250,.1)',  bdr: 'rgba(167,139,250,.25)',cor: '#a78bfa'        },
+    semfoto: { bg: 'rgba(0,212,255,.1)',    bdr: 'rgba(0,212,255,.25)',  cor: 'var(--accent)'  },
+  };
+  ['risco','saldo','taxa','semfoto'].forEach(f => {
+    const btn = document.getElementById(`ll-radar-f-${f}`);
+    if (!btn) return;
+    if (f === filtro) {
+      const c = cores[f];
+      btn.style.background  = c.bg;
+      btn.style.borderColor = c.bdr;
+      btn.style.color       = c.cor;
+    } else {
+      btn.style.background  = 'transparent';
+      btn.style.borderColor = 'rgba(255,255,255,.1)';
+      btn.style.color       = 'var(--muted)';
+    }
+  });
+  _renderRadar();
+};
+
+function _renderRadar() {
+  const el = document.getElementById('ll-radar-list');
+  if (!el) return;
+
+  // ── Computa stats por motorista a partir dos registros ─────────
+  const stats = {};
+  _registros.forEach(r => {
+    if (!r.motorista) return;
+    const m = r.motorista.trim().toUpperCase();
+    if (!stats[m]) stats[m] = { nome: m, carregou: 0, entregou: 0, ultimaData: '0000-00-00', saidasTotal: 0 };
+    if (r.tipo === 'ENTRADA') {
+      stats[m].carregou += (r.quantidadeCx || 0);
+    } else {
+      stats[m].entregou  += (r.quantidadeCx || 0);
+      stats[m].saidasTotal++;
+    }
+    if (r.data && r.data > stats[m].ultimaData) stats[m].ultimaData = r.data;
+  });
+
+  if (!Object.keys(stats).length) {
+    el.innerHTML = `<div style="color:var(--muted);font-size:13px;text-align:center;padding:24px 0;">Nenhum motorista com registros ainda.</div>`;
+    return;
+  }
+
+  // ── Pega eventos com foto expostos pelo motoristas-controller ──
+  const eventos = Array.isArray(window._llmEventsList) ? window._llmEventsList : [];
+
+  Object.values(stats).forEach(s => {
+    s.saldo = Math.max(0, s.carregou - s.entregou);
+    s.taxa  = s.carregou > 0 ? Math.round((s.entregou / s.carregou) * 100) : 0;
+
+    // Fotos: conta eventos com foto para este motorista
+    const evMotorista = eventos.filter(ev =>
+      (ev.driverName || '').trim().toUpperCase() === s.nome
+    );
+    s.fotosCount = evMotorista.length;
+    s.taxaFoto   = s.saidasTotal > 0
+      ? Math.round((s.fotosCount / s.saidasTotal) * 100)
+      : null; // null = sem dados suficientes
+
+    // ── Score de risco (0-10 pts) ──────────────────────────────
+    let pts = 0;
+    // Saldo alto em rota
+    if      (s.saldo > 50)  pts += 4;
+    else if (s.saldo > 25)  pts += 2;
+    else if (s.saldo > 10)  pts += 1;
+    // Taxa de entrega baixa
+    if (s.carregou >= 15) {
+      if      (s.taxa < 40) pts += 4;
+      else if (s.taxa < 65) pts += 2;
+      else if (s.taxa < 80) pts += 1;
+    }
+    // Sem foto nas entregas
+    if (s.saidasTotal >= 3) {
+      if      (s.taxaFoto < 20) pts += 3;
+      else if (s.taxaFoto < 50) pts += 1;
+    }
+
+    s.pontos = pts;
+    s.risco  = pts >= 6 ? 'alto' : pts >= 3 ? 'medio' : 'baixo';
+  });
+
+  let drivers = Object.values(stats);
+
+  // ── Ordenação por filtro ────────────────────────────────────
+  if (_radarFiltro === 'risco') {
+    drivers.sort((a, b) => b.pontos - a.pontos || b.saldo - a.saldo);
+  } else if (_radarFiltro === 'saldo') {
+    drivers.sort((a, b) => b.saldo - a.saldo);
+  } else if (_radarFiltro === 'taxa') {
+    drivers.sort((a, b) => a.taxa - b.taxa || b.saldo - a.saldo);
+  } else if (_radarFiltro === 'semfoto') {
+    drivers.sort((a, b) => {
+      const fa = a.taxaFoto ?? 101;
+      const fb = b.taxaFoto ?? 101;
+      return fa - fb || b.saldo - a.saldo;
+    });
+  }
+
+  // ── Render ──────────────────────────────────────────────────
+  el.innerHTML = drivers.map(s => {
+    const isAlto = s.risco === 'alto';
+    const isMed  = s.risco === 'medio';
+    const cor    = isAlto ? 'rgba(255,91,112,1)'   : isMed ? 'rgba(255,179,71,1)'  : 'rgba(0,229,160,1)';
+    const bg     = isAlto ? 'rgba(255,91,112,.06)'  : isMed ? 'rgba(255,179,71,.05)' : 'rgba(0,229,160,.04)';
+    const bdr    = isAlto ? 'rgba(255,91,112,.18)'  : isMed ? 'rgba(255,179,71,.18)' : 'rgba(0,229,160,.12)';
+    const icon   = isAlto ? '🔴' : isMed ? '🟡' : '🟢';
+    const label  = isAlto ? 'SUSPEITO' : isMed ? 'ATENÇÃO' : 'NORMAL';
+
+    const taxaBarW = Math.min(100, Math.max(0, s.taxa));
+    const taxaCor  = s.taxa >= 80 ? 'var(--success)' : s.taxa >= 50 ? 'var(--warning)' : 'var(--alert)';
+    const fotoBarW = s.taxaFoto != null ? Math.min(100, Math.max(0, s.taxaFoto)) : 0;
+    const fotoCor  = s.taxaFoto == null ? 'var(--muted)'
+                   : s.taxaFoto >= 70 ? 'var(--success)'
+                   : s.taxaFoto >= 35 ? 'var(--warning)' : 'var(--alert)';
+    const fotoLabel = s.taxaFoto == null ? '— sem dados' : `${s.taxaFoto}% (${s.fotosCount}/${s.saidasTotal} entregas)`;
+
+    // Alertas textuais
+    const alertas = [];
+    if (s.saldo > 25) alertas.push(`📦 ${s.saldo} caixas em rota sem retorno`);
+    if (s.taxa < 60 && s.carregou >= 15) alertas.push(`📉 Entrega menos do que carrega (${s.taxa}%)`);
+    if (s.taxaFoto != null && s.taxaFoto < 30 && s.saidasTotal >= 3) alertas.push(`📷 Raramente tira foto nas entregas`);
+
+    return `
+      <div style="background:${bg};border:1px solid ${bdr};border-radius:12px;padding:13px 15px;margin-bottom:8px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:11px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:17px;line-height:1;">${icon}</span>
+            <span style="font-size:14px;font-weight:800;letter-spacing:.2px;">${esc(s.nome)}</span>
+          </div>
+          <span style="font-size:9px;font-weight:900;padding:3px 12px;border-radius:20px;letter-spacing:.6px;
+            color:${cor};background:${bg};border:1px solid ${bdr};">${label}</span>
+        </div>
+
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:11px;text-align:center;">
+          <div style="background:rgba(255,255,255,.04);border-radius:9px;padding:8px 4px;">
+            <div style="font-size:8px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px;">Em Rota</div>
+            <div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:900;color:${cor};">${s.saldo}<span style="font-size:9px;color:var(--muted);"> cx</span></div>
+          </div>
+          <div style="background:rgba(255,255,255,.04);border-radius:9px;padding:8px 4px;">
+            <div style="font-size:8px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px;">Carregou</div>
+            <div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:900;">${s.carregou}<span style="font-size:9px;color:var(--muted);"> cx</span></div>
+          </div>
+          <div style="background:rgba(255,255,255,.04);border-radius:9px;padding:8px 4px;">
+            <div style="font-size:8px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px;">Entregou</div>
+            <div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:900;">${s.entregou}<span style="font-size:9px;color:var(--muted);"> cx</span></div>
+          </div>
+        </div>
+
+        <div style="margin-bottom:7px;">
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+            <span style="font-size:9px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Taxa de Entrega</span>
+            <span style="font-size:10px;font-weight:900;color:${taxaCor};">${s.taxa}%</span>
+          </div>
+          <div style="height:5px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden;">
+            <div style="height:100%;width:${taxaBarW}%;background:${taxaCor};border-radius:3px;transition:width .5s ease;"></div>
+          </div>
+        </div>
+
+        <div style="margin-bottom:${alertas.length ? '9px' : '0'};">
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+            <span style="font-size:9px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">📷 Fotos nas Entregas</span>
+            <span style="font-size:10px;font-weight:700;color:${fotoCor};">${fotoLabel}</span>
+          </div>
+          <div style="height:5px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden;">
+            <div style="height:100%;width:${fotoBarW}%;background:${fotoCor};border-radius:3px;transition:width .5s ease;"></div>
+          </div>
+        </div>
+
+        ${alertas.length ? `
+        <div style="border-top:1px solid rgba(255,255,255,.07);padding-top:8px;display:flex;flex-direction:column;gap:4px;">
+          ${alertas.map(a => `<div style="font-size:10px;color:rgba(255,190,80,.9);font-weight:700;">⚠ ${a}</div>`).join('')}
+        </div>` : ''}
+      </div>`;
+  }).join('');
+}
+
+// ─── GRÁFICOS (Chart.js) ───────────────────────────────────────
+window.llRenderCharts = function() {
+  _renderChartDaily();
+  _renderChartDrivers();
+  _renderChartClients();
+};
+
+function _renderChartDaily() {
+  const canvas = document.getElementById('ll-chart-daily');
+  if (!canvas) return;
+
+  // Últimos 14 dias
+  const days = [];
+  const today = new Date();
+  for (let i = 13; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    days.push(d.toISOString().split('T')[0]);
+  }
+
+  const entrada = days.map(day =>
+    _registros.filter(r => r.data === day && r.tipo === 'ENTRADA')
+              .reduce((a, r) => a + (r.quantidadeCx || 0), 0)
+  );
+  const saida = days.map(day =>
+    _registros.filter(r => r.data === day && r.tipo === 'SAÍDA')
+              .reduce((a, r) => a + (r.quantidadeCx || 0), 0)
+  );
+  const labels = days.map(d => d.slice(5).split('-').reverse().join('/'));
+
+  if (_chartDaily) { _chartDaily.destroy(); _chartDaily = null; }
+  _chartDaily = new Chart(canvas, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Entradas',
+          data: entrada,
+          backgroundColor: 'rgba(0,229,160,.55)',
+          borderColor: 'rgba(0,229,160,.9)',
+          borderWidth: 1,
+          borderRadius: 4,
+        },
+        {
+          label: 'Saídas',
+          data: saida,
+          backgroundColor: 'rgba(255,91,112,.55)',
+          borderColor: 'rgba(255,91,112,.9)',
+          borderWidth: 1,
+          borderRadius: 4,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { labels: { color: 'rgba(228,240,246,.65)', font: { size: 11 } } },
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(255,255,255,.05)' },
+          ticks: { color: 'rgba(228,240,246,.45)', font: { size: 9 } },
+        },
+        y: {
+          grid: { color: 'rgba(255,255,255,.05)' },
+          ticks: { color: 'rgba(228,240,246,.45)', font: { size: 9 } },
+          beginAtZero: true,
+        },
+      },
+    },
+  });
+}
+
+function _renderChartDrivers() {
+  const wrap   = document.getElementById('ll-chart-drivers-wrap');
+  const canvas = document.getElementById('ll-chart-drivers');
+  if (!canvas || !wrap) return;
+
+  const saldo = calcCaixasNoCaminhao();
+  const motoristas = Object.entries(saldo)
+    .filter(([, v]) => v.total > 0)
+    .sort((a, b) => b[1].total - a[1].total);
+
+  if (!motoristas.length) {
+    wrap.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:rgba(228,240,246,.35);font-size:12px;">Nenhuma caixa em trânsito</div>`;
+    return;
+  }
+
+  // Garantir que o canvas existe (pode ter sido substituído pelo innerHTML acima)
+  let c = document.getElementById('ll-chart-drivers');
+  if (!c) {
+    wrap.innerHTML = `<canvas id="ll-chart-drivers" style="width:100%;height:100%;"></canvas>`;
+    c = document.getElementById('ll-chart-drivers');
+  }
+
+  const palette = [
+    'rgba(0,212,255,.7)',
+    'rgba(0,229,160,.7)',
+    'rgba(255,179,71,.7)',
+    'rgba(167,139,250,.7)',
+    'rgba(255,91,112,.7)',
+    'rgba(251,146,60,.7)',
+  ];
+
+  if (_chartDrivers) { _chartDrivers.destroy(); _chartDrivers = null; }
+  _chartDrivers = new Chart(c, {
+    type: 'doughnut',
+    data: {
+      labels: motoristas.map(([name]) => name),
+      datasets: [{
+        data: motoristas.map(([, v]) => v.total),
+        backgroundColor: motoristas.map((_, i) => palette[i % palette.length]),
+        borderWidth: 0,
+        hoverOffset: 6,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '62%',
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            color: 'rgba(228,240,246,.65)',
+            font: { size: 10 },
+            padding: 8,
+            boxWidth: 10,
+          },
+        },
+      },
+    },
+  });
+}
+
+function _renderChartClients() {
+  const wrap   = document.getElementById('ll-chart-clients-wrap');
+  const canvas = document.getElementById('ll-chart-clients');
+  if (!canvas || !wrap) return;
+
+  // Saldo por cliente: ENTRADA = caixas entregues (positivo = caixas que foram para o cliente)
+  // SAÍDA = caixas que voltaram do cliente
+  const totals = {};
+  _registros.forEach(r => {
+    if (!r.cliente) return;
+    if (!totals[r.cliente]) totals[r.cliente] = 0;
+    totals[r.cliente] += r.tipo === 'ENTRADA'
+      ? (r.quantidadeCx || 0)
+      : -(r.quantidadeCx || 0);
+  });
+
+  const sorted = Object.entries(totals)
+    .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]))
+    .slice(0, 7);
+
+  if (!sorted.length) {
+    wrap.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:rgba(228,240,246,.35);font-size:12px;">Sem dados de clientes</div>`;
+    return;
+  }
+
+  let c = document.getElementById('ll-chart-clients');
+  if (!c) {
+    wrap.innerHTML = `<canvas id="ll-chart-clients" style="width:100%;height:100%;"></canvas>`;
+    c = document.getElementById('ll-chart-clients');
+  }
+
+  if (_chartClients) { _chartClients.destroy(); _chartClients = null; }
+  _chartClients = new Chart(c, {
+    type: 'bar',
+    data: {
+      labels: sorted.map(([name]) => name.length > 16 ? name.slice(0, 14) + '…' : name),
+      datasets: [{
+        label: 'Saldo (cx)',
+        data: sorted.map(([, v]) => v),
+        backgroundColor: sorted.map(([, v]) => v > 0
+          ? 'rgba(255,179,71,.6)'
+          : 'rgba(0,229,160,.6)'
+        ),
+        borderRadius: 4,
+      }],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      indexAxis: 'y',
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => `${ctx.parsed.x > 0 ? '+' : ''}${ctx.parsed.x} cx`,
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(255,255,255,.05)' },
+          ticks: { color: 'rgba(228,240,246,.45)', font: { size: 9 } },
+          beginAtZero: true,
+        },
+        y: {
+          grid: { display: false },
+          ticks: { color: 'rgba(228,240,246,.65)', font: { size: 9 } },
+        },
+      },
+    },
+  });
+}
+
 function initFiltrosColapsaveis() {
   const btn  = $('ll-filtros-toggle');
   const body = $('ll-filtros-body');
@@ -719,267 +1067,618 @@ async function deleteRecord(id) {
   }
 }
 
-// ─── EXPORTAR EXCEL — ESPELHO EXATO DO Pasta1.xlsx ─────────────
+// ─── EXPORTAR EXCEL — RELATÓRIO COMPLETO ─────────────────────
 async function exportarExcel() {
-  // 1. Verifica ExcelJS
   if (typeof ExcelJS === 'undefined') {
     toast('⏳ Carregando biblioteca Excel...', true);
     await new Promise((resolve, reject) => {
       const s = document.createElement('script');
       s.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
-      s.onload  = resolve;
-      s.onerror = reject;
+      s.onload = resolve; s.onerror = reject;
       document.head.appendChild(s);
-    }).catch(() => { toast('❌ Falha ao carregar ExcelJS. Verifique sua conexão.', true); return; });
-    // Tenta de novo depois de carregar
+    }).catch(() => { toast('❌ Falha ao carregar ExcelJS.', true); return; });
     if (typeof ExcelJS === 'undefined') return;
   }
 
-  // 2. Se dados ainda não chegaram do Firestore, aguarda até 5s
   if (!_dadosCarregados) {
-    toast('⏳ Aguardando dados do servidor...', true);
-    let tentativas = 0;
-    await new Promise(resolve => {
-      const check = setInterval(() => {
-        tentativas++;
-        if (_dadosCarregados || tentativas >= 50) { clearInterval(check); resolve(); }
-      }, 100);
+    toast('⏳ Aguardando dados...', true);
+    let t = 0;
+    await new Promise(r => {
+      const c = setInterval(() => { t++; if (_dadosCarregados || t >= 50) { clearInterval(c); r(); }}, 100);
     });
   }
 
-  // 3. Seleciona dados: todos ou filtrados
-  // ⚠ FIX EXPORTAÇÃO: Usamos _registros diretamente (já normalizado em memória
-  // pelo startListener). Registros do bot têm os mesmos campos que os manuais,
-  // então não há distinção — ambos entram na exportação.
   const dados = temFiltroAtivo() ? aplicarFiltros() : [..._registros];
-  if (!dados.length) {
-    toast(`⚠ Nenhum dado encontrado (${_registros.length} registros no total, filtro ativo: ${temFiltroAtivo()}).`, true);
-    return;
+  if (!dados.length) { toast('⚠ Nenhum dado encontrado.', true); return; }
+
+  toast('⏳ Gerando relatório...', true);
+
+  // ── PALETA DE CORES ──────────────────────────────────────────
+  const C = {
+    navyDark  : 'FF1F3864',  // cabeçalho principal (azul marinho)
+    navyMid   : 'FF243F60',  // sub-cabeçalho
+    navyLight : 'FF2E75B6',  // ENTRADA
+    red       : 'FFC00000',  // SAÍDA
+    redLight  : 'FFFCE4D6',  // linha SAÍDA (fill suave)
+    blueLight : 'FFD9E1F2',  // linha ENTRADA (fill suave)
+    blueAlt   : 'FFEEF2FA',  // linha alternada
+    green     : 'FF375623',  // positivo
+    greenBg   : 'FFE2EFDA',  // fundo positivo
+    amber     : 'FFBF8F00',  // alerta
+    amberBg   : 'FFFFF2CC',  // fundo alerta
+    white     : 'FFFFFFFF',
+    gray1     : 'FFF2F2F2',
+    gray2     : 'FFD9D9D9',
+    textDark  : 'FF1A1A2E',
+  };
+
+  const fmtBRL  = '"R$" #,##0.00';
+  const fmtDate = 'dd/mm/yyyy';
+  const fmtPct  = '0.0"%"';
+  const mid = { horizontal:'center', vertical:'middle' };
+  const midL= { horizontal:'left',   vertical:'middle' };
+  const midR= { horizontal:'right',  vertical:'middle' };
+
+  function fill(argb) { return { type:'pattern', pattern:'solid', fgColor:{ argb } }; }
+  function font(opts) { return { name:'Calibri', size:11, ...opts }; }
+  function border(style='thin') {
+    const s = { style };
+    return { top:s, left:s, bottom:s, right:s };
   }
-
-  const wb = new ExcelJS.Workbook();
-  wb.creator  = 'Lumin SaaS';
-  wb.created  = new Date();
-  const ws = wb.addWorksheet('Planilha1');
-
-  // ── LARGURAS DE COLUNA (espelho do Pasta1.xlsx) ──────────────
-  ws.columns = [
-    { key:'A', width:30.0  },   // Data
-    { key:'B', width:10.57 },   // Tipo
-    { key:'C', width:27.29 },   // Cliente
-    { key:'D', width:16.57 },   // Quantidade CX
-    { key:'E', width:8.14  },   // Cor
-    { key:'F', width:15.29 },   // Valor Unitário
-    { key:'G', width:12.57 },   // Valor Total
-    { key:'H', width:19.29 },   // Motorista
-    { key:'I', width:11.0  },
-    { key:'J', width:8.0   },
-    { key:'K', width:8.0   },
-    { key:'L', width:8.0   },
-    { key:'M', width:23.86 },
-    { key:'N', width:8.0   },
-    { key:'O', width:8.0   },
-    { key:'P', width:8.0   },
-    { key:'Q', width:8.0   },
-    { key:'R', width:19.29 },
-  ];
-
-  // ── FORMATO MOEDA R$ (espelho do Pasta1.xlsx) ────────────────
-  const fmtBRL = '_-"R$" * #,##0.00_-;\\-"R$" * #,##0.00_-;_-"R$" * "-"??_-;_-@_-';
-  const fmtDate= 'dd/mm/yyyy';
-
-  // Estilos reutilizáveis
-  const boldHeader = { bold: true, size: 11, name: 'Calibri' };
-  const centrado   = { horizontal: 'center', vertical: 'middle' };
-  const vermelho   = 'C00000';   // dark red das células SAÍDA
-
-  // ── LINHA 1: CABEÇALHO ───────────────────────────────────────
-  const row1 = ws.getRow(1);
-  row1.height = 30;
-
-  const headers = [
-    ['A1','CONTROLE DE CAIXA HETROS'],
-    ['B1','Tipo'],
-    ['C1','Cliente'],
-    ['D1','Quantidade CX'],
-    ['E1','Cor'],
-    ['F1','Valor Unitário'],
-    ['G1','Valor Total'],
-    ['H1','Motorista'],
-  ];
-
-  headers.forEach(([addr, val]) => {
+  function hdrCell(ws, addr, val, bgArgb=C.navyDark, fSize=11) {
     const c = ws.getCell(addr);
     c.value = val;
-    c.font  = boldHeader;
-    c.alignment = { vertical:'middle' };
-    c.border = _thinBorder();
+    c.font  = font({ bold:true, color:{ argb:C.white }, size:fSize });
+    c.fill  = fill(bgArgb);
+    c.alignment = mid;
+    c.border = border();
+    return c;
+  }
+  function dataCell(ws, addr, val, opts={}) {
+    const c = ws.getCell(addr);
+    c.value = val;
+    if (opts.numFmt)    c.numFmt    = opts.numFmt;
+    if (opts.fill)      c.fill      = fill(opts.fill);
+    if (opts.font)      c.font      = font(opts.font);
+    if (opts.align)     c.alignment = opts.align;
+    else                c.alignment = midL;
+    c.border = border();
+    return c;
+  }
+
+  // ── PRÉ-PROCESSAMENTO DOS DADOS ──────────────────────────────
+  // Agrupa por semana (Seg-Dom), motorista e cliente
+  const nn = v => Math.max(0, Number(v)||0);
+
+  // Dias da semana dos dados
+  const porDia = {};   // 'YYYY-MM-DD' → { ent_cx, sai_cx, ent_val, sai_val }
+  const porMotorista = {}; // nome → { ent_cx, sai_cx, ent_val, sai_val, clientes:Set }
+  const porCliente   = {}; // nome → { ent_cx, sai_cx, ent_val, sai_val, motoristas:Set }
+
+  dados.forEach(r => {
+    const cliente   = r.cliente   || r.remetente || 'Não identificado';
+    const motorista = r.motorista || r.conferente || '—';
+    const cor       = (r.cor || '').toUpperCase();
+    const isEnt     = (r.tipo || '').toUpperCase().includes('ENTRADA');
+    const cx        = nn(r.quantidadeCx);
+    const unitario  = cor === 'PRETA' ? 20 : cor === 'BRANCA' ? 28 : 0;
+    const val       = cx * unitario;
+    const data      = r.data || '';
+
+    // Por dia
+    if (!porDia[data]) porDia[data] = { ent_cx:0, sai_cx:0, ent_val:0, sai_val:0 };
+    if (isEnt) { porDia[data].ent_cx += cx; porDia[data].ent_val += val; }
+    else       { porDia[data].sai_cx += cx; porDia[data].sai_val += val; }
+
+    // Por motorista
+    if (!porMotorista[motorista]) porMotorista[motorista] = { ent_cx:0, sai_cx:0, ent_val:0, sai_val:0, clientes:new Set() };
+    if (isEnt) { porMotorista[motorista].ent_cx += cx; porMotorista[motorista].ent_val += val; }
+    else       { porMotorista[motorista].sai_cx += cx; porMotorista[motorista].sai_val += val; }
+    porMotorista[motorista].clientes.add(cliente);
+
+    // Por cliente
+    if (!porCliente[cliente]) porCliente[cliente] = { ent_cx:0, sai_cx:0, ent_val:0, sai_val:0, motoristas:new Set() };
+    if (isEnt) { porCliente[cliente].ent_cx += cx; porCliente[cliente].ent_val += val; }
+    else       { porCliente[cliente].sai_cx += cx; porCliente[cliente].sai_val += val; }
+    porCliente[cliente].motoristas.add(motorista);
   });
 
-  // I1:R3 mesclado — "UNIDADES DE CADA" (fonte 36, centralizado)
-  ws.mergeCells('I1:R3');
-  const cUnid = ws.getCell('I1');
-  cUnid.value     = 'UNIDADES DE CADA';
-  cUnid.font      = { size:36, name:'Calibri', bold:false };
-  cUnid.alignment = centrado;
-  cUnid.border    = _thinBorder();
+  // Semanas: agrupar dias por semana ISO
+  function isoWeek(dateStr) {
+    if (!dateStr) return 'sem-data';
+    const d = new Date(dateStr + 'T00:00:00');
+    const dow = (d.getDay() + 6) % 7; // 0=seg
+    const monday = new Date(d); monday.setDate(d.getDate() - dow);
+    return monday.toISOString().split('T')[0];
+  }
+  const porSemana = {}; // 'YYYY-MM-DD' (segunda) → { dias:[], totais }
+  Object.entries(porDia).forEach(([data, v]) => {
+    const seg = isoWeek(data);
+    if (!porSemana[seg]) porSemana[seg] = { dias:[], ent_cx:0, sai_cx:0, ent_val:0, sai_val:0 };
+    porSemana[seg].dias.push({ data, ...v });
+    porSemana[seg].ent_cx  += v.ent_cx;  porSemana[seg].sai_cx  += v.sai_cx;
+    porSemana[seg].ent_val += v.ent_val; porSemana[seg].sai_val += v.sai_val;
+  });
 
-  // ── LINHAS DE DADOS ──────────────────────────────────────────
-  const dataRows = [];
+  // ── WORKBOOK ─────────────────────────────────────────────────
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'Lumin SaaS'; wb.created = new Date();
+
+  /* ══════════════════════════════════════════════════════════════
+     SHEET 1 — 📋 REGISTROS
+  ══════════════════════════════════════════════════════════════ */
+  const ws1 = wb.addWorksheet('📋 Registros', { views:[{ state:'frozen', ySplit:2 }] });
+  ws1.columns = [
+    { width:14 }, // A Data
+    { width:10 }, // B Tipo
+    { width:30 }, // C Cliente
+    { width:14 }, // D Motorista
+    { width:8  }, // E Qtd CX
+    { width:8  }, // F Cor
+    { width:14 }, // G Valor Unit.
+    { width:14 }, // H Valor Total
+    { width:12 }, // I Status
+  ];
+
+  // Título
+  ws1.mergeCells('A1:I1');
+  const ws1Title = ws1.getCell('A1');
+  ws1Title.value = '📋  CONTROLE DE CAIXAS — LUMIN LOG';
+  ws1Title.font  = font({ bold:true, size:14, color:{ argb:C.white } });
+  ws1Title.fill  = fill(C.navyDark);
+  ws1Title.alignment = midL;
+  ws1.getRow(1).height = 28;
+
+  // Cabeçalhos col
+  const hdrs1 = ['Data','Tipo','Cliente','Motorista','Qtd CX','Cor','Valor Unit.','Valor Total','Status'];
+  ws1.getRow(2).height = 22;
+
+  function hdrCellRC(ws, row, col, val, bg=C.navyDark, sz=11) {
+    const c = row.getCell(col);
+    c.value = val;
+    c.font  = font({ bold:true, color:{ argb:C.white }, size:sz });
+    c.fill  = fill(bg);
+    c.alignment = mid;
+    c.border = border();
+    return c;
+  }
+  const r2 = ws1.getRow(2);
+  hdrs1.forEach((h,i) => hdrCellRC(ws1, r2, i+1, h, C.navyMid));
+
+  // Auto-filter
+  ws1.autoFilter = { from:'A2', to:'I2' };
+
+  // Dados
   dados.forEach((r, idx) => {
-    const rowNum = idx + 2;   // dados começam na linha 2
-    const rExcel = ws.getRow(rowNum);
-    rExcel.height = 18;
-    dataRows.push(rowNum);
-
-    // ⚠ FIX CAMPOS BOT: registros do WhatsApp podem ter campos com nomes
-    // ligeiramente diferentes ou valores null/undefined. Normalizamos aqui
-    // para que tanto registros manuais quanto do bot exportem corretamente.
+    const rowNum = idx + 3;
+    const rw = ws1.getRow(rowNum);
+    rw.height = 17;
     const cliente   = r.cliente   || r.remetente || 'Não identificado';
-    const motorista = r.motorista || r.conferente || '';
-    const cor       = r.cor       || '';
-    const origem    = r.origem    || 'manual'; // usado como info auxiliar no status
+    const motorista = r.motorista || r.conferente || '—';
+    const cor       = (r.cor || '').toUpperCase();
+    const isEnt     = (r.tipo || '').toUpperCase().includes('ENTRADA');
+    const cx        = nn(r.quantidadeCx);
+    const unitario  = cor === 'PRETA' ? 20 : cor === 'BRANCA' ? 28 : 0;
+    const isAlt     = idx % 2 === 1;
+    const rowFill   = isEnt ? (isAlt ? C.blueAlt : C.blueLight) : (isAlt ? C.gray1 : C.white);
+    const faltaInfo = (!motorista || motorista==='—') || cliente==='Não identificado';
+    const finalFill = faltaInfo && !isEnt ? C.redLight : rowFill;
 
-    // A — Data (formato dd/mm/yyyy)
-    const cellA = ws.getCell(`A${rowNum}`);
+    function dc(col, val, extra={}) {
+      const c = rw.getCell(col);
+      c.value = val; c.border = border();
+      c.fill  = fill(finalFill);
+      c.alignment = extra.align || midL;
+      if (extra.numFmt) c.numFmt = extra.numFmt;
+      if (extra.font)   c.font   = font(extra.font);
+      return c;
+    }
+
+    // A — Data
     if (r.data) {
       const [y,m,d] = r.data.split('-').map(Number);
-      cellA.value          = new Date(y, m-1, d);
-      cellA.numFmt         = fmtDate;
-    }
-    cellA.border = _thinBorder();
+      dc(1, new Date(y,m-1,d), { numFmt:fmtDate, align:mid });
+    } else { dc(1,'—',{align:mid}); }
 
     // B — Tipo
-    const cellB = ws.getCell(`B${rowNum}`);
-    cellB.value  = r.tipo || 'ENTRADA';
-    cellB.border = _thinBorder();
+    const cTipo = dc(2, r.tipo || 'ENTRADA', { align:mid });
+    cTipo.font = font({ bold:true, color:{ argb: isEnt ? C.navyLight : C.red } });
 
-    // C — Cliente (normalizado)
-    const cellC = ws.getCell(`C${rowNum}`);
-    cellC.value  = cliente;
-    cellC.border = _thinBorder();
+    dc(3, cliente);
+    dc(4, motorista);
+    dc(5, cx, { align:mid, font:{ bold:true } });
+    dc(6, cor, { align:mid });
+    dc(7, unitario, { numFmt:fmtBRL, align:midR });
+    dc(8, cx*unitario, { numFmt:fmtBRL, align:midR, font:{ bold:true } });
 
-    // D — Quantidade CX
-    const cellD = ws.getCell(`D${rowNum}`);
-    cellD.value     = r.quantidadeCx || 0;
-    cellD.alignment = { horizontal:'center', vertical:'middle' };
-    cellD.border    = _thinBorder();
-
-    // E — Cor (uppercase para fórmula IF do Excel funcionar)
-    const cellE = ws.getCell(`E${rowNum}`);
-    cellE.value  = cor.toUpperCase();
-    cellE.border = _thinBorder();
-
-    // F — Valor Unitário (fórmula IF idêntica ao Pasta1.xlsx)
-    const cellF = ws.getCell(`F${rowNum}`);
-    cellF.value  = { formula: `IF(E${rowNum}="PRETA", 20, IF(E${rowNum}="BRANCA", 28, 0))` };
-    cellF.numFmt = fmtBRL;
-    cellF.border = _thinBorder();
-
-    // G — Valor Total (fórmula F*D idêntica ao Pasta1.xlsx)
-    const cellG = ws.getCell(`G${rowNum}`);
-    cellG.value  = { formula: `F${rowNum}*D${rowNum}` };
-    cellG.numFmt = fmtBRL;
-    cellG.border = _thinBorder();
-
-    // H — Motorista (normalizado)
-    const cellH = ws.getCell(`H${rowNum}`);
-    cellH.value  = motorista;
-    cellH.border = _thinBorder();
-
-    // ── COLORAÇÃO CONDICIONAL DAS LINHAS (espelho do Pasta1.xlsx) ──
-    // • ENTRADA  → azul claro (BDD7EE — theme:6 do Excel)
-    // • SAÍDA sem motorista OU sem cliente → vermelho escuro (C00000)
-    // • SAÍDA normal → sem fill (branco)
-    const isEntrada = (r.tipo || '').toUpperCase().includes('ENTRADA');
-    const isSaida   = !isEntrada;
-    const faltaMotorista = !motorista || !motorista.trim();
-    const faltaCliente   = !cliente || cliente === 'Não identificado' || cliente === 'NÃO IDENTIFICADO';
-
-    let fillColor = null;
-    if (isEntrada) {
-      fillColor = 'FFBDD7EE';  // azul claro — todas as ENTRADAs
-    } else if (isSaida && (faltaMotorista || faltaCliente)) {
-      fillColor = 'FFC00000';  // vermelho — SAÍDA incompleta (sem motorista ou cliente)
-    }
-    // SAÍDA normal + completa: sem fill (branco padrão)
-
-    if (fillColor) {
-      const fillStyle = { type: 'pattern', pattern: 'solid', fgColor: { argb: fillColor } };
-      ['A','B','C','D','E','F','G','H'].forEach(col => {
-        ws.getCell(`${col}${rowNum}`).fill = fillStyle;
-      });
-    }
+    // I — Status
+    const statusVal = faltaInfo && !isEnt ? '⚠ Incompleto' : isEnt ? '✓ Retorno' : '✓ Saída';
+    const statusFill= faltaInfo && !isEnt ? C.redLight : isEnt ? C.blueLight : C.gray1;
+    const cSt = dc(9, statusVal, { align:mid });
+    cSt.font = font({ bold:true, color:{ argb: faltaInfo&&!isEnt ? C.red : isEnt ? C.navyLight : C.textDark } });
   });
 
-  // ── PAINEL "UNIDADES DE CADA" (mesclados + SUMIF) ────────────
-  // Posição base do painel — logo após os dados (ou mínimo linha 4)
-  const painelBase = Math.max(dataRows.length > 0 ? dataRows[dataRows.length-1] + 2 : 4, 4);
+  // Linha totais
+  const totRow1 = dados.length + 3;
+  ws1.mergeCells(`A${totRow1}:D${totRow1}`);
+  const cTotLbl = ws1.getCell(`A${totRow1}`);
+  cTotLbl.value = 'TOTAIS DO PERÍODO';
+  cTotLbl.font  = font({ bold:true, color:{ argb:C.white } });
+  cTotLbl.fill  = fill(C.navyDark); cTotLbl.alignment = midL; cTotLbl.border = border();
 
-  // Bloco SAÍDA — I mesclado vermelho
-  const r_saidaVal  = painelBase;
-  const r_saidaLbl  = painelBase + 3;
-  const r_saidaMon  = painelBase + 5;
+  function totCell(ws, row, col, formula, fmt) {
+    const c = ws.getRow(row).getCell(col);
+    c.value = { formula };
+    c.font  = font({ bold:true, color:{ argb:C.white } });
+    c.fill  = fill(C.navyDark);
+    c.alignment = midR; c.border = border();
+    if (fmt) c.numFmt = fmt;
+    return c;
+  }
+  totCell(ws1, totRow1, 5, `SUM(E3:E${totRow1-1})`);
+  totCell(ws1, totRow1, 7, `SUM(G3:G${totRow1-1})`, fmtBRL);
+  totCell(ws1, totRow1, 8, `SUM(H3:H${totRow1-1})`, fmtBRL);
+  ws1.getRow(totRow1).height = 20;
 
-  // Merge e estilo: SAÍDA QTD (vermelho)
-  ws.mergeCells(`I${r_saidaVal}:M${r_saidaVal+2}`);
-  const cSaidaQtd = ws.getCell(`I${r_saidaVal}`);
-  cSaidaQtd.value     = { formula: '-SUMIF(B:B, "*SAÍDA*", D:D)' };
-  cSaidaQtd.font      = { size:48, name:'Calibri', color:{ argb:'FFFFFFFF' } };
-  cSaidaQtd.alignment = centrado;
-  cSaidaQtd.fill      = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFC00000' } };
+  /* ══════════════════════════════════════════════════════════════
+     SHEET 2 — 📊 RESUMO SEMANAL
+  ══════════════════════════════════════════════════════════════ */
+  const ws2 = wb.addWorksheet('📊 Resumo Semanal', { views:[{ state:'frozen', ySplit:3 }] });
+  ws2.columns = [
+    { width:22 }, // A Semana / Indicador
+    { width:12 }, // B Seg
+    { width:12 }, // C Ter
+    { width:12 }, // D Qua
+    { width:12 }, // E Qui
+    { width:12 }, // F Sex
+    { width:12 }, // G Sáb
+    { width:12 }, // H Dom
+    { width:14 }, // I TOTAL
+  ];
 
-  // Merge: ENTRADA QTD (sem fill)
-  ws.mergeCells(`N${r_saidaVal}:R${r_saidaVal+2}`);
-  const cEntQtd = ws.getCell(`N${r_saidaVal}`);
-  cEntQtd.value     = { formula: 'SUMIF(B:B, "*ENTRADA*", D:D)' };
-  cEntQtd.font      = { size:48, name:'Calibri' };
-  cEntQtd.alignment = centrado;
+  ws2.mergeCells('A1:I1');
+  const ws2T = ws2.getCell('A1');
+  ws2T.value = '📊  RESUMO SEMANAL — LUMIN LOG';
+  ws2T.font  = font({ bold:true, size:14, color:{ argb:C.white } });
+  ws2T.fill  = fill(C.navyDark); ws2T.alignment = midL;
+  ws2.getRow(1).height = 28;
 
-  // Label SAÍDA
-  ws.mergeCells(`I${r_saidaLbl}:M${r_saidaLbl+1}`);
-  const cSaidaLbl = ws.getCell(`I${r_saidaLbl}`);
-  cSaidaLbl.value     = 'SAÍDA';
-  cSaidaLbl.font      = { size:28, name:'Calibri', color:{ argb:'FFFFFFFF' } };
-  cSaidaLbl.alignment = centrado;
-  cSaidaLbl.fill      = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFC00000' } };
+  const diasNomes = ['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'];
+  hdrCellRC(ws2, ws2.getRow(2), 1, 'Semana / Dia', C.navyMid);
+  diasNomes.forEach((d,i) => hdrCellRC(ws2, ws2.getRow(2), i+2, d, C.navyMid));
+  hdrCellRC(ws2, ws2.getRow(2), 9, '▸ TOTAL', C.navyDark);
+  ws2.getRow(2).height = 20;
 
-  // Label ENTRADA
-  ws.mergeCells(`N${r_saidaLbl}:R${r_saidaLbl+1}`);
-  const cEntLbl = ws.getCell(`N${r_saidaLbl}`);
-  cEntLbl.value     = 'ENTRADA';
-  cEntLbl.font      = { size:28, name:'Calibri' };
-  cEntLbl.alignment = centrado;
+  // Gera sub-cabeçalho de datas por semana
+  hdrCellRC(ws2, ws2.getRow(3), 1, 'Indicador', C.navyMid, 10);
+  ws2.getRow(3).height = 16;
 
-  // SAÍDA Valor Monetário
-  ws.mergeCells(`I${r_saidaMon}:M${r_saidaMon+3}`);
-  const cSaidaMon = ws.getCell(`I${r_saidaMon}`);
-  cSaidaMon.value     = { formula: '-SUMIF(B:B, "*SAÍDA*", G:G)' };
-  cSaidaMon.font      = { size:48, name:'Calibri', color:{ argb:'FFFFFFFF' } };
-  cSaidaMon.numFmt    = fmtBRL;
-  cSaidaMon.alignment = centrado;
-  cSaidaMon.fill      = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFC00000' } };
+  let ws2Row = 4;
+  const semanasOrdenadas = Object.keys(porSemana).sort();
 
-  // ENTRADA Valor Monetário
-  ws.mergeCells(`N${r_saidaMon}:R${r_saidaMon+3}`);
-  const cEntMon = ws.getCell(`N${r_saidaMon}`);
-  cEntMon.value     = { formula: 'SUMIF(B:B, "*ENTRADA*", G:G)' };
-  cEntMon.font      = { size:48, name:'Calibri' };
-  cEntMon.numFmt    = fmtBRL;
-  cEntMon.alignment = centrado;
+  semanasOrdenadas.forEach((seg, si) => {
+    const sem = porSemana[seg];
+    const monday = new Date(seg + 'T00:00:00');
+    const sunday = new Date(monday); sunday.setDate(monday.getDate()+6);
+    const fmt = d => d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
+    const semLabel = `📅 ${fmt(monday)} – ${fmt(sunday)}`;
 
-  // ── GERAR ARQUIVO E DOWNLOAD ─────────────────────────────────
+    // Header da semana
+    ws2.mergeCells(`A${ws2Row}:I${ws2Row}`);
+    const cSemHdr = ws2.getCell(`A${ws2Row}`);
+    cSemHdr.value = semLabel;
+    cSemHdr.font  = font({ bold:true, size:12, color:{ argb:C.white } });
+    cSemHdr.fill  = fill(si%2===0 ? C.navyMid : C.navyLight);
+    cSemHdr.alignment = midL; cSemHdr.border = border();
+    ws2.getRow(ws2Row).height = 20; ws2Row++;
+
+    // Monta mapa dia→dados
+    const mapDia = {};
+    sem.dias.forEach(d => { mapDia[d.data] = d; });
+
+    const blocos = [
+      { label:'📦 Caixas Saídas (cx)',  key:'sai_cx',  fmt:null,   bg:C.redLight,  fgLabel:C.red },
+      { label:'📦 Caixas Entradas (cx)',key:'ent_cx',  fmt:null,   bg:C.blueLight, fgLabel:C.navyLight },
+      { label:'💰 Valor Saído (R$)',    key:'sai_val', fmt:fmtBRL, bg:C.redLight,  fgLabel:C.red },
+      { label:'💰 Valor Entrado (R$)',  key:'ent_val', fmt:fmtBRL, bg:C.blueLight, fgLabel:C.navyLight },
+      { label:'📈 Taxa Retorno',        key:'taxa',    fmt:fmtPct, bg:C.amberBg,   fgLabel:C.amber },
+    ];
+
+    blocos.forEach(bloco => {
+      const rw = ws2.getRow(ws2Row); rw.height = 18;
+      // Label
+      const cLbl = rw.getCell(1);
+      cLbl.value = bloco.label;
+      cLbl.font  = font({ bold:true, color:{ argb:bloco.fgLabel } });
+      cLbl.fill  = fill(bloco.bg); cLbl.alignment = midL; cLbl.border = border();
+
+      let total = 0;
+      // 7 dias da semana
+      for (let dow=0;dow<7;dow++) {
+        const dayDate = new Date(monday); dayDate.setDate(monday.getDate()+dow);
+        const dayStr  = dayDate.toISOString().split('T')[0];
+        const d = mapDia[dayStr] || {};
+        let v;
+        if (bloco.key === 'taxa') {
+          v = d.sai_cx > 0 ? Math.round((d.ent_cx||0)/(d.sai_cx)*100) : null;
+        } else { v = d[bloco.key] || 0; total += v||0; }
+        const c = rw.getCell(dow+2);
+        c.value = v !== null ? v : '—';
+        c.fill  = fill(bloco.bg);
+        c.alignment = mid; c.border = border();
+        if (bloco.fmt && typeof v === 'number') c.numFmt = bloco.fmt;
+        if (bloco.key === 'taxa' && typeof v === 'number') {
+          c.font = font({ bold:true, color:{ argb: v>=60?C.green : v>=30?C.amber : C.red } });
+        }
+      }
+
+      // Total da semana
+      const cTot = rw.getCell(9);
+      if (bloco.key === 'taxa') {
+        const t = sem.sai_cx > 0 ? Math.round(sem.ent_cx/sem.sai_cx*100) : 0;
+        cTot.value = t; cTot.numFmt = fmtPct;
+        cTot.font  = font({ bold:true, color:{ argb: t>=60?C.green : t>=30?C.amber : C.red } });
+      } else {
+        cTot.value = bloco.key.includes('val') ? sem[bloco.key] : total;
+        if (bloco.fmt) cTot.numFmt = bloco.fmt;
+        cTot.font = font({ bold:true });
+      }
+      cTot.fill = fill(C.gray2); cTot.alignment = midR; cTot.border = border();
+      ws2Row++;
+    });
+
+    // Linha separadora
+    ws2.mergeCells(`A${ws2Row}:I${ws2Row}`);
+    ws2.getRow(ws2Row).height = 6; ws2Row++;
+  });
+
+  // Grande total final
+  ws2.mergeCells(`A${ws2Row}:H${ws2Row}`);
+  const cGrandLbl = ws2.getCell(`A${ws2Row}`);
+  cGrandLbl.value = '▸ GRANDE TOTAL DO PERÍODO';
+  cGrandLbl.font  = font({ bold:true, size:12, color:{ argb:C.white } });
+  cGrandLbl.fill  = fill(C.navyDark); cGrandLbl.alignment = midL; cGrandLbl.border = border();
+  const cGrandTot = ws2.getCell(`I${ws2Row}`);
+  const totEntCx  = Object.values(porDia).reduce((a,v)=>a+v.ent_cx,0);
+  const totSaiCx  = Object.values(porDia).reduce((a,v)=>a+v.sai_cx,0);
+  const totEntVal = Object.values(porDia).reduce((a,v)=>a+v.ent_val,0);
+  const totSaiVal = Object.values(porDia).reduce((a,v)=>a+v.sai_val,0);
+  cGrandTot.value = `⬇${totSaiCx}cx / ⬆${totEntCx}cx`;
+  cGrandTot.font  = font({ bold:true, color:{argb:C.white} });
+  cGrandTot.fill  = fill(C.navyDark); cGrandTot.alignment = mid; cGrandTot.border = border();
+  ws2.getRow(ws2Row).height = 22;
+
+  /* ══════════════════════════════════════════════════════════════
+     SHEET 3 — 🚚 POR MOTORISTA
+  ══════════════════════════════════════════════════════════════ */
+  const ws3 = wb.addWorksheet('🚚 Por Motorista', { views:[{ state:'frozen', ySplit:2 }] });
+  ws3.columns = [
+    { width:22 }, // A Motorista
+    { width:12 }, // B Caixas Saídas
+    { width:12 }, // C Caixas Entrada
+    { width:12 }, // D Saldo
+    { width:12 }, // E Taxa Retorno
+    { width:14 }, // F Valor Saído
+    { width:14 }, // G Valor Entrado
+    { width:12 }, // H Clientes únicos
+    { width:14 }, // I Valor Líquido
+  ];
+
+  ws3.mergeCells('A1:I1');
+  const ws3T = ws3.getCell('A1');
+  ws3T.value = '🚚  DESEMPENHO POR MOTORISTA';
+  ws3T.font  = font({ bold:true, size:14, color:{ argb:C.white } });
+  ws3T.fill  = fill(C.navyDark); ws3T.alignment = midL;
+  ws3.getRow(1).height = 28;
+
+  const hdrs3 = ['Motorista','↓ Saídas (cx)','↑ Entradas (cx)','Saldo','Taxa Retorno','↓ Val. Saído','↑ Val. Entrado','Clientes','Val. Líquido'];
+  const r3h = ws3.getRow(2);
+  hdrs3.forEach((h,i) => hdrCellRC(ws3, r3h, i+1, h, C.navyMid));
+  r3h.height = 20;
+  ws3.autoFilter = { from:'A2', to:'I2' };
+
+  const motoristasSort = Object.entries(porMotorista).sort((a,b)=>b[1].sai_cx-a[1].sai_cx);
+  motoristasSort.forEach(([mot, v], idx) => {
+    const rw = ws3.getRow(idx+3); rw.height = 18;
+    const taxa = v.sai_cx > 0 ? Math.round(v.ent_cx/v.sai_cx*100) : 0;
+    const saldo = v.sai_cx - v.ent_cx;
+    const isAlt = idx%2===1;
+    const bg = isAlt ? C.gray1 : C.white;
+
+    function mc(col, val, opts={}) {
+      const c = rw.getCell(col); c.value = val;
+      c.fill = fill(opts.bg||bg); c.border = border();
+      c.alignment = opts.align||midL;
+      if (opts.numFmt) c.numFmt = opts.numFmt;
+      if (opts.font)   c.font   = font(opts.font);
+      else             c.font   = font({});
+      return c;
+    }
+
+    mc(1, mot, { font:{ bold:true } });
+    mc(2, v.sai_cx, { align:mid, font:{ bold:true, color:{ argb:C.red } } });
+    mc(3, v.ent_cx, { align:mid, font:{ bold:true, color:{ argb:C.navyLight } } });
+    mc(4, saldo,    { align:mid, bg: saldo>30?C.redLight : saldo>10?C.amberBg : C.greenBg,
+                      font:{ bold:true, color:{ argb: saldo>30?C.red : saldo>10?C.amber : C.green } } });
+    const cTaxa = rw.getCell(5);
+    cTaxa.value = taxa; cTaxa.numFmt = fmtPct;
+    cTaxa.fill  = fill(taxa<40?C.redLight : taxa<70?C.amberBg : C.greenBg);
+    cTaxa.font  = font({ bold:true, color:{ argb: taxa<40?C.red : taxa<70?C.amber : C.green } });
+    cTaxa.alignment = mid; cTaxa.border = border();
+    mc(6, v.sai_val, { numFmt:fmtBRL, align:midR, font:{ color:{ argb:C.red } } });
+    mc(7, v.ent_val, { numFmt:fmtBRL, align:midR, font:{ color:{ argb:C.navyLight } } });
+    mc(8, v.clientes.size, { align:mid });
+    mc(9, v.sai_val-v.ent_val, { numFmt:fmtBRL, align:midR,
+      font:{ bold:true, color:{ argb: v.sai_val-v.ent_val>0?C.green:C.red } } });
+  });
+
+  // Totais motoristas
+  const totMRow = motoristasSort.length + 3;
+  ws3.mergeCells(`A${totMRow}:C${totMRow}`);
+  const cTMlbl = ws3.getCell(`A${totMRow}`);
+  cTMlbl.value = `TOTAL — ${motoristasSort.length} motoristas`;
+  cTMlbl.font  = font({ bold:true, color:{ argb:C.white } });
+  cTMlbl.fill  = fill(C.navyDark); cTMlbl.alignment = midL; cTMlbl.border = border();
+  [
+    [2, totSaiCx, null, C.red],
+    [3, totEntCx, null, C.navyLight],
+    [4, totSaiCx-totEntCx, null, C.white],
+    [6, totSaiVal, fmtBRL, C.white],
+    [7, totEntVal, fmtBRL, C.white],
+    [9, totSaiVal-totEntVal, fmtBRL, C.white],
+  ].forEach(([col,val,fmt,fg]) => {
+    const c = ws3.getRow(totMRow).getCell(col);
+    c.value = val; c.fill = fill(C.navyDark); c.border = border();
+    c.font  = font({ bold:true, color:{ argb:fg||C.white } });
+    c.alignment = midR; if (fmt) c.numFmt = fmt;
+  });
+  ws3.getRow(totMRow).height = 20;
+
+  /* ══════════════════════════════════════════════════════════════
+     SHEET 4 — 👥 POR CLIENTE
+  ══════════════════════════════════════════════════════════════ */
+  const ws4 = wb.addWorksheet('👥 Por Cliente', { views:[{ state:'frozen', ySplit:2 }] });
+  ws4.columns = [
+    { width:30 }, // A Cliente
+    { width:12 }, // B Saídas cx
+    { width:12 }, // C Entradas cx
+    { width:12 }, // D Saldo cx
+    { width:12 }, // E Taxa Retorno
+    { width:14 }, // F Valor Saído
+    { width:14 }, // G Valor Entrado
+    { width:12 }, // H Motoristas
+    { width:14 }, // I Valor Devendo
+  ];
+
+  ws4.mergeCells('A1:I1');
+  const ws4T = ws4.getCell('A1');
+  ws4T.value = '👥  RESUMO POR CLIENTE';
+  ws4T.font  = font({ bold:true, size:14, color:{ argb:C.white } });
+  ws4T.fill  = fill(C.navyDark); ws4T.alignment = midL;
+  ws4.getRow(1).height = 28;
+
+  const hdrs4 = ['Cliente','↓ Recebeu (cx)','↑ Devolveu (cx)','Saldo Devedor','Taxa Devol.','↓ Val. Recebido','↑ Val. Devolvido','Motoristas','💰 Devendo'];
+  const r4h = ws4.getRow(2);
+  hdrs4.forEach((h,i) => hdrCellRC(ws4, r4h, i+1, h, C.navyMid));
+  r4h.height = 20;
+  ws4.autoFilter = { from:'A2', to:'I2' };
+
+  const clientesSort = Object.entries(porCliente).sort((a,b)=>(b[1].sai_cx-b[1].ent_cx)-(a[1].sai_cx-a[1].ent_cx));
+  clientesSort.forEach(([cli, v], idx) => {
+    const rw = ws4.getRow(idx+3); rw.height = 18;
+    const saldo = v.sai_cx - v.ent_cx;
+    const taxa  = v.sai_cx > 0 ? Math.round(v.ent_cx/v.sai_cx*100) : 0;
+    const devendo = v.sai_val - v.ent_val;
+    const isAlt = idx%2===1;
+    const bg = saldo > 30 ? C.redLight : saldo > 10 ? C.amberBg : (isAlt ? C.gray1 : C.white);
+
+    function cc(col, val, opts={}) {
+      const c = rw.getCell(col); c.value = val;
+      c.fill = fill(opts.bg||bg); c.border = border();
+      c.alignment = opts.align||midL;
+      if (opts.numFmt) c.numFmt = opts.numFmt;
+      if (opts.font)   c.font   = font(opts.font);
+      return c;
+    }
+    cc(1, cli, { font:{ bold:true } });
+    cc(2, v.sai_cx,   { align:mid, font:{ bold:true, color:{ argb:C.red } } });
+    cc(3, v.ent_cx,   { align:mid, font:{ bold:true, color:{ argb:C.navyLight } } });
+    const cSaldo4 = rw.getCell(4);
+    cSaldo4.value = saldo;
+    cSaldo4.fill  = fill(saldo>30?C.redLight : saldo>10?C.amberBg : C.greenBg);
+    cSaldo4.font  = font({ bold:true, color:{ argb: saldo>30?C.red : saldo>10?C.amber : C.green } });
+    cSaldo4.alignment = mid; cSaldo4.border = border();
+    const cTaxa4 = rw.getCell(5);
+    cTaxa4.value = taxa; cTaxa4.numFmt = fmtPct;
+    cTaxa4.fill  = fill(taxa<40?C.redLight : taxa<70?C.amberBg : C.greenBg);
+    cTaxa4.font  = font({ bold:true, color:{ argb: taxa<40?C.red : taxa<70?C.amber : C.green } });
+    cTaxa4.alignment = mid; cTaxa4.border = border();
+    cc(6, v.sai_val, { numFmt:fmtBRL, align:midR, font:{ color:{ argb:C.red } } });
+    cc(7, v.ent_val, { numFmt:fmtBRL, align:midR, font:{ color:{ argb:C.navyLight } } });
+    cc(8, v.motoristas.size, { align:mid });
+    const cDev = rw.getCell(9);
+    cDev.value = devendo; cDev.numFmt = fmtBRL;
+    cDev.fill  = fill(devendo>500?C.redLight : devendo>0?C.amberBg : C.greenBg);
+    cDev.font  = font({ bold:true, color:{ argb: devendo>500?C.red : devendo>0?C.amber : C.green } });
+    cDev.alignment = midR; cDev.border = border();
+  });
+
+  // Totais clientes
+  const totCRow = clientesSort.length + 3;
+  ws4.mergeCells(`A${totCRow}:C${totCRow}`);
+  const cTClbl = ws4.getCell(`A${totCRow}`);
+  cTClbl.value = `TOTAL — ${clientesSort.length} clientes`;
+  cTClbl.font  = font({ bold:true, color:{ argb:C.white } });
+  cTClbl.fill  = fill(C.navyDark); cTClbl.alignment = midL; cTClbl.border = border();
+  [[2,totSaiCx],[3,totEntCx],[6,totSaiVal,fmtBRL],[7,totEntVal,fmtBRL],[9,totSaiVal-totEntVal,fmtBRL]].forEach(([col,val,fmt])=>{
+    const c = ws4.getRow(totCRow).getCell(col);
+    c.value = val; c.fill = fill(C.navyDark); c.border = border();
+    c.font  = font({ bold:true, color:{ argb:C.white } });
+    c.alignment = midR; if (fmt) c.numFmt = fmt;
+  });
+  ws4.getRow(totCRow).height = 20;
+
+  /* ══════════════════════════════════════════════════════════════
+     SHEET 5 — 📈 PAINEL EXECUTIVO
+  ══════════════════════════════════════════════════════════════ */
+  const ws5 = wb.addWorksheet('📈 Painel Executivo');
+  ws5.columns = [{ width:28 },{ width:20 },{ width:20 },{ width:20 },{ width:20 }];
+
+  ws5.mergeCells('A1:E1');
+  const ws5T = ws5.getCell('A1');
+  ws5T.value = '📈  PAINEL EXECUTIVO — LUMIN LOG';
+  ws5T.font  = font({ bold:true, size:16, color:{ argb:C.white } });
+  ws5T.fill  = fill(C.navyDark); ws5T.alignment = midL;
+  ws5.getRow(1).height = 34;
+
+  ws5.mergeCells('A2:E2');
+  ws5.getCell('A2').value = `Gerado em: ${new Date().toLocaleString('pt-BR')}   |   Total de registros: ${dados.length}`;
+  ws5.getCell('A2').font  = font({ italic:true, color:{ argb:'FF666666' } });
+  ws5.getRow(2).height = 18;
+
+  const kpis = [
+    ['📦 Total Saídas', totSaiCx + ' cx', totSaiVal, C.red, C.redLight],
+    ['📦 Total Entradas', totEntCx + ' cx', totEntVal, C.navyLight, C.blueLight],
+    ['📊 Taxa Global Retorno', (totSaiCx>0?Math.round(totEntCx/totSaiCx*100):0)+'%', null, C.amber, C.amberBg],
+    ['💰 Saldo em Aberto', (totSaiCx-totEntCx)+' cx', totSaiVal-totEntVal, C.red, C.redLight],
+    ['🚚 Motoristas Ativos', motoristasSort.length, null, C.green, C.greenBg],
+    ['👥 Clientes Únicos', clientesSort.length, null, C.navyLight, C.blueLight],
+    ['📅 Semanas no Período', semanasOrdenadas.length, null, C.navyMid, C.gray1],
+    ['⭐ Maior Volume (Cliente)', clientesSort[0]?.[0]||'—', null, C.navyMid, C.gray1],
+    ['🏆 Maior Volume (Motorista)', motoristasSort[0]?.[0]||'—', null, C.navyMid, C.gray1],
+  ];
+
+  let kpiRow = 4;
+  kpis.forEach(([label, val1, val2, fg, bg]) => {
+    const rw = ws5.getRow(kpiRow); rw.height = 28;
+    ws5.mergeCells(`A${kpiRow}:B${kpiRow}`);
+    const cL = ws5.getCell(`A${kpiRow}`);
+    cL.value = label; cL.font = font({ bold:true, size:12 });
+    cL.alignment = midL; cL.border = border(); cL.fill = fill(C.gray1);
+
+    ws5.mergeCells(`C${kpiRow}:D${kpiRow}`);
+    const cV = ws5.getCell(`C${kpiRow}`);
+    cV.value = val1; cV.font = font({ bold:true, size:13, color:{ argb:fg } });
+    cV.alignment = mid; cV.border = border(); cV.fill = fill(bg);
+
+    const cV2 = ws5.getCell(`E${kpiRow}`);
+    cV2.value = val2 !== null ? val2 : '';
+    if (val2 !== null) { cV2.numFmt = fmtBRL; }
+    cV2.font = font({ bold:true, color:{ argb:fg } });
+    cV2.alignment = midR; cV2.border = border(); cV2.fill = fill(bg);
+    kpiRow++;
+  });
+
+  // ── DOWNLOAD ─────────────────────────────────────────────────
   const buffer = await wb.xlsx.writeBuffer();
-  const blob   = new Blob([buffer], {
-    type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-  });
-  const url  = URL.createObjectURL(blob);
-  const link = document.createElement('a');
+  const blob   = new Blob([buffer], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url    = URL.createObjectURL(blob);
+  const link   = document.createElement('a');
   link.href     = url;
-  link.download = `controle_caixas_${new Date().toISOString().split('T')[0]}.xlsx`;
+  link.download = `lumin_relatorio_${new Date().toISOString().split('T')[0]}.xlsx`;
   link.click();
   URL.revokeObjectURL(url);
-  toast('✓ Excel exportado com sucesso!');
+  toast('✓ Relatório Excel exportado com sucesso! (5 abas)');
 }
 
 // Helper: borda fina

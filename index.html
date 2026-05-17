@@ -18,6 +18,8 @@
   <!-- SheetJS — Exportação Excel -->
   <!-- ExcelJS: exportação fiel ao Pasta1.xlsx (fórmulas, merges, cores) -->
   <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+  <!-- Pluggy Connect Widget — Open Finance Brasil -->
+  <script src="https://cdn.pluggy.ai/pluggy-connect/v2.8.2/pluggy-connect.js"></script>
 
   <link rel="stylesheet" href="style.css">
 </head>
@@ -443,187 +445,252 @@
     <!-- ── ABA: LUMIN LOG ── -->
     <div class="admin-tab-panel" id="tab-luminlog">
 
-      <!-- ══ SUB-TABS ══════════════════════════════════════════ -->
+      <!-- ══ SUB-TABS: 4 abas ══════════════════════════════════ -->
       <div id="llm-subtabs"
-        style="display:flex;gap:8px;margin-bottom:20px;background:rgba(255,255,255,.04);
-        padding:6px;border-radius:16px;border:1px solid rgba(255,255,255,.08);">
-        <button id="llm-btn-registros" onclick="llmSwitchTab('registros')"
-          style="flex:1;padding:12px;border-radius:12px;font-size:13px;font-weight:800;
+        style="display:flex;gap:5px;margin-bottom:22px;background:rgba(255,255,255,.04);
+        padding:5px;border-radius:13px;border:1px solid rgba(255,255,255,.08);">
+        <button id="llm-btn-dashboard" onclick="llmSwitchTab('dashboard')"
+          style="flex:1;padding:10px 6px;border-radius:10px;font-size:11px;font-weight:800;
           cursor:pointer;transition:.2s;background:rgba(0,212,255,.15);
-          border:1px solid rgba(0,212,255,.3);color:var(--accent);">
+          border:1px solid rgba(0,212,255,.3);color:var(--accent);white-space:nowrap;">
+          📊 Dashboard
+        </button>
+        <button id="llm-btn-registros" onclick="llmSwitchTab('registros')"
+          style="flex:1;padding:10px 6px;border-radius:10px;font-size:11px;font-weight:800;
+          cursor:pointer;transition:.2s;background:transparent;border:1px solid transparent;color:var(--muted);white-space:nowrap;">
           📋 Registros
         </button>
         <button id="llm-btn-motoristas" onclick="llmSwitchTab('motoristas')"
-          style="flex:1;padding:12px;border-radius:12px;font-size:13px;font-weight:800;
-          cursor:pointer;transition:.2s;background:transparent;border:1px solid transparent;color:var(--muted);">
+          style="flex:1;padding:10px 6px;border-radius:10px;font-size:11px;font-weight:800;
+          cursor:pointer;transition:.2s;background:transparent;border:1px solid transparent;color:var(--muted);white-space:nowrap;">
           🚚 Motoristas
+        </button>
+        <button id="llm-btn-clientes" onclick="llmSwitchTab('clientes')"
+          style="flex:1;padding:10px 6px;border-radius:10px;font-size:11px;font-weight:800;
+          cursor:pointer;transition:.2s;background:transparent;border:1px solid transparent;color:var(--muted);white-space:nowrap;">
+          👥 Clientes
         </button>
       </div>
 
+      <!-- ══ PAINEL: DASHBOARD ══════════════════════════════════ -->
+      <div id="llm-panel-dashboard">
+
+        <!-- KPIs 2×2 -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+          <div style="background:rgba(0,229,160,.05);border:1px solid rgba(0,229,160,.12);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px;">
+            <div style="width:34px;height:34px;background:rgba(0,229,160,.12);border-radius:9px;display:grid;place-items:center;font-size:15px;flex-shrink:0;color:var(--success);">▲</div>
+            <div>
+              <p style="font-size:9px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin:0 0 3px;">Entradas</p>
+              <div id="ll-total-entrada" style="font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--success);">0 cx</div>
+            </div>
+          </div>
+          <div style="background:rgba(255,91,112,.05);border:1px solid rgba(255,91,112,.12);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px;">
+            <div style="width:34px;height:34px;background:rgba(255,91,112,.12);border-radius:9px;display:grid;place-items:center;font-size:15px;flex-shrink:0;color:var(--alert);">▼</div>
+            <div>
+              <p style="font-size:9px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin:0 0 3px;">Saídas</p>
+              <div id="ll-total-saida" style="font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--alert);">0 cx</div>
+            </div>
+          </div>
+          <div style="background:rgba(0,212,255,.05);border:1px solid rgba(0,212,255,.12);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px;">
+            <div style="width:34px;height:34px;background:rgba(0,212,255,.12);border-radius:9px;display:grid;place-items:center;font-size:15px;flex-shrink:0;">💰</div>
+            <div>
+              <p style="font-size:9px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin:0 0 3px;">Valor Total</p>
+              <div id="ll-total-valor" style="font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--accent);">R$ 0,00</div>
+            </div>
+          </div>
+          <div style="background:rgba(255,179,71,.05);border:1px solid rgba(255,179,71,.12);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px;">
+            <div style="width:34px;height:34px;background:rgba(255,179,71,.12);border-radius:9px;display:grid;place-items:center;font-size:15px;flex-shrink:0;">📋</div>
+            <div>
+              <p style="font-size:9px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin:0 0 3px;">Registros</p>
+              <div id="ll-total-count" style="font-family:'DM Mono',monospace;font-size:18px;font-weight:700;color:var(--warning);">0</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Em Trânsito -->
+        <div style="background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:14px 16px;margin-bottom:14px;">
+          <p style="font-size:9px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin:0 0 10px;">🚚 Caixas em Trânsito por Motorista</p>
+          <div id="ll-motoristas-panel" style="display:flex;gap:10px;flex-wrap:wrap;">
+            <div style="color:var(--muted);font-size:13px;padding:4px 0;">Aguardando dados...</div>
+          </div>
+        </div>
+
+        <!-- Gráfico 1: Entradas vs Saídas (14 dias) — largura total -->
+        <div style="background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:16px;margin-bottom:14px;">
+          <p style="font-size:9px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin:0 0 14px;">📅 Entradas vs Saídas — Últimos 14 dias</p>
+          <div style="position:relative;height:190px;"><canvas id="ll-chart-daily"></canvas></div>
+        </div>
+
+        <!-- Gráficos 2 e 3: lado a lado -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px;">
+          <div style="background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:16px;">
+            <p style="font-size:9px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin:0 0 14px;">🚛 Caixas em Rota por Motorista</p>
+            <div id="ll-chart-drivers-wrap" style="position:relative;height:190px;"><canvas id="ll-chart-drivers"></canvas></div>
+          </div>
+          <div style="background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.06);border-radius:14px;padding:16px;">
+            <p style="font-size:9px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin:0 0 14px;">📦 Volume por Cliente</p>
+            <div id="ll-chart-clients-wrap" style="position:relative;height:190px;"><canvas id="ll-chart-clients"></canvas></div>
+          </div>
+        </div>
+
+        <!-- ── RADAR DE SUSPEITAS ──────────────────────────────── -->
+        <div style="background:rgba(255,60,60,.04);border:1px solid rgba(255,91,112,.12);border-radius:14px;padding:16px;">
+          <!-- Header + filtros -->
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
+            <div>
+              <p style="font-size:10px;font-weight:900;color:var(--alert);text-transform:uppercase;letter-spacing:.12em;margin:0 0 2px;">🔍 Radar de Suspeitas</p>
+              <p style="font-size:10px;color:var(--muted);margin:0;font-weight:500;">Monitoramento de motoristas por risco de desvio</p>
+            </div>
+            <div style="display:flex;gap:5px;flex-wrap:wrap;">
+              <button onclick="window.llSetRadarFiltro('risco')" id="ll-radar-f-risco"
+                style="padding:5px 11px;border-radius:7px;font-size:10px;font-weight:700;cursor:pointer;transition:.2s;background:rgba(255,91,112,.12);border:1px solid rgba(255,91,112,.3);color:var(--alert);">
+                🔴 Mais risco
+              </button>
+              <button onclick="window.llSetRadarFiltro('saldo')" id="ll-radar-f-saldo"
+                style="padding:5px 11px;border-radius:7px;font-size:10px;font-weight:700;cursor:pointer;transition:.2s;background:transparent;border:1px solid rgba(255,255,255,.1);color:var(--muted);">
+                📦 Mais caixas
+              </button>
+              <button onclick="window.llSetRadarFiltro('taxa')" id="ll-radar-f-taxa"
+                style="padding:5px 11px;border-radius:7px;font-size:10px;font-weight:700;cursor:pointer;transition:.2s;background:transparent;border:1px solid rgba(255,255,255,.1);color:var(--muted);">
+                📉 Menos retorno
+              </button>
+              <button onclick="window.llSetRadarFiltro('semfoto')" id="ll-radar-f-semfoto"
+                style="padding:5px 11px;border-radius:7px;font-size:10px;font-weight:700;cursor:pointer;transition:.2s;background:transparent;border:1px solid rgba(255,255,255,.1);color:var(--muted);">
+                📷 Sem foto
+              </button>
+            </div>
+          </div>
+          <!-- Lista de motoristas com score de risco -->
+          <div id="ll-radar-list">
+            <div style="color:var(--muted);font-size:13px;text-align:center;padding:20px 0;">Aguardando dados...</div>
+          </div>
+        </div>
+
+      </div><!-- /llm-panel-dashboard -->
+
       <!-- ══ PAINEL: REGISTROS ══════════════════════════════════ -->
-      <div id="llm-panel-registros">
-        <div class="admin-card">
+      <div id="llm-panel-registros" style="display:none;">
 
-          <!-- ── CABEÇALHO + AÇÕES ──────────────────────────── -->
-          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px;">
-            <h3 style="margin:0;">📦 Lumin Log — Caixas Hetros</h3>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-              <button id="ll-refresh"
-                style="padding:8px 14px;border-radius:20px;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.2);color:var(--accent);font-weight:700;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px;">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.27"/></svg>
-                Atualizar
-              </button>
-              <button id="ll-export-excel"
-                style="padding:8px 14px;border-radius:20px;background:rgba(0,229,160,.08);border:1px solid rgba(0,229,160,.25);color:var(--success);font-weight:700;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:5px;">
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Exportar
-              </button>
-              <button id="ll-btn-add"
-                style="padding:8px 18px;border-radius:20px;background:var(--accent);border:1px solid transparent;color:#000;font-weight:800;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                Novo Registro
-              </button>
-            </div>
+        <!-- Cabeçalho com ações -->
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+          <div>
+            <h2 style="font-family:'Montserrat',sans-serif;font-size:18px;font-weight:900;margin:0 0 3px;letter-spacing:-.3px;">📋 Registros</h2>
+            <p style="font-size:10px;color:var(--muted);margin:0;font-weight:700;text-transform:uppercase;letter-spacing:.15em;">Caixas Hetros · Todas as movimentações</p>
           </div>
-
-          <!-- ── KPIs PRINCIPAIS ────────────────────────────── -->
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:12px;margin-bottom:16px;">
-            <div class="glass" style="padding:18px;border-radius:14px;border:1px solid rgba(0,229,160,.15);">
-              <p style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">Entradas</p>
-              <div id="ll-total-entrada" style="font-family:'DM Mono',monospace;font-size:20px;font-weight:700;color:var(--success);">0 cx</div>
-            </div>
-            <div class="glass" style="padding:18px;border-radius:14px;border:1px solid rgba(255,91,112,.15);">
-              <p style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">Saídas</p>
-              <div id="ll-total-saida" style="font-family:'DM Mono',monospace;font-size:20px;font-weight:700;color:var(--alert);">0 cx</div>
-            </div>
-            <div class="glass" style="padding:18px;border-radius:14px;border:1px solid rgba(0,212,255,.15);">
-              <p style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">Valor Total</p>
-              <div id="ll-total-valor" style="font-family:'DM Mono',monospace;font-size:20px;font-weight:700;color:var(--accent);">R$ 0,00</div>
-            </div>
-            <div class="glass" style="padding:18px;border-radius:14px;border:1px solid rgba(255,179,71,.15);">
-              <p style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">Registros</p>
-              <div id="ll-total-count" style="font-family:'DM Mono',monospace;font-size:20px;font-weight:700;color:var(--warning);">0</div>
-            </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <button id="ll-refresh"
+              style="padding:9px 15px;border-radius:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:var(--muted);font-weight:700;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.27"/></svg>
+              Atualizar
+            </button>
+            <button id="ll-export-excel"
+              style="padding:9px 15px;border-radius:10px;background:rgba(0,229,160,.07);border:1px solid rgba(0,229,160,.2);color:var(--success);font-weight:700;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px;">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Exportar
+            </button>
+            <button id="ll-btn-add"
+              style="padding:9px 18px;border-radius:10px;background:var(--accent);border:none;color:#000;font-weight:800;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              Novo
+            </button>
           </div>
+        </div>
 
-          <!-- ── CAIXAS EM TRÂNSITO POR MOTORISTA ──────────── -->
-          <div style="margin-bottom:16px;">
-            <p style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px;display:flex;align-items:center;gap:6px;">
-              🚚 Caixas em Trânsito — por Motorista / Cliente
-            </p>
-            <div id="ll-motoristas-panel">
-              <div style="color:var(--muted);font-size:13px;padding:8px 0;">Aguardando dados...</div>
-            </div>
+        <!-- Banner REVISAR -->
+        <div id="ll-revisar-banner"
+          style="display:none;padding:10px 14px;border-radius:11px;background:rgba(255,179,71,.08);border:1px solid rgba(255,179,71,.25);color:var(--warning);font-size:12px;font-weight:700;margin-bottom:12px;">
+          ⚠ <span id="ll-revisar-count">0</span> registro(s) precisam de conferência.
+        </div>
+
+        <!-- Filtros rápidos -->
+        <div style="margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;">
+            <button class="ll-filter-btn active" data-ll-filter="all"
+              style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;border:1px solid var(--accent);background:rgba(0,212,255,.1);color:var(--accent);cursor:pointer;transition:.2s;">Todos</button>
+            <button class="ll-filter-btn" data-ll-filter="ENTRADA"
+              style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:.2s;">▲ Entradas</button>
+            <button class="ll-filter-btn" data-ll-filter="SAÍDA"
+              style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:700;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:.2s;">▼ Saídas</button>
+            <div style="flex:1;"></div>
+            <button id="ll-filtros-toggle"
+              style="padding:6px 13px;border-radius:8px;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;transition:.2s;">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+              Filtros
+              <span id="ll-filter-badge" style="display:none;background:var(--accent);color:#000;font-size:9px;font-weight:900;padding:2px 5px;border-radius:20px;line-height:1.4;">0</span>
+              <svg class="ll-filtros-arrow" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="transition:transform .3s;"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <button id="ll-filter-reset"
+              style="display:none;padding:6px 12px;border-radius:8px;background:rgba(255,91,112,.08);border:1px solid rgba(255,91,112,.2);color:var(--alert);font-size:11px;font-weight:700;cursor:pointer;align-items:center;gap:5px;">✕ Limpar</button>
           </div>
-
-          <!-- ── BANNER REVISAR ────────────────────────────── -->
-          <div id="ll-revisar-banner"
-            style="display:none;padding:12px 16px;border-radius:12px;background:rgba(255,179,71,.1);border:1px solid rgba(255,179,71,.3);color:var(--warning);font-size:13px;font-weight:700;margin-bottom:14px;">
-            ⚠ <span id="ll-revisar-count">0</span> registro(s) precisam de conferência manual.
-          </div>
-
-          <!-- ── FILTROS RÁPIDOS + COLAPSÁVEL ───────────────── -->
-          <div style="margin-bottom:14px;">
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-              <button class="ll-filter-btn active" data-ll-filter="all"
-                style="padding:7px 15px;border-radius:20px;font-size:12px;font-weight:700;border:1.5px solid var(--accent);background:rgba(0,212,255,.12);color:var(--accent);cursor:pointer;transition:.2s;">
-                Todos
-              </button>
-              <button class="ll-filter-btn" data-ll-filter="ENTRADA"
-                style="padding:7px 15px;border-radius:20px;font-size:12px;font-weight:700;border:1.5px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:.2s;">
-                ▲ Entradas
-              </button>
-              <button class="ll-filter-btn" data-ll-filter="SAÍDA"
-                style="padding:7px 15px;border-radius:20px;font-size:12px;font-weight:700;border:1.5px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:.2s;">
-                ▼ Saídas
-              </button>
-              <div style="flex:1;"></div>
-              <button id="ll-filtros-toggle"
-                style="padding:7px 14px;border-radius:20px;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;transition:.2s;">
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-                Filtros
-                <span id="ll-filter-badge" style="display:none;background:var(--accent);color:#000;font-size:9px;font-weight:900;padding:2px 5px;border-radius:20px;line-height:1.4;">0</span>
-                <svg class="ll-filtros-arrow" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="transition:transform .3s;"><polyline points="6 9 12 15 18 9"/></svg>
-              </button>
-              <button id="ll-filter-reset"
-                style="display:none;padding:7px 12px;border-radius:20px;background:rgba(255,91,112,.1);border:1px solid rgba(255,91,112,.2);color:var(--alert);font-size:11px;font-weight:700;cursor:pointer;align-items:center;gap:5px;">
-                ✕ Limpar
-              </button>
-            </div>
-
-            <!-- Filtros avançados (colapsável) -->
-            <div id="ll-filtros-body" class="collapsed" style="max-height:0;overflow:hidden;transition:max-height .3s ease,opacity .3s ease;opacity:0;">
-              <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;padding-top:14px;">
-                <div>
-                  <label style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:5px;">De</label>
-                  <input type="date" id="ll-f-data-ini" class="input-field" style="font-size:12px;padding:9px 11px;border-radius:10px;width:100%;box-sizing:border-box;">
-                </div>
-                <div>
-                  <label style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:5px;">Até</label>
-                  <input type="date" id="ll-f-data-fim" class="input-field" style="font-size:12px;padding:9px 11px;border-radius:10px;width:100%;box-sizing:border-box;">
-                </div>
-                <div>
-                  <label style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:5px;">Tipo</label>
-                  <select id="ll-f-tipo" class="input-field" style="font-size:12px;padding:9px 11px;border-radius:10px;width:100%;box-sizing:border-box;cursor:pointer;">
-                    <option value="all">Todos</option>
-                    <option value="ENTRADA">ENTRADA</option>
-                    <option value="SAÍDA">SAÍDA</option>
-                  </select>
-                </div>
-                <div>
-                  <label style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:5px;">Cor</label>
-                  <select id="ll-f-cor" class="input-field" style="font-size:12px;padding:9px 11px;border-radius:10px;width:100%;box-sizing:border-box;cursor:pointer;">
-                    <option value="all">Todas</option>
-                    <option value="pret">⬛ Preta</option>
-                    <option value="branc">⬜ Branca</option>
-                  </select>
-                </div>
-                <div>
-                  <label style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:5px;">Cliente</label>
-                  <input type="text" id="ll-f-cliente" class="input-field" list="ll-clientes-list" placeholder="Buscar cliente…"
-                    style="font-size:12px;padding:9px 11px;border-radius:10px;width:100%;box-sizing:border-box;">
-                  <datalist id="ll-clientes-list"></datalist>
-                </div>
-                <div>
-                  <label style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:5px;">Motorista</label>
-                  <input type="text" id="ll-f-motorista" class="input-field" list="ll-motoristas-list" placeholder="Buscar motorista…"
-                    style="font-size:12px;padding:9px 11px;border-radius:10px;width:100%;box-sizing:border-box;">
-                  <datalist id="ll-motoristas-list"></datalist>
-                </div>
+          <!-- Filtros avançados (colapsável) -->
+          <div id="ll-filtros-body" class="collapsed" style="max-height:0;overflow:hidden;transition:max-height .3s ease,opacity .3s ease;opacity:0;">
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;padding-top:14px;">
+              <div>
+                <label style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:5px;">De</label>
+                <input type="date" id="ll-f-data-ini" class="input-field" style="font-size:12px;padding:9px 11px;border-radius:10px;width:100%;box-sizing:border-box;">
+              </div>
+              <div>
+                <label style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:5px;">Até</label>
+                <input type="date" id="ll-f-data-fim" class="input-field" style="font-size:12px;padding:9px 11px;border-radius:10px;width:100%;box-sizing:border-box;">
+              </div>
+              <div>
+                <label style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:5px;">Tipo</label>
+                <select id="ll-f-tipo" class="input-field" style="font-size:12px;padding:9px 11px;border-radius:10px;width:100%;box-sizing:border-box;cursor:pointer;">
+                  <option value="all">Todos</option>
+                  <option value="ENTRADA">ENTRADA</option>
+                  <option value="SAÍDA">SAÍDA</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:5px;">Cor</label>
+                <select id="ll-f-cor" class="input-field" style="font-size:12px;padding:9px 11px;border-radius:10px;width:100%;box-sizing:border-box;cursor:pointer;">
+                  <option value="all">Todas</option>
+                  <option value="pret">⬛ Preta</option>
+                  <option value="branc">⬜ Branca</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:5px;">Cliente</label>
+                <input type="text" id="ll-f-cliente" class="input-field" list="ll-clientes-list" placeholder="Buscar cliente…" style="font-size:12px;padding:9px 11px;border-radius:10px;width:100%;box-sizing:border-box;">
+                <datalist id="ll-clientes-list"></datalist>
+              </div>
+              <div>
+                <label style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:5px;">Motorista</label>
+                <input type="text" id="ll-f-motorista" class="input-field" list="ll-motoristas-list" placeholder="Buscar motorista…" style="font-size:12px;padding:9px 11px;border-radius:10px;width:100%;box-sizing:border-box;">
+                <datalist id="ll-motoristas-list"></datalist>
               </div>
             </div>
           </div>
-
-          <!-- ── RESUMO FILTRO ATIVO ────────────────────────── -->
-          <div id="ll-filt-row" style="display:none;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;
-            padding:12px 16px;border-radius:12px;background:rgba(0,212,255,.04);border:1px solid rgba(0,212,255,.12);">
-            <div>
-              <p style="font-size:9px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">🔍 Entradas</p>
-              <div id="ll-filt-entrada" style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:var(--success);">0 cx</div>
-            </div>
-            <div>
-              <p style="font-size:9px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">🔍 Saídas</p>
-              <div id="ll-filt-saida" style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:var(--alert);">0 cx</div>
-            </div>
-            <div>
-              <p style="font-size:9px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">🔍 Valor</p>
-              <div id="ll-filt-valor" style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:var(--accent);">R$ 0,00</div>
-            </div>
-            <div>
-              <p style="font-size:9px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;margin-bottom:4px;">🔍 Total</p>
-              <div id="ll-filt-count" style="font-family:'DM Mono',monospace;font-size:15px;font-weight:700;color:var(--muted);">0 reg.</div>
-            </div>
-          </div>
-
-          <!-- ── LISTA DE REGISTROS ─────────────────────────── -->
-          <div id="ll-tbody" style="display:flex;flex-direction:column;gap:8px;padding:4px 0;">
-            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;gap:12px;color:var(--muted);">
-              <div style="font-size:32px;opacity:.3;">📦</div>
-              <div style="font-size:14px;">Carregando registros...</div>
-            </div>
-          </div>
-
         </div>
+
+        <!-- Resumo filtro ativo -->
+        <div id="ll-filt-row" style="display:none;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;padding:10px 14px;border-radius:11px;background:rgba(0,212,255,.04);border:1px solid rgba(0,212,255,.1);">
+          <div>
+            <p style="font-size:9px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;">Entradas</p>
+            <div id="ll-filt-entrada" style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:var(--success);">0 cx</div>
+          </div>
+          <div>
+            <p style="font-size:9px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;">Saídas</p>
+            <div id="ll-filt-saida" style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:var(--alert);">0 cx</div>
+          </div>
+          <div>
+            <p style="font-size:9px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;">Valor</p>
+            <div id="ll-filt-valor" style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:var(--accent);">R$ 0,00</div>
+          </div>
+          <div>
+            <p style="font-size:9px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;">Total</p>
+            <div id="ll-filt-count" style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:var(--muted);">0 reg.</div>
+          </div>
+        </div>
+
+        <!-- Lista de registros -->
+        <div id="ll-tbody" style="display:flex;flex-direction:column;gap:6px;padding:4px 0;">
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;gap:12px;color:var(--muted);">
+            <div style="font-size:32px;opacity:.3;">📦</div>
+            <div style="font-size:14px;">Carregando registros...</div>
+          </div>
+        </div>
+
       </div><!-- /llm-panel-registros -->
 
       <!-- ══ PAINEL: MOTORISTAS ═══════════════════════════════════ -->
@@ -650,7 +717,6 @@
               Gerar Link
             </button>
           </div>
-          <!-- Caixa de link gerado -->
           <div id="llm-link-box"
             style="display:none;background:rgba(0,212,255,.05);border:1px solid rgba(0,212,255,.2);
             border-radius:14px;padding:18px;margin-top:16px;">
@@ -676,7 +742,7 @@
         </div>
 
         <!-- Caminhões em rota -->
-        <div class="admin-card" style="margin-bottom:16px;">
+        <div class="admin-card">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:12px;flex-wrap:wrap;">
             <h3 style="margin:0;display:flex;align-items:center;gap:10px;">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
@@ -705,6 +771,26 @@
           </div>
         </div>
 
+      </div><!-- /llm-panel-motoristas -->
+
+      <!-- ══ PAINEL: CLIENTES ════════════════════════════════════ -->
+      <div id="llm-panel-clientes" style="display:none;">
+
+        <!-- Galeria de fotos -->
+        <div class="admin-card" style="margin-bottom:16px;" id="llm-photos-card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+            <h3 style="margin:0;display:flex;align-items:center;gap:10px;">
+              📷 Fotos dos Motoristas
+              <span id="llm-photos-count"
+                style="font-size:10px;font-weight:700;color:var(--accent);background:rgba(0,212,255,.1);
+                padding:3px 10px;border-radius:20px;border:1px solid rgba(0,212,255,.2);">0</span>
+            </h3>
+          </div>
+          <div id="llm-photos-gallery">
+            <p style="color:var(--muted);font-size:13px;padding:6px 0;">Nenhuma foto enviada ainda.</p>
+          </div>
+        </div>
+
         <!-- Saldo de clientes -->
         <div class="admin-card">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:12px;flex-wrap:wrap;">
@@ -728,7 +814,7 @@
           </div>
         </div>
 
-      </div><!-- /llm-panel-motoristas -->
+      </div><!-- /llm-panel-clientes -->
 
     </div><!-- /tab-luminlog -->
 
@@ -994,6 +1080,41 @@
 </div>
 
 <!-- ════════════════════════════════════════════════════════════
+     MODAL — EDITAR EMPRESA
+════════════════════════════════════════════════════════════ -->
+<div id="modal-edit-company">
+  <div class="modal-card">
+    <button class="modal-close-btn" id="btn-close-edit-company-modal">✕</button>
+    <h3 style="font-family:'Montserrat',sans-serif;font-size:1.0625rem;font-weight:800;margin-bottom:20px;padding-right:40px;">
+      Editar Empresa
+    </h3>
+    <input type="hidden" id="edit-company-id">
+    <div style="display:grid;gap:16px;">
+      <div>
+        <label class="form-label">Nome da Empresa</label>
+        <input type="text" id="edit-company-name" class="input-field" placeholder="Nome da empresa">
+      </div>
+      <div>
+        <label class="form-label">Número WhatsApp <span style="color:var(--accent);">(para o bot reconhecer)</span></label>
+        <input type="text" id="edit-company-phone" class="input-field" placeholder="5511999990001" inputmode="numeric">
+        <p style="font-size:11px;color:var(--muted);margin-top:5px;">Formato: DDI + DDD + número, sem espaços. Ex: 5511999990001</p>
+      </div>
+      <div>
+        <label class="form-label">Cor de Identidade</label>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <input type="color" id="edit-company-color" value="#00d4ff"
+            style="width:52px;height:52px;border-radius:10px;border:1px solid var(--border);background:transparent;cursor:pointer;padding:4px;">
+          <input type="text" id="edit-company-color-hex" class="input-field" placeholder="#00d4ff" style="flex:1;" maxlength="7">
+        </div>
+      </div>
+      <button id="btn-save-edit-company" class="btn-primary" style="width:100%;margin-top:8px;">
+        Salvar Alterações
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
      APP SHELL WRAPPER — Dashboards de Clientes (FASE 2)
      Placeholder seguro. Será expandido na próxima fase.
 ════════════════════════════════════════════════════════════ -->
@@ -1175,14 +1296,105 @@
           <div class="glass" style="padding:20px;border-radius:16px;"><h3 style="font-size:17px;font-weight:700;margin-bottom:20px;">Distribuição de Gastos</h3><div style="height:200px;position:relative;"><canvas id="t-c-pie"></canvas></div></div>
           <div class="glass" style="padding:20px;border-radius:16px;"><h3 style="font-size:17px;font-weight:700;margin-bottom:20px;">Fluxo de Caixa (6 Meses)</h3><div style="height:200px;position:relative;"><canvas id="t-c-bar"></canvas></div></div>
         </div>
+        <!-- ═══ CONECTAR BANCO ═══ -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-bottom:24px;">
+
+          <!-- Pluggy (Open Finance) -->
+          <div id="pluggy-bank-card" class="glass" style="padding:18px 20px;border-radius:16px;display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;">
+            <div style="font-size:26px;margin-top:2px;">🏦</div>
+            <div style="flex:1;min-width:150px;">
+              <div style="font-size:13px;font-weight:800;margin-bottom:3px;">Conectar Banco (Open Finance)</div>
+              <div id="pluggy-status-text" style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.4;">Conecte seu banco e a IA categoriza seus gastos automaticamente.</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button id="btn-pluggy-connect" style="padding:8px 16px;border-radius:10px;background:linear-gradient(135deg,#00d4ff,#0099cc);border:none;color:#000;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;min-height:36px;">
+                  Conectar Banco
+                </button>
+                <button id="btn-pluggy-sync" style="display:none;padding:8px 16px;border-radius:10px;background:rgba(0,212,255,.12);border:1px solid rgba(0,212,255,.3);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;min-height:36px;">
+                  🔄 Sincronizar
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Gmail Sync (grátis) -->
+          <div class="glass" style="padding:18px 20px;border-radius:16px;display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;border:1px solid rgba(0,229,160,.15);">
+            <div style="font-size:26px;margin-top:2px;">📧</div>
+            <div style="flex:1;min-width:150px;">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
+                <span style="font-size:13px;font-weight:800;">Sincronizar via Gmail</span>
+                <span style="font-size:9px;font-weight:800;background:rgba(0,229,160,.2);color:#00e5a0;border:1px solid rgba(0,229,160,.35);border-radius:20px;padding:2px 7px;letter-spacing:.04em;">GRÁTIS</span>
+              </div>
+              <div id="gmail-status" style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.4;">Conecte seu Gmail e a IA lê os emails do seu banco e importa as transações automaticamente.</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                <button id="btn-gmail-connect" style="padding:8px 16px;border-radius:10px;background:linear-gradient(135deg,#00e5a0,#00b37e);border:none;color:#050d12;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;min-height:36px;">
+                  📧 Conectar Gmail
+                </button>
+                <button id="btn-gmail-sync" style="display:none;padding:8px 16px;border-radius:10px;background:rgba(0,229,160,.12);border:1px solid rgba(0,229,160,.3);color:#00e5a0;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;min-height:36px;">
+                  🔄 Sincronizar Email
+                </button>
+                <button id="btn-gmail-disconnect" style="display:none;padding:8px 12px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--muted);font-size:11px;cursor:pointer;white-space:nowrap;min-height:36px;">
+                  Desconectar
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+        <!-- ═══ /CONECTAR BANCO ═══ -->
+
         <div>
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
             <h3 style="font-size:18px;font-weight:800;">Transações Recentes</h3>
             <span id="t-tx-count" style="font-size:11px;color:var(--muted);font-weight:600;"></span>
           </div>
-          <div class="glass tx-wrap"><table class="tx-table"><thead><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th style="text-align:right;">Valor</th><th style="text-align:right;">Ações</th></tr></thead><tbody id="t-tx-list"></tbody></table></div>
+          <div id="t-dash-filter-row"></div>
+          <div class="glass tx-wrap"><table class="tx-table"><thead><tr><th>Data</th><th>Categoria</th><th>Descrição</th><th style="text-align:right;">Valor</th><th style="text-align:right;">Ações</th></tr></thead><tbody id="t-tx-list"></tbody></table></div>
+          <div id="t-dash-ver-mais-wrap" style="text-align:center;padding:10px 0;display:none;"></div>
         </div>
       </section>
+
+      <!-- ═══ MODAL REVISÃO PLUGGY ═══ -->
+      <div id="pluggy-review-modal" style="display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:16px;">
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:20px;width:100%;max-width:680px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;">
+          <!-- Header -->
+          <div style="padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+            <div>
+              <h3 style="font-size:18px;font-weight:800;margin-bottom:2px;">Revisão de Transações</h3>
+              <p id="pluggy-review-period" style="font-size:11px;color:var(--muted);"></p>
+            </div>
+            <button id="pluggy-review-close" style="width:40px;height:40px;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid var(--border);color:var(--muted);font-size:18px;cursor:pointer;display:grid;place-items:center;">✕</button>
+          </div>
+
+          <!-- Legenda categorias -->
+          <div style="padding:12px 24px;border-bottom:1px solid var(--border);display:flex;gap:10px;flex-wrap:wrap;flex-shrink:0;">
+            <span style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;align-self:center;">Categoria:</span>
+            <span class="pluggy-cat-legend" data-cat="entrada"     style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:rgba(0,229,160,.15);color:#00e5a0;border:1px solid rgba(0,229,160,.3);cursor:pointer;">Entrada</span>
+            <span class="pluggy-cat-legend" data-cat="saida-fixa"  style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:rgba(255,91,112,.15);color:#ff5b70;border:1px solid rgba(255,91,112,.3);cursor:pointer;">Saída Fixa</span>
+            <span class="pluggy-cat-legend" data-cat="funcionario" style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:rgba(255,179,71,.15);color:#ffb347;border:1px solid rgba(255,179,71,.3);cursor:pointer;">Funcionário</span>
+            <span class="pluggy-cat-legend" data-cat="comida"      style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:rgba(78,205,196,.15);color:#4ecdc4;border:1px solid rgba(78,205,196,.3);cursor:pointer;">Comida</span>
+            <span class="pluggy-cat-legend" data-cat="variavel"    style="padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;background:rgba(176,133,245,.15);color:#b085f5;border:1px solid rgba(176,133,245,.3);cursor:pointer;">Variável</span>
+          </div>
+
+          <!-- Lista de transações para revisar -->
+          <div id="pluggy-review-list" style="overflow-y:auto;flex:1;padding:12px 24px;display:grid;gap:8px;"></div>
+
+          <!-- Footer -->
+          <div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0;flex-wrap:wrap;">
+            <div style="font-size:12px;color:var(--muted);">
+              <span id="pluggy-review-count">0</span> transações selecionadas
+              <label style="display:inline-flex;align-items:center;gap:5px;margin-left:12px;cursor:pointer;">
+                <input type="checkbox" id="pluggy-select-all" style="accent-color:var(--accent);width:14px;height:14px;">
+                <span>Todas</span>
+              </label>
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button id="pluggy-review-cancel" style="padding:11px 20px;border-radius:12px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;font-weight:600;cursor:pointer;">Cancelar</button>
+              <button id="pluggy-review-confirm" style="padding:11px 22px;border-radius:12px;background:linear-gradient(135deg,#00d4ff,#0099cc);border:none;color:#000;font-size:13px;font-weight:800;cursor:pointer;">Importar Selecionadas</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <!-- ═══ /MODAL REVISÃO PLUGGY ═══ -->
 
       <!-- Calendário -->
       <section id="v-cal" class="t-view">

@@ -387,6 +387,12 @@ tr:hover td { background: rgba(255,255,255,.025); }
   display: none; align-items: center; justify-content: center; padding: var(--sp-lg);
 }
 #modal-edit-user.active { display: flex; animation: fadeOverlay .2s var(--ease); }
+#modal-edit-company {
+  position: fixed; inset: 0; background: rgba(0,0,0,.8);
+  backdrop-filter: blur(12px); z-index: 9500;
+  display: none; align-items: center; justify-content: center; padding: var(--sp-lg);
+}
+#modal-edit-company.active { display: flex; animation: fadeOverlay .2s var(--ease); }
 .modal-card {
   width: 100%; max-width: 520px; background: var(--bg2);
   border: 1px solid var(--border); border-radius: var(--r-xl);

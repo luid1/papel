@@ -1,0 +1,43 @@
+# Dependências
+node_modules/
+package-lock.json
+
+# Variáveis de ambiente e credenciais (NUNCA commitar!)
+.env
+.env.local
+.env.production
+serviceAccountKey.json
+*-firebase-adminsdk-*.json
+
+# Sessão do WhatsApp
+.wwebjs_auth/
+.wwebjs_auth_backup/
+.wwebjs_cache/
+qrcode.png
+gmail-tokens.json
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Arquivos temporários
+tts_*.mp3
+tts_*.ogg
+*.tmp
+.DS_Store
+Thumbs.db
+
+# Build / arquivos compactados
+*.zip
+*.tar.gz
+dist/
+build/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Fly.io
+.fly/

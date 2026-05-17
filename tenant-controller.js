@@ -8,7 +8,7 @@
 import { db } from "./firebase-config.js";
 import {
   collection, doc, getDoc, addDoc, updateDoc, deleteDoc, setDoc,
-  query, orderBy, onSnapshot, where, getDocs
+  query, orderBy, onSnapshot, where, getDocs, serverTimestamp
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 // ─── CATEGORIAS ───────────────────────────────────────────────
@@ -28,7 +28,8 @@ const s = {
   view:'v-home', txs:[], obs:[], pagamentos:[],
   fM:new Date().getMonth()+1, fY:new Date().getFullYear(),
   cM:new Date().getMonth()+1, cY:new Date().getFullYear(),
-  repFilter:'mes_atual', repCat:'all', repCustomIni:'', repCustomFim:'', features:{}
+  repFilter:'mes_atual', repCat:'all', repCustomIni:'', repCustomFim:'', features:{},
+  dashCat:'all', dashSort:'createdAt', dashOrigem:'all', dashShowAll:false
 };
 let charts={}, _unsubTxs=null, _unsubObs=null, _unsubPag=null, _unsubCompany=null;
 
@@ -39,6 +40,29 @@ const fmt = v   => Number(v).toLocaleString('pt-BR',{style:'currency',currency:'
 const fmtN= v   => Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const fD  = iso => iso ? iso.split('-').reverse().join('/') : '—';
 const esc = str => String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+// ─── HELPERS DE ORIGEM / CREATED-AT ───────────────────────────
+function getCreatedAtMs(t){
+  const c = t.createdAt;
+  if(!c) return 0;
+  if(typeof c === 'number') return c;                    // Date.now() do frontend
+  if(c && typeof c.toMillis === 'function') return c.toMillis(); // Firestore Timestamp
+  if(c && c.seconds) return c.seconds * 1000;           // Timestamp serializado
+  return 0;
+}
+
+function getOrigem(t){
+  if(t.origem==='whatsapp' || t.createdBy==='whatsapp-bot') return 'whatsapp';
+  if(t.origem==='pluggy') return 'banco';
+  return 'manual';
+}
+
+function getOrigemBadge(t){
+  const o = getOrigem(t);
+  if(o==='whatsapp') return `<span title="Enviado pelo WhatsApp" style="font-size:10px;padding:2px 6px;border-radius:5px;background:rgba(0,212,255,.10);color:var(--accent);font-weight:700;white-space:nowrap;">📱 WA</span>`;
+  if(o==='banco')    return `<span title="Importado do banco" style="font-size:10px;padding:2px 6px;border-radius:5px;background:rgba(255,179,71,.10);color:var(--warning);font-weight:700;white-space:nowrap;">🏦 Banco</span>`;
+  return `<span title="Adicionado manualmente" style="font-size:10px;padding:2px 6px;border-radius:5px;background:rgba(255,255,255,.06);color:var(--muted);font-weight:700;white-space:nowrap;">✎ Manual</span>`;
+}
 
 function addEvents(elOrId, fn){
   // click-only — touchstart caused double-fires and swallowed scroll events
@@ -147,7 +171,7 @@ function buildPills(){
     btn.className='fpill';
     btn.textContent=`${MONTHS[m-1].slice(0,3)} ${y}`;
     btn.style.cssText=`border:1px solid ${active?'var(--accent)':'var(--border)'};background:${active?'rgba(0,212,255,.12)':'transparent'};color:${active?'var(--accent)':'var(--muted)'};flex-shrink:0;`;
-    btn.addEventListener('click',()=>{s.fM=m;s.fY=y;render();});
+    btn.addEventListener('click',()=>{s.fM=m;s.fY=y;s.dashShowAll=false;render();});
     pills.appendChild(btn);
   });
   // Rola para o pill activo
@@ -438,6 +462,69 @@ function getExpandedTxsInRange(iniIso, fimIso) {
   return out;
 }
 
+// ─── FILTROS DO DASHBOARD ─────────────────────────────────────
+function renderDashFilters(txs){
+  const el = $('t-dash-filter-row'); if(!el) return;
+
+  // Totais rápidos para o mini-resumo do filtro
+  const inF  = txs.filter(t=>t.category==='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
+  const outF = txs.filter(t=>t.category!=='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
+
+  const catBtns = [
+    {k:'all',     label:'Todas'},
+    {k:'entrada', label:'▲ Entrada'},
+    {k:'saida-fixa', label:'▼ Saída Fixa'},
+    {k:'variavel',   label:'● Variável'},
+    {k:'funcionario',label:'👤 Func.'},
+    {k:'comida',     label:'🍽 Comida'},
+  ].map(c=>`<button onclick="window._dashSetCat('${c.k}')"
+    style="padding:4px 11px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;border:1px solid ${s.dashCat===c.k?'var(--accent)':'rgba(255,255,255,.1)'};background:${s.dashCat===c.k?'rgba(0,212,255,.12)':'transparent'};color:${s.dashCat===c.k?'var(--accent)':'var(--muted)'};transition:.15s;">${c.label}</button>`).join('');
+
+  const origemBtns = [
+    {k:'all',       label:'Todos'},
+    {k:'whatsapp',  label:'📱 WA'},
+    {k:'manual',    label:'✎ Manual'},
+    {k:'banco',     label:'🏦 Banco'},
+  ].map(o=>`<button onclick="window._dashSetOrigem('${o.k}')"
+    style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;border:1px solid ${s.dashOrigem===o.k?'var(--accent)':'rgba(255,255,255,.1)'};background:${s.dashOrigem===o.k?'rgba(0,212,255,.12)':'transparent'};color:${s.dashOrigem===o.k?'var(--accent)':'var(--muted)'};transition:.15s;">${o.label}</button>`).join('');
+
+  const sortOpts = [
+    {k:'createdAt',   label:'Mais recente'},
+    {k:'date_desc',   label:'Data ↓'},
+    {k:'date_asc',    label:'Data ↑'},
+    {k:'amount_desc', label:'Maior valor'},
+    {k:'amount_asc',  label:'Menor valor'},
+  ].map(o=>`<option value="${o.k}" ${s.dashSort===o.k?'selected':''}>${o.label}</option>`).join('');
+
+  el.innerHTML = `
+    <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:12px 14px;margin-bottom:12px;">
+      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px;">
+        <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-right:2px;">Categoria:</span>
+        ${catBtns}
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+          <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);">Origem:</span>
+          ${origemBtns}
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;margin-left:auto;">
+          <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);">Ordenar:</span>
+          <select onchange="window._dashSetSort(this.value)" style="padding:4px 8px;border-radius:8px;font-size:11px;font-weight:700;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--text);cursor:pointer;outline:none;">${sortOpts}</select>
+        </div>
+      </div>
+      <div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.05);display:flex;gap:18px;flex-wrap:wrap;">
+        <span style="font-size:11px;color:var(--muted);">Entradas filtradas: <strong style="color:var(--success);">${fmt(inF)}</strong></span>
+        <span style="font-size:11px;color:var(--muted);">Saídas filtradas: <strong style="color:var(--alert);">${fmt(outF)}</strong></span>
+        <span style="font-size:11px;color:var(--muted);">Saldo: <strong style="${inF-outF>=0?'color:var(--success)':'color:var(--alert)'};">${fmt(inF-outF)}</strong></span>
+      </div>
+    </div>`;
+
+  // Handlers globais (simples, sem EventListener duplicado)
+  window._dashSetCat    = cat  => { s.dashCat    = cat;  s.dashShowAll=false; renderHome(); };
+  window._dashSetSort   = sort => { s.dashSort   = sort; s.dashShowAll=false; renderHome(); };
+  window._dashSetOrigem = or   => { s.dashOrigem = or;   s.dashShowAll=false; renderHome(); };
+}
+
 // ─── DASHBOARD ────────────────────────────────────────────────
 function renderHome(){
   const cats = activeCats();
@@ -496,15 +583,55 @@ function renderHome(){
   const foodRow = $('t-s-food')?.closest('.bd-row');
   if(foodRow)  foodRow.style.display  = cats['comida']?'':'none';
 
-  const cEl=$('t-tx-count'); if(cEl) cEl.textContent=`${f.length} registro${f.length!==1?'s':''}`;
+  // ── Filtros do dashboard ──────────────────────────────────────
+  renderDashFilters(f);
+
+  let filtered = [...f];
+
+  // Filtro por categoria
+  if(s.dashCat !== 'all') filtered = filtered.filter(t => t.category === s.dashCat);
+
+  // Filtro por origem
+  if(s.dashOrigem !== 'all') filtered = filtered.filter(t => getOrigem(t) === s.dashOrigem);
+
+  // Ordenação
+  if(s.dashSort === 'createdAt'){
+    filtered.sort((a,b) => (getCreatedAtMs(b) || 0) - (getCreatedAtMs(a) || 0));
+  } else if(s.dashSort === 'date_desc'){
+    filtered.sort((a,b) => (b.date||'').localeCompare(a.date||''));
+  } else if(s.dashSort === 'date_asc'){
+    filtered.sort((a,b) => (a.date||'').localeCompare(b.date||''));
+  } else if(s.dashSort === 'amount_desc'){
+    filtered.sort((a,b) => Number(b.amount||0) - Number(a.amount||0));
+  } else if(s.dashSort === 'amount_asc'){
+    filtered.sort((a,b) => Number(a.amount||0) - Number(b.amount||0));
+  }
+
+  // Contagem
+  const cEl=$('t-tx-count'); if(cEl) cEl.textContent=`${filtered.length} registro${filtered.length!==1?'s':''}`;
 
   const txList=$('t-tx-list'); if(!txList) return;
-  const fSorted = [...f].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-  txList.innerHTML=fSorted.slice(0,15).map(t=>{
+
+  // Paginação
+  const PAGE = 25;
+  const paged = s.dashShowAll ? filtered : filtered.slice(0, PAGE);
+
+  // "Ver mais"
+  const vmWrap = $('t-dash-ver-mais-wrap');
+  if(vmWrap){
+    if(!s.dashShowAll && filtered.length > PAGE){
+      vmWrap.style.display = 'block';
+      vmWrap.innerHTML = `<button onclick="window._dashVerMais()" style="padding:8px 24px;border-radius:20px;border:1px solid rgba(0,212,255,.25);background:rgba(0,212,255,.06);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;">Ver todas as ${filtered.length} transações ↓</button>`;
+    } else {
+      vmWrap.style.display = 'none';
+    }
+  }
+  window._dashVerMais = () => { s.dashShowAll = true; renderHome(); };
+
+  txList.innerHTML = paged.map(t=>{
     const cat=cats[t.category]||CATS.variavel, isIn=t.category==='entrada', vc=isIn?'var(--success)':'var(--alert)';
     const isVirt = t.isVirtual===true;
-    // Em transações virtuais (recorrentes auto-aplicadas), não permite editar/excluir
-    // — o usuário deve agir na transação ORIGINAL via Obrigações.
+    const badge  = isVirt ? '' : getOrigemBadge(t);
     const actions = isVirt
       ? `<span title="Recorrente automático" style="font-size:10px;padding:3px 8px;border-radius:6px;background:rgba(255,179,71,.12);color:var(--warning);font-weight:700;">🔄 RECORRENTE</span>`
       : `<button class="btn-act edit" data-id="${t.id}" data-action="edit">✎</button>
@@ -512,7 +639,7 @@ function renderHome(){
     return `<tr style="--card-accent:${cat.color};">
       <td data-label="Data" style="color:var(--muted);font-family:'DM Mono',monospace;font-size:13px;white-space:nowrap;">${fD(t.date)}</td>
       <td data-label="Categoria"><span class="cat-badge" style="background:${cat.color}22;color:${cat.color};">${cat.label}</span></td>
-      <td data-label="Descrição" style="font-weight:600;">${esc(t.description||'—')}${isVirt?' <span style="font-size:10px;color:var(--muted);">·rec</span>':''}</td>
+      <td data-label="Descrição" style="font-weight:600;">${esc(t.description||'—')}${isVirt?' <span style="font-size:10px;color:var(--muted);">·rec</span>':''}<div style="margin-top:2px;">${badge}</div></td>
       <td data-label="Valor" style="text-align:right;font-family:'DM Mono',monospace;font-weight:700;color:${vc};white-space:nowrap;">${isIn?'+':'-'} ${fmt(t.amount)}</td>
       <td data-label="Ações" class="td-actions-cell" style="text-align:right;"><div class="td-actions">${actions}</div></td></tr>`;
   }).join('')||`<tr><td colspan="5" style="text-align:center;padding:56px;color:var(--muted);">Sem registros para este período.</td></tr>`;
@@ -1212,6 +1339,513 @@ function bindEvents(){
   });
 
   on('t-btn-logout',()=>window.LuminAuth?.logout());
+
+  // ─── PLUGGY ─────────────────────────────────────────────────
+  initPluggy();
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  PLUGGY — Open Finance Brasil
+// ═══════════════════════════════════════════════════════════════
+
+// Backend hospedado no Fly.io (grátis). Fallback para localhost em dev.
+const BACKEND_URL = window.LUMIN_BACKEND_URL || 'https://lumin-backend.fly.dev';
+
+// Cores por categoria (espelha as constantes CATS)
+const CAT_STYLES = {
+  'entrada':     { color:'#00e5a0', bg:'rgba(0,229,160,.15)',   border:'rgba(0,229,160,.3)',   label:'Entrada'       },
+  'saida-fixa':  { color:'#ff5b70', bg:'rgba(255,91,112,.15)',  border:'rgba(255,91,112,.3)',  label:'Saída Fixa'    },
+  'funcionario': { color:'#ffb347', bg:'rgba(255,179,71,.15)',   border:'rgba(255,179,71,.3)',  label:'Funcionário'   },
+  'comida':      { color:'#4ecdc4', bg:'rgba(78,205,196,.15)',   border:'rgba(78,205,196,.3)',  label:'Comida'        },
+  'variavel':    { color:'#b085f5', bg:'rgba(176,133,245,.15)', border:'rgba(176,133,245,.3)', label:'Var. Geral'    }
+};
+
+// Estado do modal de revisão
+let _pluggyPendingTxs = []; // transações retornadas pelo backend
+
+function initPluggy() {
+  // Verifica se a empresa já tem banco conectado e ajusta UI
+  _pluggyRefreshUI();
+
+  $('btn-pluggy-connect')?.addEventListener('click', pluggyOpenWidget);
+  $('btn-pluggy-sync')?.addEventListener('click',    pluggySync);
+  $('pluggy-review-close')?.addEventListener('click',   pluggyCloseReview);
+  $('pluggy-review-cancel')?.addEventListener('click',  pluggyCloseReview);
+  $('pluggy-review-confirm')?.addEventListener('click', pluggyConfirmImport);
+
+  $('pluggy-select-all')?.addEventListener('change', function() {
+    document.querySelectorAll('.pluggy-tx-check').forEach(cb => {
+      cb.checked = this.checked;
+    });
+    _pluggyUpdateCount();
+  });
+
+  // Gmail
+  $('btn-gmail-connect')?.addEventListener('click',    gmailConnect);
+  $('btn-gmail-sync')?.addEventListener('click',       () => gmailSync(false));
+  $('btn-gmail-disconnect')?.addEventListener('click', gmailDisconnect);
+  gmailInit(); // verifica status e faz auto-sync se já conectado
+}
+
+function _pluggyRefreshUI() {
+  const hasItem    = !!s.company?.pluggyItemId;
+  const connectBtn = $('btn-pluggy-connect');
+  const syncBtn    = $('btn-pluggy-sync');
+  const statusText = $('pluggy-status-text');
+  if (!connectBtn) return;
+
+  if (hasItem) {
+    connectBtn.textContent = 'Reconectar';
+    connectBtn.style.background = 'rgba(255,255,255,.07)';
+    connectBtn.style.border = '1px solid var(--border)';
+    connectBtn.style.color = 'var(--muted)';
+    if (syncBtn) syncBtn.style.display = 'block';
+
+    // Mostra último sync
+    const lastSync = s.company?.pluggyLastSync;
+    let lastSyncStr = '';
+    if (lastSync) {
+      const d = lastSync.toDate ? lastSync.toDate() : new Date(lastSync);
+      lastSyncStr = ` · Último sync: ${d.toLocaleDateString('pt-BR')} às ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+    }
+    if (statusText) statusText.textContent = `✅ Banco conectado${lastSyncStr}. Sincronização automática todo dia às 3h.`;
+
+    // Auto-sync em background ao carregar (silencioso, apenas se passou mais de 1h do último)
+    _pluggyAutoSyncBackground();
+  } else {
+    if (syncBtn) syncBtn.style.display = 'none';
+    if (statusText) statusText.textContent = 'Conecte seu banco e a IA categoriza seus gastos automaticamente.';
+  }
+}
+
+async function _pluggyAutoSyncBackground() {
+  const itemId = s.company?.pluggyItemId;
+  if (!itemId || !s.companyId) return;
+
+  // Só sincroniza se faz mais de 1 hora do último sync
+  const lastSync = s.company?.pluggyLastSync;
+  if (lastSync) {
+    const d = lastSync.toDate ? lastSync.toDate() : new Date(lastSync);
+    if (Date.now() - d.getTime() < 60 * 60 * 1000) return;
+  }
+
+  // Verifica se o servidor está acessível antes de tentar
+  try {
+    const health = await fetch(`${BACKEND_URL}/health`, { signal: AbortSignal.timeout(4000) });
+    if (!health.ok) return;
+  } catch { return; } // servidor offline — sem erro para o usuário
+
+  try {
+    const res = await fetch(`${BACKEND_URL}/pluggy/auto-sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ companyId: s.companyId, itemId, dias: 2 })
+    });
+    if (!res.ok) return;
+    const { novas } = await res.json();
+    if (novas > 0) toast(`🏦 ${novas} nova${novas > 1 ? 's transações importadas' : ' transação importada'} do banco!`);
+  } catch (e) {
+    console.warn('[AutoSync background]', e.message);
+  }
+}
+
+async function pluggyOpenWidget() {
+  if (!s.companyId) return;
+  const btn = $('btn-pluggy-connect');
+  if (btn) { btn.textContent = '⏳ Conectando...'; btn.disabled = true; }
+
+  // Verifica saúde do servidor (pluggy-proxy.js na porta 3001)
+  try {
+    const health = await fetch(`${BACKEND_URL}/health`, { signal: AbortSignal.timeout(5000) });
+    if (!health.ok) throw new Error('servidor offline');
+  } catch {
+    toast('❌ Servidor offline! Rode "node pluggy-proxy.js" no terminal e tente de novo.', true);
+    if (btn) { btn.textContent = 'Conectar Banco'; btn.disabled = false; }
+    return;
+  }
+
+  try {
+    // Inclui itemId na query se já tiver (facilita reconexão)
+    const existingItemId = s.company?.pluggyItemId || '';
+    const tokenUrl = `${BACKEND_URL}/pluggy/connect-token?companyId=${s.companyId}${existingItemId ? '&itemId='+existingItemId : ''}`;
+    const res = await fetch(tokenUrl);
+    if (!res.ok) throw new Error(await res.text());
+    const { connectToken } = await res.json();
+
+    const widget = new PluggyConnect({
+      connectToken,
+      onSuccess: async (data) => {
+        const itemId = data?.item?.id;
+        if (!itemId) return;
+
+        // Salva itemId direto no Firestore via JS SDK (sem depender do backend)
+        try {
+          await updateDoc(doc(db, 'companies', s.companyId), { pluggyItemId: itemId });
+          console.log('[Pluggy] itemId salvo no Firestore:', itemId);
+        } catch (e) {
+          console.warn('[Pluggy] Erro ao salvar itemId no Firestore:', e.message);
+        }
+
+        if (s.company) s.company.pluggyItemId = itemId;
+        _pluggyRefreshUI();
+        toast('✓ Banco conectado! Importando transações recentes...');
+
+        // Dispara auto-sync imediato após conectar
+        try {
+          const syncRes = await fetch(`${BACKEND_URL}/pluggy/auto-sync`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ companyId: s.companyId, itemId, dias: 30 })
+          });
+          if (syncRes.ok) {
+            const { novas } = await syncRes.json();
+            if (novas > 0) toast(`🏦 ${novas} transações dos últimos 30 dias encontradas! Use "Sincronizar" para importá-las.`);
+          }
+        } catch (_) { /* auto-sync é best-effort */ }
+      },
+      onError: (err) => {
+        console.error('[Pluggy Widget]', err);
+        toast('Erro ao conectar o banco. Tente novamente.', true);
+      },
+      onClose: () => {
+        if (btn) { btn.textContent = s.company?.pluggyItemId ? 'Reconectar' : 'Conectar Banco'; btn.disabled = false; }
+      }
+    });
+    widget.init();
+
+  } catch (err) {
+    console.error('[Pluggy]', err);
+    toast('Erro ao abrir o widget bancário. Tente novamente.', true);
+    if (btn) { btn.textContent = 'Conectar Banco'; btn.disabled = false; }
+  }
+}
+
+async function pluggySync() {
+  const itemId = s.company?.pluggyItemId;
+  if (!itemId) { toast('Nenhum banco conectado.', true); return; }
+
+  const btn = $('btn-pluggy-sync');
+  if (btn) { btn.textContent = '⏳ Buscando...'; btn.disabled = true; }
+
+  try {
+    // Verifica servidor primeiro
+    const health = await fetch(`${BACKEND_URL}/health`, { signal: AbortSignal.timeout(5000) });
+    if (!health.ok) throw new Error('offline');
+
+    const res = await fetch(`${BACKEND_URL}/pluggy/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ companyId: s.companyId, itemId, dias: 30 })
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const { transactions, period } = await res.json();
+
+    if (!transactions?.length) {
+      toast('Nenhuma transação nova encontrada nos últimos 30 dias.', false);
+      return;
+    }
+
+    _pluggyPendingTxs = transactions;
+    pluggyOpenReview(period);
+
+  } catch (err) {
+    console.error('[Pluggy Sync]', err);
+    const msg = err.message === 'offline'
+      ? '❌ Servidor offline! Rode "node pluggy-proxy.js" no terminal.'
+      : 'Erro ao sincronizar. Verifique o servidor.';
+    toast(msg, true);
+  } finally {
+    if (btn) { btn.textContent = 'Sincronizar'; btn.disabled = false; }
+  }
+}
+
+function pluggyOpenReview(period) {
+  const modal = $('pluggy-review-modal');
+  const list  = $('pluggy-review-list');
+  if (!modal || !list) return;
+
+  // Período no header
+  const periodEl = $('pluggy-review-period');
+  if (periodEl && period) {
+    const fmtD = iso => iso.split('-').reverse().join('/');
+    periodEl.textContent = `${fmtD(period.from)} → ${fmtD(period.to)} · ${_pluggyPendingTxs.length} transações encontradas`;
+  }
+
+  // Renderiza lista
+  list.innerHTML = '';
+  _pluggyPendingTxs.forEach((tx, i) => {
+    const st = CAT_STYLES[tx.category] || CAT_STYLES['variavel'];
+    const isEntrada = tx.category === 'entrada';
+    const valorFmt = Number(tx.value).toLocaleString('pt-BR', { style:'currency', currency:'BRL' });
+
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.03);border:1px solid var(--border);';
+    row.innerHTML = `
+      <input type="checkbox" class="pluggy-tx-check" data-idx="${i}" checked
+        style="accent-color:var(--accent);width:16px;height:16px;flex-shrink:0;cursor:pointer;">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(tx.description)}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:1px;">${tx.date?.split('-').reverse().join('/')}</div>
+      </div>
+      <select class="pluggy-tx-cat" data-idx="${i}"
+        style="padding:4px 8px;border-radius:8px;border:1px solid ${st.border};background:${st.bg};color:${st.color};font-size:11px;font-weight:700;cursor:pointer;">
+        ${Object.entries(CAT_STYLES).map(([k,v])=>`<option value="${k}" ${k===tx.category?'selected':''}>${v.label}</option>`).join('')}
+      </select>
+      <div style="font-size:13px;font-weight:700;color:${isEntrada?'#00e5a0':'#ff5b70'};white-space:nowrap;min-width:80px;text-align:right;">${isEntrada?'+':'-'} ${valorFmt}</div>
+    `;
+    list.appendChild(row);
+  });
+
+  // Eventos dos selects de categoria
+  list.querySelectorAll('.pluggy-tx-cat').forEach(sel => {
+    sel.addEventListener('change', function() {
+      const idx = Number(this.dataset.idx);
+      _pluggyPendingTxs[idx].category = this.value;
+      const st = CAT_STYLES[this.value] || CAT_STYLES['variavel'];
+      this.style.borderColor = st.border;
+      this.style.background  = st.bg;
+      this.style.color       = st.color;
+      // Atualiza cor do valor
+      const row = this.closest('div[style]');
+      const valEl = row?.querySelector('div:last-child');
+      if (valEl) valEl.style.color = this.value === 'entrada' ? '#00e5a0' : '#ff5b70';
+    });
+  });
+
+  // Eventos dos checkboxes
+  list.querySelectorAll('.pluggy-tx-check').forEach(cb => {
+    cb.addEventListener('change', _pluggyUpdateCount);
+  });
+
+  _pluggyUpdateCount();
+  modal.style.display = 'flex';
+}
+
+function _pluggyUpdateCount() {
+  const total = document.querySelectorAll('.pluggy-tx-check:checked').length;
+  const el = $('pluggy-review-count');
+  if (el) el.textContent = total;
+}
+
+function pluggyCloseReview() {
+  const modal = $('pluggy-review-modal');
+  if (modal) modal.style.display = 'none';
+  _pluggyPendingTxs = [];
+  const sa = $('pluggy-select-all');
+  if (sa) sa.checked = true;
+}
+
+async function pluggyConfirmImport() {
+  const checked = [...document.querySelectorAll('.pluggy-tx-check:checked')];
+  if (!checked.length) { toast('Selecione ao menos uma transação.', true); return; }
+
+  const btn = $('pluggy-review-confirm');
+  if (btn) { btn.textContent = '⏳ Salvando...'; btn.disabled = true; }
+
+  try {
+    const colRef = collection(db, `${s.companyId}_transacoes`);
+
+    // Salva em paralelo (máx 20 por vez para não sobrecarregar)
+    const toSave = checked.map(cb => _pluggyPendingTxs[Number(cb.dataset.idx)]);
+    const CHUNK  = 20;
+    for (let i = 0; i < toSave.length; i += CHUNK) {
+      await Promise.all(
+        toSave.slice(i, i + CHUNK).map(tx =>
+          addDoc(colRef, {
+            date:        tx.date,
+            category:    tx.category,
+            description: tx.description,
+            value:       Number(tx.value),
+            origem:      'pluggy',
+            createdAt:   serverTimestamp()
+          })
+        )
+      );
+    }
+
+    toast(`✓ ${toSave.length} transações importadas com sucesso!`);
+    pluggyCloseReview();
+
+  } catch (err) {
+    console.error('[Pluggy Import]', err);
+    toast('Erro ao salvar transações. Tente novamente.', true);
+    if (btn) { btn.textContent = 'Importar Selecionadas'; btn.disabled = false; }
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+//  GMAIL SYNC — lê emails bancários e importa transações com IA
+// ══════════════════════════════════════════════════════════════
+
+let _gmailConnected = false;
+let _gmailEmail     = null;
+
+// ── Verifica status do Gmail ao carregar ───────────────────────
+async function gmailInit() {
+  if (!s.companyId) return;
+  try {
+    const health = await fetch(`${BACKEND_URL}/health`, { signal: AbortSignal.timeout(3000) });
+    if (!health.ok) return;
+    const r = await fetch(`${BACKEND_URL}/gmail/status?companyId=${s.companyId}`);
+    if (!r.ok) return;
+    const { connected, email } = await r.json();
+    _gmailConnected = connected;
+    _gmailEmail     = email;
+    _gmailRefreshUI();
+    if (connected) _gmailAutoSync();
+  } catch { /* servidor offline — silencioso */ }
+}
+
+// ── Atualiza UI do bloco Gmail ─────────────────────────────────
+function _gmailRefreshUI() {
+  const statusEl  = $('gmail-status');
+  const connectEl = $('btn-gmail-connect');
+  const syncEl    = $('btn-gmail-sync');
+  const discEl    = $('btn-gmail-disconnect');
+
+  if (!statusEl) return;
+
+  if (_gmailConnected && _gmailEmail) {
+    statusEl.innerHTML  = `✅ <b>${_gmailEmail}</b> conectado — emails bancários sincronizados automaticamente.`;
+    if (connectEl) connectEl.style.display = 'none';
+    if (syncEl)    syncEl.style.display    = 'inline-flex';
+    if (discEl)    discEl.style.display    = 'inline-flex';
+  } else {
+    statusEl.textContent = 'Conecte seu Gmail e a IA lê os emails do seu banco e importa as transações automaticamente.';
+    if (connectEl) connectEl.style.display = 'inline-flex';
+    if (syncEl)    syncEl.style.display    = 'none';
+    if (discEl)    discEl.style.display    = 'none';
+  }
+}
+
+// ── Abre popup OAuth do Google ─────────────────────────────────
+async function gmailConnect() {
+  const btn = $('btn-gmail-connect');
+  if (btn) { btn.textContent = '⏳ Abrindo...'; btn.disabled = true; }
+
+  try {
+    const health = await fetch(`${BACKEND_URL}/health`, { signal: AbortSignal.timeout(4000) });
+    if (!health.ok) throw new Error('offline');
+  } catch {
+    toast('❌ Servidor offline! Rode "node pluggy-proxy.js" no terminal.', true);
+    if (btn) { btn.textContent = '📧 Conectar Gmail'; btn.disabled = false; }
+    return;
+  }
+
+  try {
+    const r = await fetch(`${BACKEND_URL}/gmail/auth-url?companyId=${s.companyId}`);
+    const { url, error } = await r.json();
+    if (error) throw new Error(error);
+
+    // Abre popup
+    const popup = window.open(url, 'gmail-oauth',
+      'width=520,height=640,top=100,left=200,menubar=no,toolbar=no,location=no');
+
+    // Escuta mensagem do popup quando conectar
+    const onMsg = (ev) => {
+      if (ev.data?.type === 'gmail-connected') {
+        window.removeEventListener('message', onMsg);
+        _gmailConnected = true;
+        _gmailEmail     = ev.data.email;
+        _gmailRefreshUI();
+        toast(`✅ Gmail (${ev.data.email}) conectado! Sincronizando emails...`);
+        gmailSync(true); // sync imediato após conectar
+      } else if (ev.data?.type === 'gmail-error') {
+        window.removeEventListener('message', onMsg);
+        toast('Erro ao conectar Gmail. Tente novamente.', true);
+        if (btn) { btn.textContent = '📧 Conectar Gmail'; btn.disabled = false; }
+      }
+    };
+    window.addEventListener('message', onMsg);
+
+    // Se o popup foi bloqueado
+    if (!popup || popup.closed) {
+      window.removeEventListener('message', onMsg);
+      toast('Popup bloqueado! Libere popups para este site e tente novamente.', true);
+      if (btn) { btn.textContent = '📧 Conectar Gmail'; btn.disabled = false; }
+    }
+
+  } catch (err) {
+    console.error('[Gmail Connect]', err);
+    toast(err.message.includes('GOOGLE_CLIENT_ID')
+      ? '⚙️ Configure GOOGLE_CLIENT_ID no .env do servidor.'
+      : 'Erro ao conectar Gmail. Tente novamente.', true);
+    if (btn) { btn.textContent = '📧 Conectar Gmail'; btn.disabled = false; }
+  }
+}
+
+// ── Desconectar Gmail ──────────────────────────────────────────
+async function gmailDisconnect() {
+  if (!confirm('Desconectar Gmail? As transações já importadas são mantidas.')) return;
+  try {
+    await fetch(`${BACKEND_URL}/gmail/disconnect?companyId=${s.companyId}`);
+    _gmailConnected = false;
+    _gmailEmail     = null;
+    _gmailRefreshUI();
+    toast('Gmail desconectado.');
+  } catch (e) {
+    toast('Erro ao desconectar.', true);
+  }
+}
+
+// ── Sincronização automática (silenciosa, ao carregar) ─────────
+async function _gmailAutoSync() {
+  try {
+    const r = await fetch(`${BACKEND_URL}/gmail/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ companyId: s.companyId, dias: 7 })
+    });
+    if (!r.ok) return;
+    const { transactions, novas } = await r.json();
+    if (novas > 0) {
+      toast(`📧 ${novas} nova${novas > 1 ? 's transações' : ' transação'} encontradas no seu email! Clique em "Sincronizar Email" para revisar.`);
+      // guarda pendentes para quando o usuário clicar em Sincronizar
+      window._gmailPendingTxs = transactions;
+    }
+  } catch { /* silencioso */ }
+}
+
+// ── Sincronização manual (com revisão) ────────────────────────
+async function gmailSync(silentOnEmpty = false) {
+  const btn = $('btn-gmail-sync');
+  if (btn) { btn.textContent = '⏳ Lendo emails...'; btn.disabled = true; }
+
+  try {
+    // Usa cache do auto-sync se disponível
+    let transactions = window._gmailPendingTxs;
+    let novas = transactions?.length;
+
+    if (!transactions) {
+      const r = await fetch(`${BACKEND_URL}/gmail/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyId: s.companyId, dias: 14 })
+      });
+      if (!r.ok) throw new Error(await r.text());
+      ({ transactions, novas } = await r.json());
+    }
+
+    window._gmailPendingTxs = null; // limpa cache
+
+    if (!novas) {
+      if (!silentOnEmpty) toast('Nenhuma transação nova nos últimos 14 dias.');
+      return;
+    }
+
+    // Reutiliza o mesmo modal de revisão do Pluggy
+    _pluggyPendingTxs = transactions;
+    pluggyOpenReview({ from: '', to: '' });
+    // Atualiza título do modal para indicar origem Gmail
+    const periodEl = $('pluggy-review-period');
+    if (periodEl) periodEl.textContent = `📧 ${novas} transação${novas > 1 ? 'ões' : ''} encontrada${novas > 1 ? 's' : ''} nos seus emails bancários`;
+
+  } catch (err) {
+    console.error('[Gmail Sync]', err);
+    toast('Erro ao ler emails. Verifique a conexão e tente novamente.', true);
+  } finally {
+    if (btn) { btn.textContent = '🔄 Sincronizar Email'; btn.disabled = false; }
+  }
 }
 
 // ─── LISTENER ─────────────────────────────────────────────────

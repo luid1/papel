@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Lumin — Limpeza de Clientes</title>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+  <style>
+    body{font-family:monospace;background:#050d12;color:#e4f0f6;padding:30px;max-width:700px;margin:0 auto;}
+    h2{color:#00d4ff;margin-bottom:6px;}
+    .sub{color:rgba(228,240,246,.4);font-size:.85rem;margin-bottom:28px;}
+    .log{background:#08141d;border:1px solid rgba(255,255,255,.08);border-radius:12px;
+      padding:20px;min-height:200px;font-size:.9rem;line-height:1.8;margin-bottom:20px;}
+    .log p{margin:0;}
+    .ok  {color:#00e5a0;}
+    .err {color:#ff5b70;}
+    .info{color:#ffb347;}
+    .dim {color:rgba(228,240,246,.4);}
+    button{background:linear-gradient(135deg,#00d4ff,#008fb5);color:#050d12;
+      border:none;border-radius:12px;padding:14px 32px;font-size:1rem;font-weight:900;
+      cursor:pointer;font-family:monospace;transition:opacity .15s;}
+    button:hover{opacity:.85;}
+    button:disabled{opacity:.35;cursor:not-allowed;}
+    .warn-box{background:rgba(255,91,112,.06);border:1px solid rgba(255,91,112,.25);
+      border-radius:10px;padding:14px 18px;margin-bottom:20px;font-size:.85rem;
+      color:rgba(255,91,112,.9);line-height:1.6;}
+  </style>
+</head>
+<body>
+<h2>🧹 Limpeza de Clientes — Lumin</h2>
+<p class="sub">Remove duplicatas e nomes inválidos do Firestore</p>
+
+<div class="warn-box">
+  ⚠️ Esta operação vai:<br>
+  • <b>Deletar:</b> 9999, BEEF<br>
+  • <b>Mesclar saldo:</b> BEEF → BEEF BAR (saldo some em BEEF BAR)<br>
+  • Limpar esses nomes da lista de autocomplete
+</div>
+
+<div class="log" id="log"><p class="dim">Aguardando...</p></div>
+<button id="btn" onclick="runCleanup()">▶ Executar Limpeza</button>
+
+<script>
+firebase.initializeApp({
+  apiKey:"AIzaSyAeAOjFZSHy28uZFgH1PyoJaxPRyS-N1Kw",
+  authDomain:"luminmkt.shop",
+  projectId:"lumin-a5b29",
+  storageBucket:"lumin-a5b29.firebasestorage.app",
+  messagingSenderId:"413860601418",
+  appId:"1:413860601418:web:0b5cce923491e50fdf50b3"
+});
+const db = firebase.firestore();
+const FV = firebase.firestore.FieldValue;
+
+const logEl = document.getElementById('log');
+function log(msg, cls='') {
+  const p = document.createElement('p');
+  p.className = cls;
+  p.innerHTML = msg;
+  if (logEl.querySelector('.dim')) logEl.innerHTML = '';
+  logEl.appendChild(p);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+// ─── Configure aqui os nomes a limpar ───────────────────────
+const TO_DELETE = ['9999', 'BEEF'];
+
+// Mesclar saldo DE → PARA (antes de deletar)
+const MERGES = [
+  { from: 'BEEF', to: 'BEEF BAR' },
+];
+// ────────────────────────────────────────────────────────────
+
+async function runCleanup() {
+  const btn = document.getElementById('btn');
+  btn.disabled = true;
+  logEl.innerHTML = '';
+
+  try {
+    // 1. Mesclar saldos
+    log('━━ Mesclando saldos...', 'info');
+    for (const { from, to } of MERGES) {
+      const fromSnap = await db.collection('ll_clients').doc(from).get();
+      if (!fromSnap.exists) {
+        log(`⏩ "${from}" não existe — pulando merge`, 'dim');
+        continue;
+      }
+      const fromData = fromSnap.data();
+      const toSnap   = await db.collection('ll_clients').doc(to).get();
+      const toData   = toSnap.exists ? toSnap.data() : { balanceBlack: 0, balanceWhite: 0 };
+
+      const newBlack = (toData.balanceBlack || 0) + (fromData.balanceBlack || 0);
+      const newWhite = (toData.balanceWhite || 0) + (fromData.balanceWhite || 0);
+
+      await db.collection('ll_clients').doc(to).set({
+        name: to,
+        balanceBlack: newBlack,
+        balanceWhite: newWhite,
+        lastUpdated: FV.serverTimestamp()
+      }, { merge: true });
+
+      log(`✅ Mesclado: <b>${from}</b> → <b>${to}</b> &nbsp;|&nbsp; ⬛ ${newBlack} pretas &nbsp; ⬜ ${newWhite} brancas`, 'ok');
+    }
+
+    // 2. Deletar clientes inválidos
+    log('━━ Deletando clientes...', 'info');
+    for (const nome of TO_DELETE) {
+      const snap = await db.collection('ll_clients').doc(nome).get();
+      if (!snap.exists) {
+        log(`⏩ "${nome}" não encontrado em ll_clients`, 'dim');
+      } else {
+        await db.collection('ll_clients').doc(nome).delete();
+        log(`🗑 Deletado de ll_clients: <b>${nome}</b>`, 'ok');
+      }
+    }
+
+    // 3. Limpar lista de frequentes
+    log('━━ Limpando autocomplete...', 'info');
+    const freqSnap = await db.collection('luminlog_frequentes').doc('index').get();
+    if (freqSnap.exists) {
+      const nomes = (freqSnap.data().nomes || []).filter(n => !TO_DELETE.includes(n));
+      await db.collection('luminlog_frequentes').doc('index').set({ nomes }, { merge: true });
+      log(`🧹 Lista de autocomplete atualizada (${nomes.length} nomes restantes)`, 'ok');
+    } else {
+      log('⏩ luminlog_frequentes não encontrado', 'dim');
+    }
+
+    log('━━━━━━━━━━━━━━━━━━━━━━━', 'dim');
+    log('✅ <b>Limpeza concluída com sucesso!</b>', 'ok');
+    log('Recarregue o app do motorista para ver os clientes atualizados.', 'dim');
+
+  } catch(e) {
+    log('❌ Erro: ' + e.message, 'err');
+    console.error(e);
+    btn.disabled = false;
+  }
+}
+</script>
+</body>
+</html>

@@ -398,6 +398,43 @@ async function deleteUser(uid) {
   }
 }
 
+// ─── EDITAR EMPRESA ───────────────────────────────────────────
+function openEditCompanyModal(companyId) {
+  const company = _allCompanies[companyId];
+  if (!company) return;
+
+  el("edit-company-id").value         = companyId;
+  el("edit-company-name").value       = company.name        || "";
+  el("edit-company-phone").value      = company.phone       || "";
+  el("edit-company-color").value      = company.themeColor  || "#00d4ff";
+  el("edit-company-color-hex").value  = company.themeColor  || "#00d4ff";
+
+  el("modal-edit-company").classList.add("active");
+}
+
+function closeEditCompanyModal() {
+  el("modal-edit-company").classList.remove("active");
+}
+
+async function saveCompanyEdit() {
+  const companyId = el("edit-company-id").value;
+  const name      = el("edit-company-name").value.trim();
+  const phone     = el("edit-company-phone").value.trim().replace(/\D/g, "");
+  const color     = el("edit-company-color").value;
+
+  if (!name) { toast("Nome da empresa é obrigatório.", "err"); return; }
+
+  try {
+    await updateDoc(doc(db, "companies", companyId), { name, phone, themeColor: color });
+    toast(`✓ Empresa "${name}" atualizada!`);
+    closeEditCompanyModal();
+    await renderCompanies();
+  } catch (err) {
+    console.error("[Admin] Erro ao editar empresa:", err);
+    toast("Erro ao salvar. Tente novamente.", "err");
+  }
+}
+
 // ─── DELETAR EMPRESA ──────────────────────────────────────────
 async function deleteCompany(companyId) {
   const company = _allCompanies[companyId];
@@ -443,7 +480,7 @@ function bindEvents() {
       case "toggle-user":  await toggleUserActive(b.dataset.uid);  break;
       case "reset-pass":   await resetUserPassword(b.dataset.uid, b.dataset.email); break;
       case "del-user":     await deleteUser(b.dataset.uid);        break;
-      case "edit-company": toast("Edição de empresa (próxima fase).", "ok"); break;
+      case "edit-company": openEditCompanyModal(b.dataset.id); break;
       case "del-company":  await deleteCompany(b.dataset.id);      break;
     }
   });
@@ -452,6 +489,21 @@ function bindEvents() {
   el("btn-close-edit-modal")?.addEventListener("click", closeEditModal);
   el("modal-edit-user")?.addEventListener("click", (e) => {
     if (e.target === el("modal-edit-user")) closeEditModal();
+  });
+
+  // ── Modal editar empresa
+  el("btn-save-edit-company")?.addEventListener("click", saveCompanyEdit);
+  el("btn-close-edit-company-modal")?.addEventListener("click", closeEditCompanyModal);
+  el("modal-edit-company")?.addEventListener("click", (e) => {
+    if (e.target === el("modal-edit-company")) closeEditCompanyModal();
+  });
+
+  el("edit-company-color")?.addEventListener("input", (e) => {
+    if (el("edit-company-color-hex")) el("edit-company-color-hex").value = e.target.value;
+  });
+  el("edit-company-color-hex")?.addEventListener("input", (e) => {
+    const v = e.target.value;
+    if (/^#[0-9A-Fa-f]{6}$/.test(v) && el("edit-company-color")) el("edit-company-color").value = v;
   });
 }
 
