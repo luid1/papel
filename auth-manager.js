@@ -138,8 +138,8 @@ async function _secureRoute(user) {
     showLayer("admin-panel");
     // Dispara evento para o módulo Admin carregar os dados
     window.dispatchEvent(new CustomEvent("lumin:admin-ready", { detail: { user } }));
-  } else if (user.role === "tenant" && user.active === true) {
-    // Rota de cliente (próxima fase)
+  } else if ((user.role === "tenant" || user.role === "personal") && user.active === true) {
+    // Rota de cliente — empresa OU usuário pessoal
     showLayer("app-shell-wrapper");
     window.dispatchEvent(new CustomEvent("lumin:tenant-ready", { detail: { user } }));
   } else if (user.active === false) {
@@ -216,8 +216,8 @@ async function _doLogin(email, password) {
 
     const userData = { uid, ...userSnap.data() };
 
-    // Verificação extra: tenta acessar admin sem ser master?
-    if (userData.role !== MASTER_ROLE && userData.role !== "tenant") {
+    // Verificação extra: role válida? (master, tenant ou personal)
+    if (userData.role !== MASTER_ROLE && userData.role !== "tenant" && userData.role !== "personal") {
       await signOut(auth);
       throw new Error(`Role inválida: ${userData.role}`);
     }

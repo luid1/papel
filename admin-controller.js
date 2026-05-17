@@ -91,22 +91,27 @@ async function renderCompanies() {
     return;
   }
 
-  list.innerHTML = entries.map(([id, c]) => `
+  list.innerHTML = entries.map(([id, c]) => {
+    const isPersonal = c.type === "personal";
+    const typeBadge = isPersonal
+      ? `<span style="font-size:9px;font-weight:800;padding:3px 8px;border-radius:20px;background:rgba(176,133,245,.15);color:var(--purple);letter-spacing:.5px;margin-right:6px;">PESSOAL</span>`
+      : `<span style="font-size:9px;font-weight:800;padding:3px 8px;border-radius:20px;background:rgba(0,212,255,.12);color:var(--accent);letter-spacing:.5px;margin-right:6px;">EMPRESA</span>`;
+    return `
     <div class="company-row" data-company-id="${id}">
       <div class="company-color-dot" style="background:${c.themeColor || 'var(--accent)'}"></div>
       <div class="company-info">
-        <div class="company-name">${c.name}</div>
+        <div class="company-name">${typeBadge}${c.name}</div>
         <div class="company-meta">${id} · ${c.phone || "—"}</div>
       </div>
       <span class="badge-status ${c.active !== false ? 'badge-active' : 'badge-inactive'}">
         ${c.active !== false ? "Ativa" : "Inativa"}
       </span>
       <div style="display:flex;gap:6px;">
-        <button class="btn-act edit" data-action="edit-company" data-id="${id}" title="Editar empresa">✎</button>
-        <button class="btn-act del"  data-action="del-company"  data-id="${id}" title="Deletar empresa">✕</button>
+        <button class="btn-act edit" data-action="edit-company" data-id="${id}" title="Editar">✎</button>
+        <button class="btn-act del"  data-action="del-company"  data-id="${id}" title="Deletar">✕</button>
       </div>
     </div>
-  `).join("");
+  `;}).join("");
 
   populateCompanySelect();
 }
@@ -139,8 +144,10 @@ function renderUsersTable(users) {
 
   tbody.innerHTML = users.map(u => {
     const company   = u.companyId ? (_allCompanies[u.companyId]?.name || u.companyId) : "—";
-    const roleLabel = { master: "Master", tenant: "Empresa" }[u.role] || u.role;
-    const roleColor = u.role === "master" ? "var(--accent)" : "var(--purple)";
+    const roleLabel = { master: "Master", tenant: "Empresa", personal: "Pessoal" }[u.role] || u.role;
+    const roleColor = u.role === "master" ? "var(--accent)"
+                     : u.role === "personal" ? "var(--purple)"
+                     : "var(--purple)";
 
     return `
       <tr data-uid="${u.uid}">
@@ -222,7 +229,8 @@ async function createCompanyAndUser() {
 
     const batch = writeBatch(db);
     batch.set(doc(db, "companies", companyId), {
-      name, phone: phone || "", themeColor: color, active: true, createdAt: serverTimestamp()
+      name, phone: phone || "", themeColor: color, type: "company",
+      active: true, createdAt: serverTimestamp()
     });
     batch.set(doc(db, "users", uid), {
       username, displayName: name, email,
@@ -246,6 +254,64 @@ async function createCompanyAndUser() {
       : `Erro: ${err.message}`, false);
   } finally {
     btn("btn-adm-save", false);
+  }
+}
+
+// ─── CRIAR USUÁRIO PESSOAL (conta individual, não vinculada a empresa) ─
+async function createPersonalUser() {
+  const name     = el("adm-pers-name")?.value.trim();
+  const phone    = el("adm-pers-phone")?.value.trim();
+  const username = el("adm-pers-login")?.value.trim().toLowerCase();
+  const password = el("adm-pers-pass")?.value.trim();
+  const color    = el("adm-pers-color-hex")?.value.trim() || "#b085f5";
+
+  if (!name || !username || !password) {
+    setMsg("adm-pers-msg", "Preencha Nome, Login e Senha.", false);
+    return;
+  }
+  if (password.length < 6) {
+    setMsg("adm-pers-msg", "A senha deve ter no mínimo 6 caracteres.", false);
+    return;
+  }
+
+  btn("btn-adm-pers-save", true);
+  setMsg("adm-pers-msg", "");
+
+  try {
+    const email      = `${username}@lumin.com`;
+    const credential = await createUserWithEmailAndPassword(auth, email, password);
+    const uid        = credential.user.uid;
+    // Mesma coleção 'companies' mas marcada como 'personal' — reaproveita todo o dashboard
+    const accountId  = "pessoal-" + slugify(name) + "-" + Date.now().toString(36);
+
+    const batch = writeBatch(db);
+    batch.set(doc(db, "companies", accountId), {
+      name, phone: phone || "", themeColor: color, type: "personal",
+      active: true, createdAt: serverTimestamp()
+    });
+    batch.set(doc(db, "users", uid), {
+      username, displayName: name, email,
+      role: "personal", companyId: accountId,
+      active: true, createdAt: serverTimestamp()
+    });
+    await batch.commit();
+
+    setMsg("adm-pers-msg", `✓ Usuário pessoal "${name}" criado com login "@${username}"!`, true);
+    ["adm-pers-name","adm-pers-phone","adm-pers-login","adm-pers-pass"].forEach(id => { if (el(id)) el(id).value = ""; });
+    if (el("adm-pers-color-hex")) el("adm-pers-color-hex").value = "#b085f5";
+    if (el("adm-pers-color"))     el("adm-pers-color").value     = "#b085f5";
+
+    await renderCompanies();
+    await loadUsers();
+    toast(`Usuário pessoal "${name}" criado!`);
+
+  } catch (err) {
+    console.error("[Admin] Erro ao criar usuário pessoal:", err);
+    setMsg("adm-pers-msg", err.code === "auth/email-already-in-use"
+      ? `O login "@${username}" já está em uso.`
+      : `Erro: ${err.message}`, false);
+  } finally {
+    btn("btn-adm-pers-save", false);
   }
 }
 
@@ -453,6 +519,7 @@ async function deleteCompany(companyId) {
 // ─── BIND DE EVENTOS ─────────────────────────────────────────
 function bindEvents() {
   el("btn-adm-save")?.addEventListener("click", createCompanyAndUser);
+  el("btn-adm-pers-save")?.addEventListener("click", createPersonalUser);
   el("btn-adm-add-user-save")?.addEventListener("click", createUserForCompany);
 
   el("adm-color")?.addEventListener("input", (e) => {
@@ -461,6 +528,15 @@ function bindEvents() {
   el("adm-color-hex")?.addEventListener("input", (e) => {
     const v = e.target.value;
     if (/^#[0-9A-Fa-f]{6}$/.test(v) && el("adm-color")) el("adm-color").value = v;
+  });
+
+  // Color picker do usuário pessoal
+  el("adm-pers-color")?.addEventListener("input", (e) => {
+    if (el("adm-pers-color-hex")) el("adm-pers-color-hex").value = e.target.value;
+  });
+  el("adm-pers-color-hex")?.addEventListener("input", (e) => {
+    const v = e.target.value;
+    if (/^#[0-9A-Fa-f]{6}$/.test(v) && el("adm-pers-color")) el("adm-pers-color").value = v;
   });
 
   el("btn-adm-refresh")?.addEventListener("click", async () => {

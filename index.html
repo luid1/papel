@@ -199,6 +199,55 @@
         <div id="adm-msg" style="display:none;margin-top:14px;padding:12px 16px;border-radius:10px;font-size:13px;font-weight:600;"></div>
       </div>
 
+      <!-- Cadastrar usuário pessoal -->
+      <div class="admin-card" style="margin-top:16px;">
+        <h3>
+          <svg style="vertical-align:middle;margin-right:8px;" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
+          </svg>
+          Cadastrar Usuário Pessoal
+          <span style="font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;background:rgba(176,133,245,.15);color:var(--purple);margin-left:8px;letter-spacing:.5px;">PESSOAL</span>
+        </h3>
+        <p style="font-size:12px;color:var(--muted);margin:-4px 0 14px 0;">Conta individual — para uso pessoal (não vinculada a uma empresa).</p>
+
+        <div class="admin-form-grid">
+          <div>
+            <label class="form-label">Nome Completo</label>
+            <input type="text" id="adm-pers-name" class="input-field" placeholder="Ex: Wallace Duarte">
+          </div>
+          <div>
+            <label class="form-label">Número do WhatsApp</label>
+            <input type="text" id="adm-pers-phone" class="input-field" placeholder="5511999990001" inputmode="numeric">
+          </div>
+          <div>
+            <label class="form-label">Login de Acesso</label>
+            <input type="text" id="adm-pers-login" class="input-field" placeholder="Ex: wallace" autocomplete="off" spellcheck="false">
+          </div>
+          <div>
+            <label class="form-label">Senha de Acesso</label>
+            <input type="password" id="adm-pers-pass" class="input-field" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
+          </div>
+          <div>
+            <label class="form-label">Cor de Identidade</label>
+            <div style="display:flex;gap:10px;align-items:center;">
+              <input type="color" id="adm-pers-color" value="#b085f5"
+                style="width:52px;height:52px;border-radius:10px;border:1px solid var(--border);background:transparent;cursor:pointer;padding:4px;">
+              <input type="text" id="adm-pers-color-hex" class="input-field" placeholder="#b085f5" style="flex:1;" maxlength="7">
+            </div>
+          </div>
+          <div style="display:flex;align-items:flex-end;">
+            <button id="btn-adm-pers-save" class="btn-primary" style="width:100%;font-size:14px;padding:15px;">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              Cadastrar Usuário Pessoal
+            </button>
+          </div>
+        </div>
+
+        <div id="adm-pers-msg" style="display:none;margin-top:14px;padding:12px 16px;border-radius:10px;font-size:13px;font-weight:600;"></div>
+      </div>
+
       <!-- Adicionar utilizador a empresa existente -->
       <div class="admin-card" style="margin-top:16px;">
         <h3>
