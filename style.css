@@ -536,9 +536,9 @@ tr:hover td { background: rgba(255,255,255,.025); }
   padding: 0 var(--sp-xl);
   height: var(--topbar-h);
   display: flex; align-items: center; justify-content: space-between;
-  background: rgba(5,13,18,.94);
+  background: var(--bg);
   border-bottom: 1px solid var(--border);
-  backdrop-filter: blur(20px); flex-shrink: 0;
+  flex-shrink: 0;
 }
 
 /* ── FILTER BAR ── */
@@ -547,7 +547,7 @@ tr:hover td { background: rgba(255,255,255,.025); }
   height: var(--filterbar-h);
   border-bottom: 1px solid var(--border);
   display: flex; align-items: center; gap: 10px;
-  overflow-x: auto; background: rgba(5,13,18,.5);
+  overflow-x: auto; background: var(--bg);
   -webkit-overflow-scrolling: touch; flex-shrink: 0;
 }
 #t-filter-bar::-webkit-scrollbar { height: 0; }
@@ -1137,8 +1137,24 @@ tr:hover td { background: rgba(255,255,255,.025); }
   #t-btn-menu { display: none; }
   .t-view { padding: var(--sp-lg) var(--sp-md); height: auto; }
   .cal-day { min-height: 80px; padding: 8px; }
-  #t-topbar     { padding: 0 var(--sp-md); }
-  #t-filter-bar { padding: 0 var(--sp-md); }
+
+  /* No mobile, topbar + filter-bar viram um header único sem linha entre eles */
+  #t-topbar {
+    padding: 12px 16px 8px;
+    height: auto;
+    border-bottom: none;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  #t-topbar h2 { font-size: 17px; }
+  #t-topbar > div:last-child { flex-shrink: 1; min-width: 0; }
+  #t-filter-bar {
+    padding: 0 16px 12px;
+    height: auto;
+    gap: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  #t-smart-search { width: 100% !important; max-width: 200px; }
   #admin-content { padding: var(--sp-lg) var(--sp-md); }
   #admin-topbar  { padding: 0 var(--sp-md); }
   #admin-tabs    { padding: var(--sp-2) var(--sp-md) 0; gap: 2px; }
@@ -1168,8 +1184,7 @@ tr:hover td { background: rgba(255,255,255,.025); }
   .t-nav-item   { min-height: 44px; }
 
   #t-main { margin-left: 0; height: 100svh; padding-bottom: var(--bottom-nav-h); }
-  #t-topbar     { padding: 0 var(--sp-md); }
-  #t-filter-bar { padding: 0 var(--sp-md); }
+  /* Topbar/filter-bar padding já tratado acima — header unificado */
   .t-view       { padding: var(--sp-md) var(--sp-md) var(--sp-lg); height: auto; }
 
   .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
