@@ -1345,51 +1345,35 @@
           <div class="glass" style="padding:20px;border-radius:16px;"><h3 style="font-size:17px;font-weight:700;margin-bottom:20px;">Distribuição de Gastos</h3><div style="height:200px;position:relative;"><canvas id="t-c-pie"></canvas></div></div>
           <div class="glass" style="padding:20px;border-radius:16px;"><h3 style="font-size:17px;font-weight:700;margin-bottom:20px;">Fluxo de Caixa (6 Meses)</h3><div style="height:200px;position:relative;"><canvas id="t-c-bar"></canvas></div></div>
         </div>
-        <!-- ═══ CONECTAR BANCO ═══ -->
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;margin-bottom:24px;">
-
-          <!-- Pluggy (Open Finance) -->
-          <div id="pluggy-bank-card" class="glass" style="padding:18px 20px;border-radius:16px;display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;">
-            <div style="font-size:26px;margin-top:2px;">🏦</div>
-            <div style="flex:1;min-width:150px;">
-              <div style="font-size:13px;font-weight:800;margin-bottom:3px;">Conectar Banco (Open Finance)</div>
-              <div id="pluggy-status-text" style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.4;">Conecte seu banco e a IA categoriza seus gastos automaticamente.</div>
-              <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                <button id="btn-pluggy-connect" style="padding:8px 16px;border-radius:10px;background:linear-gradient(135deg,#00d4ff,#0099cc);border:none;color:#000;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;min-height:36px;">
-                  Conectar Banco
-                </button>
-                <button id="btn-pluggy-sync" style="display:none;padding:8px 16px;border-radius:10px;background:rgba(0,212,255,.12);border:1px solid rgba(0,212,255,.3);color:var(--accent);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;min-height:36px;">
-                  🔄 Sincronizar
-                </button>
-              </div>
-            </div>
+        <!-- ═══ CONECTAR BANCO/GMAIL (linha discreta) ═══ -->
+        <div style="display:flex;gap:10px;align-items:center;margin-bottom:24px;padding:12px 16px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.05);border-radius:12px;flex-wrap:wrap;">
+          <!-- Pluggy -->
+          <div id="pluggy-bank-card" style="display:flex;align-items:center;gap:10px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--muted);">
+              <path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3"/>
+            </svg>
+            <span style="font-size:13px;color:var(--text);font-weight:500;">Conectar banco</span>
+            <span id="pluggy-status-text" style="display:none;"></span>
+            <button id="btn-pluggy-connect" style="padding:5px 12px;border-radius:8px;background:rgba(0,212,255,.12);border:1px solid rgba(0,212,255,.25);color:var(--accent);font-size:12px;font-weight:500;cursor:pointer;">Conectar</button>
+            <button id="btn-pluggy-sync" style="display:none;padding:5px 12px;border-radius:8px;background:transparent;border:1px solid rgba(0,212,255,.25);color:var(--accent);font-size:12px;font-weight:500;cursor:pointer;">Sincronizar</button>
           </div>
 
-          <!-- Gmail Sync (grátis) -->
-          <div class="glass" style="padding:18px 20px;border-radius:16px;display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;border:1px solid rgba(0,229,160,.15);">
-            <div style="font-size:26px;margin-top:2px;">📧</div>
-            <div style="flex:1;min-width:150px;">
-              <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
-                <span style="font-size:13px;font-weight:800;">Sincronizar via Gmail</span>
-                <span style="font-size:9px;font-weight:800;background:rgba(0,229,160,.2);color:#00e5a0;border:1px solid rgba(0,229,160,.35);border-radius:20px;padding:2px 7px;letter-spacing:.04em;">GRÁTIS</span>
-              </div>
-              <div id="gmail-status" style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.4;">Conecte seu Gmail e a IA lê os emails do seu banco e importa as transações automaticamente.</div>
-              <div style="display:flex;gap:8px;flex-wrap:wrap;">
-                <button id="btn-gmail-connect" style="padding:8px 16px;border-radius:10px;background:linear-gradient(135deg,#00e5a0,#00b37e);border:none;color:#050d12;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;min-height:36px;">
-                  📧 Conectar Gmail
-                </button>
-                <button id="btn-gmail-sync" style="display:none;padding:8px 16px;border-radius:10px;background:rgba(0,229,160,.12);border:1px solid rgba(0,229,160,.3);color:#00e5a0;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;min-height:36px;">
-                  🔄 Sincronizar Email
-                </button>
-                <button id="btn-gmail-disconnect" style="display:none;padding:8px 12px;border-radius:10px;background:rgba(255,255,255,.04);border:1px solid var(--border);color:var(--muted);font-size:11px;cursor:pointer;white-space:nowrap;min-height:36px;">
-                  Desconectar
-                </button>
-              </div>
-            </div>
-          </div>
+          <span style="width:1px;height:18px;background:rgba(255,255,255,.08);"></span>
 
+          <!-- Gmail -->
+          <div style="display:flex;align-items:center;gap:10px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted);">
+              <rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 6 10 7L22 6"/>
+            </svg>
+            <span style="font-size:13px;color:var(--text);font-weight:500;">Sincronizar Gmail</span>
+            <span style="font-size:9px;font-weight:700;background:rgba(0,229,160,.15);color:#00e5a0;border-radius:6px;padding:2px 6px;letter-spacing:.04em;">GRÁTIS</span>
+            <span id="gmail-status" style="display:none;"></span>
+            <button id="btn-gmail-connect" style="padding:5px 12px;border-radius:8px;background:rgba(0,229,160,.12);border:1px solid rgba(0,229,160,.25);color:#00e5a0;font-size:12px;font-weight:500;cursor:pointer;">Conectar</button>
+            <button id="btn-gmail-sync" style="display:none;padding:5px 12px;border-radius:8px;background:transparent;border:1px solid rgba(0,229,160,.25);color:#00e5a0;font-size:12px;font-weight:500;cursor:pointer;">Sincronizar</button>
+            <button id="btn-gmail-disconnect" style="display:none;padding:5px 10px;border-radius:8px;background:transparent;border:1px solid var(--border);color:var(--muted);font-size:11px;cursor:pointer;">Desconectar</button>
+          </div>
         </div>
-        <!-- ═══ /CONECTAR BANCO ═══ -->
+        <!-- ═══ /CONECTAR BANCO/GMAIL ═══ -->
 
         <div>
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">

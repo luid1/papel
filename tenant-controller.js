@@ -470,23 +470,32 @@ function renderDashFilters(txs){
   const inF  = txs.filter(t=>t.category==='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
   const outF = txs.filter(t=>t.category!=='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
 
-  const catBtns = [
-    {k:'all',     label:'Todas'},
-    {k:'entrada', label:'▲ Entrada'},
-    {k:'saida-fixa', label:'▼ Saída Fixa'},
-    {k:'variavel',   label:'● Variável'},
-    {k:'funcionario',label:'👤 Func.'},
-    {k:'comida',     label:'🍽 Comida'},
-  ].map(c=>`<button onclick="window._dashSetCat('${c.k}')"
-    style="padding:4px 11px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;border:1px solid ${s.dashCat===c.k?'var(--accent)':'rgba(255,255,255,.1)'};background:${s.dashCat===c.k?'rgba(0,212,255,.12)':'transparent'};color:${s.dashCat===c.k?'var(--accent)':'var(--muted)'};transition:.15s;">${c.label}</button>`).join('');
+  // Pílula com bolinha colorida em vez de emoji
+  const pill = (active, color, label, onclick) => {
+    const dot = color
+      ? `<span style="width:6px;height:6px;border-radius:50%;background:${color};display:inline-block;margin-right:6px;vertical-align:middle;"></span>`
+      : '';
+    const activeStyle = active
+      ? 'border-color:var(--accent);background:rgba(0,212,255,.10);color:var(--text);'
+      : 'border-color:rgba(255,255,255,.08);background:transparent;color:var(--muted);';
+    return `<button onclick="${onclick}" style="padding:5px 12px;border-radius:8px;font-size:12px;font-weight:500;cursor:pointer;white-space:nowrap;border:1px solid;transition:.15s;letter-spacing:-.005em;${activeStyle}">${dot}${label}</button>`;
+  };
 
-  const origemBtns = [
-    {k:'all',       label:'Todos'},
-    {k:'whatsapp',  label:'📱 WA'},
-    {k:'manual',    label:'✎ Manual'},
-    {k:'banco',     label:'🏦 Banco'},
-  ].map(o=>`<button onclick="window._dashSetOrigem('${o.k}')"
-    style="padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;border:1px solid ${s.dashOrigem===o.k?'var(--accent)':'rgba(255,255,255,.1)'};background:${s.dashOrigem===o.k?'rgba(0,212,255,.12)':'transparent'};color:${s.dashOrigem===o.k?'var(--accent)':'var(--muted)'};transition:.15s;">${o.label}</button>`).join('');
+  const cats = [
+    {k:'all',         label:'Todas',     color:null},
+    {k:'entrada',     label:'Entrada',   color:'#00e5a0'},
+    {k:'saida-fixa',  label:'Saída fixa',color:'#ff5b70'},
+    {k:'variavel',    label:'Variável',  color:'#b085f5'},
+    {k:'funcionario', label:'Funcionário',color:'#ffb347'},
+    {k:'comida',      label:'Comida',    color:'#4ecdc4'},
+  ].map(c => pill(s.dashCat===c.k, c.color, c.label, `window._dashSetCat('${c.k}')`)).join('');
+
+  const origens = [
+    {k:'all',      label:'Todos'},
+    {k:'whatsapp', label:'WhatsApp'},
+    {k:'manual',   label:'Manual'},
+    {k:'banco',    label:'Banco'},
+  ].map(o => pill(s.dashOrigem===o.k, null, o.label, `window._dashSetOrigem('${o.k}')`)).join('');
 
   const sortOpts = [
     {k:'createdAt',   label:'Mais recente'},
@@ -497,25 +506,19 @@ function renderDashFilters(txs){
   ].map(o=>`<option value="${o.k}" ${s.dashSort===o.k?'selected':''}>${o.label}</option>`).join('');
 
   el.innerHTML = `
-    <div style="background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:12px 14px;margin-bottom:12px;">
-      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px;">
-        <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-right:2px;">Categoria:</span>
-        ${catBtns}
+    <div style="margin-bottom:14px;">
+      <!-- Linha única de filtros -->
+      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:10px;">
+        ${cats}
+        <span style="width:1px;height:18px;background:rgba(255,255,255,.08);margin:0 4px;"></span>
+        ${origens}
+        <select onchange="window._dashSetSort(this.value)" style="margin-left:auto;padding:5px 10px;border-radius:8px;font-size:12px;font-weight:500;background:transparent;border:1px solid rgba(255,255,255,.08);color:var(--muted);cursor:pointer;outline:none;letter-spacing:-.005em;">${sortOpts}</select>
       </div>
-      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
-        <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-          <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);">Origem:</span>
-          ${origemBtns}
-        </div>
-        <div style="display:flex;gap:6px;align-items:center;margin-left:auto;">
-          <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);">Ordenar:</span>
-          <select onchange="window._dashSetSort(this.value)" style="padding:4px 8px;border-radius:8px;font-size:11px;font-weight:700;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:var(--text);cursor:pointer;outline:none;">${sortOpts}</select>
-        </div>
-      </div>
-      <div style="margin-top:10px;padding-top:8px;border-top:1px solid rgba(255,255,255,.05);display:flex;gap:18px;flex-wrap:wrap;">
-        <span style="font-size:11px;color:var(--muted);">Entradas filtradas: <strong style="color:var(--success);">${fmt(inF)}</strong></span>
-        <span style="font-size:11px;color:var(--muted);">Saídas filtradas: <strong style="color:var(--alert);">${fmt(outF)}</strong></span>
-        <span style="font-size:11px;color:var(--muted);">Saldo: <strong style="${inF-outF>=0?'color:var(--success)':'color:var(--alert)'};">${fmt(inF-outF)}</strong></span>
+      <!-- Resumo discreto -->
+      <div style="display:flex;gap:20px;flex-wrap:wrap;font-size:12px;color:var(--muted);padding-left:2px;">
+        <span>Entradas <strong class="num" style="color:var(--success);font-weight:600;margin-left:4px;">${fmt(inF)}</strong></span>
+        <span>Saídas <strong class="num" style="color:var(--alert);font-weight:600;margin-left:4px;">${fmt(outF)}</strong></span>
+        <span>Saldo <strong class="num" style="${inF-outF>=0?'color:var(--success)':'color:var(--alert)'};font-weight:600;margin-left:4px;">${fmt(inF-outF)}</strong></span>
       </div>
     </div>`;
 
@@ -1396,25 +1399,26 @@ function _pluggyRefreshUI() {
 
   if (hasItem) {
     connectBtn.textContent = 'Reconectar';
-    connectBtn.style.background = 'rgba(255,255,255,.07)';
+    connectBtn.style.background = 'transparent';
     connectBtn.style.border = '1px solid var(--border)';
     connectBtn.style.color = 'var(--muted)';
-    if (syncBtn) syncBtn.style.display = 'block';
+    if (syncBtn) syncBtn.style.display = 'inline-flex';
 
-    // Mostra último sync
+    // Mostra último sync de forma discreta
     const lastSync = s.company?.pluggyLastSync;
-    let lastSyncStr = '';
-    if (lastSync) {
+    if (statusText && lastSync) {
       const d = lastSync.toDate ? lastSync.toDate() : new Date(lastSync);
-      lastSyncStr = ` · Último sync: ${d.toLocaleDateString('pt-BR')} às ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+      statusText.style.display = 'inline-flex';
+      statusText.innerHTML = `<span style="font-size:11px;color:var(--success);font-weight:500;">• Sync ${d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})}</span>`;
+    } else if (statusText) {
+      statusText.style.display = 'none';
     }
-    if (statusText) statusText.textContent = `✅ Banco conectado${lastSyncStr}. Sincronização automática todo dia às 3h.`;
 
     // Auto-sync em background ao carregar (silencioso, apenas se passou mais de 1h do último)
     _pluggyAutoSyncBackground();
   } else {
     if (syncBtn) syncBtn.style.display = 'none';
-    if (statusText) statusText.textContent = 'Conecte seu banco e a IA categoriza seus gastos automaticamente.';
+    if (statusText) statusText.style.display = 'none';
   }
 }
 
@@ -1706,12 +1710,13 @@ function _gmailRefreshUI() {
   if (!statusEl) return;
 
   if (_gmailConnected && _gmailEmail) {
-    statusEl.innerHTML  = `✅ <b>${_gmailEmail}</b> conectado — emails bancários sincronizados automaticamente.`;
+    statusEl.style.display = 'inline-flex';
+    statusEl.innerHTML = `<span style="font-size:11px;color:var(--success);font-weight:500;">• ${_gmailEmail}</span>`;
     if (connectEl) connectEl.style.display = 'none';
     if (syncEl)    syncEl.style.display    = 'inline-flex';
     if (discEl)    discEl.style.display    = 'inline-flex';
   } else {
-    statusEl.textContent = 'Conecte seu Gmail e a IA lê os emails do seu banco e importa as transações automaticamente.';
+    statusEl.style.display = 'none';
     if (connectEl) connectEl.style.display = 'inline-flex';
     if (syncEl)    syncEl.style.display    = 'none';
     if (discEl)    discEl.style.display    = 'none';
