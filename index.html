@@ -1666,43 +1666,118 @@
 
       </section>
 
-      <!-- Segurança -->
+      <!-- Conta & Personalização -->
       <section id="v-users" class="t-view">
-        <div style="margin-bottom:28px;"><h3 style="font-size:clamp(1.25rem,2.5vw,1.75rem);font-weight:700;margin-bottom:8px;letter-spacing:-.025em;">Conta &amp; Acesso</h3><p style="color:var(--muted);font-size:var(--fs-sm);">Personalize sua conta e gerencie os usuários autorizados.</p></div>
+        <div style="margin-bottom:28px;">
+          <h3 style="font-size:clamp(1.25rem,2.5vw,1.75rem);font-weight:700;margin-bottom:6px;letter-spacing:-.025em;">Conta</h3>
+          <p style="color:var(--muted);font-size:14px;letter-spacing:-.005em;">Perfil, aparência e segurança.</p>
+        </div>
 
-        <!-- Personalização visual -->
-        <div class="glass" style="padding:24px;border-radius:16px;margin-bottom:24px;">
-          <h4 style="font-size:14px;font-weight:600;margin-bottom:4px;letter-spacing:-.015em;">Cor de identidade</h4>
-          <p style="font-size:12px;color:var(--muted);margin-bottom:18px;">Esta cor aparece nos botões, links e elementos destacados do seu painel.</p>
-
-          <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
-            <!-- Color picker nativo -->
-            <input type="color" id="t-theme-color-input" value="#00d4ff" style="width:54px;height:54px;border-radius:12px;border:1px solid var(--border);background:transparent;cursor:pointer;padding:4px;">
-
-            <!-- Hex -->
-            <input type="text" id="t-theme-color-hex" maxlength="7" placeholder="#00d4ff" class="num"
-              style="padding:10px 12px;border-radius:10px;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--text);font-size:13px;font-weight:500;width:110px;outline:none;text-transform:uppercase;letter-spacing:.02em;">
-
-            <!-- Presets -->
-            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-              <span style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:600;margin-right:2px;">Sugestões</span>
-              <button class="t-theme-preset" data-color="#00d4ff" title="Ciano" style="width:28px;height:28px;border-radius:8px;background:#00d4ff;border:1px solid rgba(255,255,255,.1);cursor:pointer;"></button>
-              <button class="t-theme-preset" data-color="#00e5a0" title="Verde" style="width:28px;height:28px;border-radius:8px;background:#00e5a0;border:1px solid rgba(255,255,255,.1);cursor:pointer;"></button>
-              <button class="t-theme-preset" data-color="#b085f5" title="Roxo" style="width:28px;height:28px;border-radius:8px;background:#b085f5;border:1px solid rgba(255,255,255,.1);cursor:pointer;"></button>
-              <button class="t-theme-preset" data-color="#ff5b70" title="Vermelho" style="width:28px;height:28px;border-radius:8px;background:#ff5b70;border:1px solid rgba(255,255,255,.1);cursor:pointer;"></button>
-              <button class="t-theme-preset" data-color="#ffb347" title="Laranja" style="width:28px;height:28px;border-radius:8px;background:#ffb347;border:1px solid rgba(255,255,255,.1);cursor:pointer;"></button>
-              <button class="t-theme-preset" data-color="#4ecdc4" title="Turquesa" style="width:28px;height:28px;border-radius:8px;background:#4ecdc4;border:1px solid rgba(255,255,255,.1);cursor:pointer;"></button>
-              <button class="t-theme-preset" data-color="#f59e0b" title="Âmbar" style="width:28px;height:28px;border-radius:8px;background:#f59e0b;border:1px solid rgba(255,255,255,.1);cursor:pointer;"></button>
-              <button class="t-theme-preset" data-color="#ec4899" title="Rosa" style="width:28px;height:28px;border-radius:8px;background:#ec4899;border:1px solid rgba(255,255,255,.1);cursor:pointer;"></button>
-            </div>
-
-            <button id="t-theme-color-save" style="margin-left:auto;padding:10px 18px;border-radius:10px;background:var(--accent);color:var(--bg);border:none;font-size:13px;font-weight:600;cursor:pointer;letter-spacing:-.005em;">Salvar</button>
+        <!-- ── Perfil ── -->
+        <div class="settings-card" style="margin-bottom:18px;">
+          <div class="settings-card-head">
+            <h4>Perfil</h4>
+            <p>Sua foto e nome aparecem na sidebar e nos relatórios.</p>
           </div>
+          <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;">
+            <div style="position:relative;flex-shrink:0;">
+              <div id="t-profile-avatar" style="width:72px;height:72px;border-radius:14px;background:var(--bg3);display:grid;place-items:center;color:var(--accent);font-size:26px;font-weight:600;border:1px solid var(--border);background-size:cover;background-position:center;overflow:hidden;cursor:pointer;">U</div>
+              <button id="t-profile-avatar-btn" title="Mudar foto" style="position:absolute;bottom:-4px;right:-4px;width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--bg);border:2px solid var(--bg2);display:grid;place-items:center;cursor:pointer;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              </button>
+              <input type="file" id="t-profile-avatar-input" accept="image/*" style="display:none;">
+            </div>
+            <div style="flex:1;min-width:200px;">
+              <div id="t-profile-name" style="font-size:16px;font-weight:600;color:var(--text);letter-spacing:-.015em;">—</div>
+              <div id="t-profile-email" style="font-size:13px;color:var(--muted);margin-top:2px;letter-spacing:-.005em;">—</div>
+              <button id="t-profile-remove-photo" style="display:none;margin-top:10px;padding:6px 12px;border-radius:7px;background:transparent;border:1px solid var(--border);color:var(--muted);font-size:12px;font-weight:500;cursor:pointer;">Remover foto</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Tema ── -->
+        <div class="settings-card" style="margin-bottom:18px;">
+          <div class="settings-card-head">
+            <h4>Tema</h4>
+            <p>Mude o visual completo do sistema. Aplica em todas as telas.</p>
+          </div>
+
+          <!-- Grid de presets -->
+          <div id="t-theme-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:24px;">
+            <!-- Cada preset: card com preview da paleta -->
+            <button class="t-theme-card" data-theme="default">
+              <div class="t-theme-swatches">
+                <span style="background:#0a0a0c"></span>
+                <span style="background:#111114"></span>
+                <span style="background:#00d4ff"></span>
+              </div>
+              <span class="t-theme-name">Grafite</span>
+              <span class="t-theme-tag">Padrão</span>
+            </button>
+            <button class="t-theme-card" data-theme="emerald">
+              <div class="t-theme-swatches">
+                <span style="background:#08120e"></span>
+                <span style="background:#0e1a14"></span>
+                <span style="background:#34d399"></span>
+              </div>
+              <span class="t-theme-name">Esmeralda</span>
+            </button>
+            <button class="t-theme-card" data-theme="violet">
+              <div class="t-theme-swatches">
+                <span style="background:#0d0a14"></span>
+                <span style="background:#15101f"></span>
+                <span style="background:#a78bfa"></span>
+              </div>
+              <span class="t-theme-name">Violeta</span>
+            </button>
+            <button class="t-theme-card" data-theme="amber">
+              <div class="t-theme-swatches">
+                <span style="background:#100e08"></span>
+                <span style="background:#1a1610"></span>
+                <span style="background:#fbbf24"></span>
+              </div>
+              <span class="t-theme-name">Âmbar</span>
+            </button>
+            <button class="t-theme-card" data-theme="rose">
+              <div class="t-theme-swatches">
+                <span style="background:#120a0c"></span>
+                <span style="background:#1d1014"></span>
+                <span style="background:#f472b6"></span>
+              </div>
+              <span class="t-theme-name">Rosa</span>
+            </button>
+            <button class="t-theme-card" data-theme="mono">
+              <div class="t-theme-swatches">
+                <span style="background:#000"></span>
+                <span style="background:#171717"></span>
+                <span style="background:#e5e5e5"></span>
+              </div>
+              <span class="t-theme-name">Mono</span>
+            </button>
+          </div>
+
+          <!-- Cor de acento custom (avançado) -->
+          <details style="margin-top:6px;">
+            <summary style="cursor:pointer;font-size:13px;color:var(--muted);font-weight:500;letter-spacing:-.005em;padding:6px 0;">Personalizar cor de acento</summary>
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px;">
+              <input type="color" id="t-theme-color-input" value="#00d4ff" style="width:44px;height:44px;border-radius:8px;border:1px solid var(--border);background:transparent;cursor:pointer;padding:3px;">
+              <input type="text" id="t-theme-color-hex" maxlength="7" placeholder="#00D4FF"
+                style="padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text);font-size:13px;font-weight:500;width:110px;outline:none;text-transform:uppercase;letter-spacing:.02em;font-variant-numeric:tabular-nums;">
+              <button id="t-theme-color-save" style="padding:8px 16px;border-radius:8px;background:var(--accent);color:var(--bg);border:none;font-size:13px;font-weight:600;cursor:pointer;letter-spacing:-.005em;">Aplicar</button>
+            </div>
+          </details>
+
           <div id="t-theme-color-msg" style="display:none;margin-top:12px;font-size:12px;font-weight:500;"></div>
         </div>
 
-        <h4 style="font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px;">Usuários autorizados</h4>
-        <div id="t-u-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:20px;"></div>
+        <!-- ── Usuários ── -->
+        <div class="settings-card">
+          <div class="settings-card-head">
+            <h4>Usuários autorizados</h4>
+            <p>Quem tem acesso à sua conta.</p>
+          </div>
+          <div id="t-u-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;"></div>
+        </div>
       </section>
 
     </div><!-- /views -->
@@ -1740,6 +1815,10 @@
         <line x1="3" y1="22" x2="16" y2="22"/>
       </svg>
       Logística
+    </button>
+    <button class="t-bn-item" data-view="v-users" title="Conta">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg>
+      Conta
     </button>
   </nav>
 

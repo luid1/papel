@@ -1136,10 +1136,10 @@ async function initTenantDashboard(user){
       s.company  = snap.exists() ? snap.data() : null;
       s.features = s.company?.features || {};
 
-      // Aplica cor da empresa
-      if(s.company?.themeColor){
-        document.documentElement.style.setProperty('--accent', s.company.themeColor);
-        document.documentElement.style.setProperty('--accent2', s.company.themeColor+'cc');
+      // Aplica tema completo (preset + cor de acento custom)
+      if (s.company) {
+        const preset = s.company.themePreset || 'default';
+        applyTheme(preset, s.company.themeColor);
       }
 
       // Aplica features (mostra/oculta opções e nav items)
@@ -1229,25 +1229,163 @@ async function initTenantDashboard(user){
   switchV('v-home');  // triggers first real render
 }
 
-// ─── SELETOR DE COR DE IDENTIDADE (aba Segurança) ─────────────
+// ─── TEMAS PRESETS ────────────────────────────────────────────
+// Cada tema muda múltiplas variáveis CSS de uma vez
+const THEMES = {
+  default: { name: 'Grafite',  bg:'#0a0a0c', bg2:'#111114', bg3:'#1a1a1f', accent:'#00d4ff' },
+  emerald: { name: 'Esmeralda',bg:'#08120e', bg2:'#0e1a14', bg3:'#16241c', accent:'#34d399' },
+  violet:  { name: 'Violeta',  bg:'#0d0a14', bg2:'#15101f', bg3:'#1f1830', accent:'#a78bfa' },
+  amber:   { name: 'Âmbar',    bg:'#100e08', bg2:'#1a1610', bg3:'#272018', accent:'#fbbf24' },
+  rose:    { name: 'Rosa',     bg:'#120a0c', bg2:'#1d1014', bg3:'#2a181d', accent:'#f472b6' },
+  mono:    { name: 'Mono',     bg:'#000000', bg2:'#0e0e0e', bg3:'#1a1a1a', accent:'#e5e5e5' },
+};
+
+function applyTheme(themeKey, customAccent) {
+  const t = THEMES[themeKey] || THEMES.default;
+  const root = document.documentElement.style;
+  root.setProperty('--bg',  t.bg);
+  root.setProperty('--bg2', t.bg2);
+  root.setProperty('--bg3', t.bg3);
+  const accent = customAccent || t.accent;
+  root.setProperty('--accent', accent);
+  root.setProperty('--accent2', accent + 'cc');
+}
+
+// ─── CONFIGURAÇÕES: TEMA + FOTO DE PERFIL ─────────────────────
 function bindThemeColor() {
+  // ── Foto de perfil ──
+  const avatarPreview = $('t-profile-avatar');
+  const avatarBtn     = $('t-profile-avatar-btn');
+  const avatarInput   = $('t-profile-avatar-input');
+  const removeBtn     = $('t-profile-remove-photo');
+  const nameEl        = $('t-profile-name');
+  const emailEl       = $('t-profile-email');
+
+  // Popula nome/email
+  if (nameEl) nameEl.textContent = s.user?.displayName || s.user?.username || '—';
+  if (emailEl) emailEl.textContent = s.user?.email || '';
+
+  // Mostra foto/inicial atual
+  const updateAvatarPreview = (base64) => {
+    if (!avatarPreview) return;
+    if (base64) {
+      avatarPreview.style.backgroundImage = `url(${base64})`;
+      avatarPreview.textContent = '';
+      if (removeBtn) removeBtn.style.display = 'inline-block';
+    } else {
+      avatarPreview.style.backgroundImage = '';
+      avatarPreview.textContent = (s.user?.displayName || s.user?.username || 'U').charAt(0).toUpperCase();
+      if (removeBtn) removeBtn.style.display = 'none';
+    }
+  };
+
+  // Carrega foto atual do Firestore
+  if (s.user?.uid) {
+    getDoc(doc(db, 'users', s.user.uid)).then(snap => {
+      const ud = snap.data();
+      updateAvatarPreview(ud?.photoBase64);
+    }).catch(() => updateAvatarPreview(null));
+  }
+
+  // Clique no avatar OU no botão da câmera abre o seletor
+  const openFilePicker = () => avatarInput?.click();
+  avatarPreview?.addEventListener('click', openFilePicker);
+  avatarBtn?.addEventListener('click', openFilePicker);
+
+  avatarInput?.addEventListener('change', async e => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 800_000) {
+      alert('Imagem muito grande (max 800KB). Comprima antes.');
+      return;
+    }
+    // Lê como base64
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64 = reader.result;
+      // Redimensiona pra 256x256 antes de salvar
+      const img = new Image();
+      img.onload = async () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = 256;
+        const ctx = canvas.getContext('2d');
+        const scale = Math.min(256/img.width, 256/img.height);
+        const w = img.width * scale, h = img.height * scale;
+        ctx.drawImage(img, (256-w)/2, (256-h)/2, w, h);
+        const resized = canvas.toDataURL('image/jpeg', 0.85);
+        try {
+          await updateDoc(doc(db, 'users', s.user.uid), { photoBase64: resized });
+          updateAvatarPreview(resized);
+          // Atualiza avatares na sidebar/topbar
+          ['t-u-av','t-tb-avatar'].forEach(id => {
+            const el = $(id);
+            if (el) { el.style.backgroundImage = `url(${resized})`; el.textContent = ''; }
+          });
+        } catch (err) { console.error('[Profile] Erro ao salvar foto:', err); }
+      };
+      img.src = base64;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  removeBtn?.addEventListener('click', async () => {
+    if (!confirm('Remover foto de perfil?')) return;
+    try {
+      await updateDoc(doc(db, 'users', s.user.uid), { photoBase64: null });
+      updateAvatarPreview(null);
+      const initial = (s.user?.displayName || s.user?.username || 'U').charAt(0).toUpperCase();
+      ['t-u-av','t-tb-avatar'].forEach(id => {
+        const el = $(id);
+        if (el) { el.style.backgroundImage = ''; el.textContent = initial; }
+      });
+    } catch (err) { console.error('[Profile] Erro ao remover foto:', err); }
+  });
+
+  // ── Cards de tema (presets) ──
+  const currentTheme = s.company?.themePreset || 'default';
+  const customAccent = s.company?.themeColor;
+
+  // Marca card ativo
+  const refreshActiveCard = (key) => {
+    document.querySelectorAll('.t-theme-card').forEach(c => {
+      c.classList.toggle('active', c.dataset.theme === key);
+    });
+  };
+  refreshActiveCard(currentTheme);
+
+  // Aplica tema inicial
+  applyTheme(currentTheme, customAccent);
+
+  document.querySelectorAll('.t-theme-card').forEach(card => {
+    card.addEventListener('click', async () => {
+      const key = card.dataset.theme;
+      refreshActiveCard(key);
+      applyTheme(key);
+      // Salva no Firestore (limpa cor custom)
+      try {
+        await updateDoc(doc(db, 'companies', s.companyId), {
+          themePreset: key,
+          themeColor: THEMES[key].accent
+        });
+      } catch (err) { console.error('[Theme] Erro ao salvar:', err); }
+    });
+  });
+
+  // ── Cor de acento custom (avançado) ──
   const input  = $('t-theme-color-input');
   const hex    = $('t-theme-color-hex');
   const saveBtn= $('t-theme-color-save');
   const msg    = $('t-theme-color-msg');
   if (!input || !hex || !saveBtn) return;
 
-  // Carrega cor atual
-  const currentColor = s.company?.themeColor || '#00d4ff';
-  input.value = currentColor;
-  hex.value = currentColor.toUpperCase();
+  const initColor = customAccent || THEMES[currentTheme].accent;
+  input.value = initColor;
+  hex.value = initColor.toUpperCase();
 
-  // Aplica preview ao vivo
   const applyPreview = (color) => {
     if (!/^#[0-9A-Fa-f]{6}$/.test(color)) return;
     document.documentElement.style.setProperty('--accent', color);
     document.documentElement.style.setProperty('--accent2', color + 'cc');
-    saveBtn.style.background = color;
   };
 
   input.addEventListener('input', e => {
@@ -1264,38 +1402,24 @@ function bindThemeColor() {
     }
   });
 
-  // Presets
-  document.querySelectorAll('.t-theme-preset').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const c = btn.dataset.color;
-      input.value = c;
-      hex.value = c.toUpperCase();
-      applyPreview(c);
-    });
-  });
-
-  // Salvar no Firestore
   saveBtn.addEventListener('click', async () => {
     const color = input.value;
     if (!/^#[0-9A-Fa-f]{6}$/.test(color)) {
-      if (msg) { msg.style.display = 'block'; msg.style.color = 'var(--alert)'; msg.textContent = '⚠ Cor inválida — use formato #RRGGBB'; }
+      if (msg) { msg.style.display = 'block'; msg.style.color = 'var(--alert)'; msg.textContent = 'Cor inválida.'; }
       return;
     }
-
-    saveBtn.disabled = true; saveBtn.textContent = 'Salvando...';
+    saveBtn.disabled = true; const orig = saveBtn.textContent; saveBtn.textContent = 'Salvando...';
     try {
       await updateDoc(doc(db, 'companies', s.companyId), { themeColor: color });
       if (msg) {
-        msg.style.display = 'block';
-        msg.style.color = 'var(--success)';
-        msg.textContent = '✓ Cor atualizada!';
+        msg.style.display = 'block'; msg.style.color = 'var(--success)';
+        msg.textContent = 'Cor aplicada!';
         setTimeout(() => { msg.style.display = 'none'; }, 2500);
       }
     } catch (err) {
-      console.error('[Tenant] Erro ao salvar cor:', err);
       if (msg) { msg.style.display = 'block'; msg.style.color = 'var(--alert)'; msg.textContent = 'Erro ao salvar.'; }
     } finally {
-      saveBtn.disabled = false; saveBtn.textContent = 'Salvar';
+      saveBtn.disabled = false; saveBtn.textContent = orig;
     }
   });
 }
