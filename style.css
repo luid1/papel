@@ -1041,18 +1041,40 @@ tr:hover td { background: rgba(255,255,255,.025); }
    OBRIGAÇÕES
 ══════════════════════════════════════════════ */
 .ob-item {
-  padding: var(--sp-4) var(--sp-5);
-  border-radius: var(--r-md); display: flex; align-items: center;
-  gap: var(--sp-4); transition: .25s;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  display: flex; align-items: center;
+  gap: 12px;
+  transition: background .12s, border-color .12s;
 }
+.ob-item:hover { border-color: rgba(255,255,255,.12); }
 .ob-check {
-  width: 36px; height: 36px; min-width: 36px;
-  border-radius: var(--r-xs);
-  border: 1.5px solid rgba(255,255,255,.12); background: transparent;
-  display: grid; place-items: center; font-size: 16px; color: var(--bg);
-  transition: .2s; touch-action: manipulation;
+  width: 20px; height: 20px; min-width: 20px;
+  border-radius: 5px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+  position: relative;
+  transition: border-color .12s, background .12s;
+  touch-action: manipulation;
 }
-.ob-check.done { border-color: var(--success); background: var(--success); }
+.ob-check:hover { border-color: rgba(255,255,255,.25); }
+.ob-check.done {
+  border-color: var(--success);
+  background: var(--success);
+}
+.ob-check.done::after {
+  content: '';
+  position: absolute;
+  left: 5px; top: 2px;
+  width: 5px; height: 9px;
+  border: solid var(--bg);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.ob-del:hover { color: var(--alert) !important; border-color: rgba(248,113,113,.4) !important; }
 
 /* ══════════════════════════════════════════════
    BOTTOM NAV — oculto no desktop
@@ -1307,8 +1329,7 @@ tr:hover td { background: rgba(255,255,255,.025); }
 #pap-modal-add input:focus { border-color: var(--accent) !important; box-shadow: 0 0 0 3px rgba(0,212,255,.1); }
 #pap-preco-custom:focus { border-color: var(--warning) !important; box-shadow: 0 0 0 3px rgba(255,179,71,.1); }
 .pap-tab-btn:hover:not(.active) { background: rgba(255,255,255,.05) !important; color: var(--text) !important; }
-.ob-item { display: flex; align-items: center; transition: transform .15s, box-shadow .15s; }
-.ob-item:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,.2); }
+.ob-item { display: flex; align-items: center; }
 
 /* ═══════════════════════════════════════════════════════════════
    ADMIN PANEL — Sidebar Layout (espelho do Tenant)
@@ -1481,4 +1502,33 @@ tr:hover td { background: rgba(255,255,255,.025); }
 /* ── Feature flags — oculta itens de nav desactivados ─────── */
 .feat-hidden {
   display: none !important;
+}
+
+/* ── Filtros dos Relatórios — visual idêntico ao dashboard ── */
+.t-rep-filter, .t-rep-cat-filter {
+  padding: 5px 12px; border-radius: 7px;
+  font-size: 12.5px; font-weight: 500;
+  border: 1px solid transparent;
+  background: transparent; color: var(--muted);
+  cursor: pointer; white-space: nowrap;
+  letter-spacing: -.005em;
+  transition: color .12s, background .12s, border-color .12s;
+  min-height: 30px;
+}
+.t-rep-filter:hover, .t-rep-cat-filter:hover {
+  color: var(--text); background: rgba(255,255,255,.04);
+}
+.t-rep-filter.active, .t-rep-cat-filter.active {
+  background: rgba(255,255,255,.06);
+  color: var(--text);
+  border-color: var(--border);
+}
+.t-rep-filter.active::before, .t-rep-cat-filter.active::before {
+  content: '';
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  display: inline-block;
+  margin-right: 6px;
+  vertical-align: middle;
 }

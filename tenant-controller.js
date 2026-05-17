@@ -803,18 +803,21 @@ function renderOb(){
   list.innerHTML=rec.map(t=>{
     const key=`${t.id}_${s.fY}-${String(s.fM).padStart(2,'0')}`;
     const ob=s.obs.find(o=>o.monthKey===key), done=ob?.done||false, cat=CATS[t.category]||CATS.variavel;
-    return `<div class="glass ob-item" style="opacity:${done?.65:1};">
-      <button class="ob-check${done?' done':''}" data-id="${t.id}" aria-label="${done?'Marcar pendente':'Marcar pago'}">${done?'✓':''}</button>
-      <div style="flex:1;min-width:0;">
-        <div style="font-size:15px;font-weight:700;${done?'text-decoration:line-through;color:var(--muted);':''}">${esc(t.description||'—')}</div>
-        <div style="font-size:11px;color:var(--muted);font-weight:600;text-transform:uppercase;margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-          <span style="padding:3px 8px;border-radius:5px;background:${cat.color}22;color:${cat.color};">${cat.label}</span>
-          Vence dia ${(t.date||'').split('-')[2]||'—'}
-          ${done?'<span style="color:var(--success);">✓ Pago</span>':''}
+    return `<div class="ob-item" style="opacity:${done?.6:1};">
+      <button class="ob-check${done?' done':''}" data-id="${t.id}" aria-label="${done?'Marcar pendente':'Marcar pago'}"></button>
+      <div style="flex:1;min-width:0;line-height:1.35;">
+        <div style="font-size:14px;font-weight:500;color:var(--text);letter-spacing:-.005em;${done?'text-decoration:line-through;color:var(--muted);':''}">${esc(t.description||'—')}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:3px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;letter-spacing:-.005em;">
+          <span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:6px;height:6px;border-radius:50%;background:${cat.color};display:inline-block;"></span>${cat.label}</span>
+          <span style="opacity:.6;">·</span>
+          <span>Vence dia ${(t.date||'').split('-')[2]||'—'}</span>
+          ${done?'<span style="opacity:.6;">·</span><span style="color:var(--success);">Pago</span>':''}
         </div>
       </div>
-      <div style="font-family:'DM Mono',monospace;font-weight:800;color:var(--warning);font-size:17px;flex-shrink:0;">${fmt(t.amount)}</div>
-      <button class="ob-del" data-id="${t.id}" aria-label="Excluir recorrência" title="Excluir esta recorrência (ex: funcionário que saiu)" style="margin-left:8px;width:38px;height:38px;border-radius:10px;background:rgba(255,91,112,.08);border:1px solid rgba(255,91,112,.2);color:var(--alert);font-size:16px;cursor:pointer;flex-shrink:0;display:grid;place-items:center;">🗑</button>
+      <div class="num" style="font-weight:600;color:var(--text);font-size:14px;flex-shrink:0;">${fmt(t.amount)}</div>
+      <button class="ob-del" data-id="${t.id}" aria-label="Excluir recorrência" title="Excluir esta recorrência" style="width:30px;height:30px;border-radius:7px;background:transparent;border:1px solid var(--border);color:var(--muted);cursor:pointer;flex-shrink:0;display:grid;place-items:center;transition:color .15s, border-color .15s;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+      </button>
     </div>`;
   }).join('');
 
@@ -1028,39 +1031,35 @@ function renderPagar(){
   }
 }
 
-// ─── SEGURANÇA ────────────────────────────────────────────────
-function renderUsers(){
+// ─── CONTA / USUÁRIOS AUTORIZADOS ─────────────────────────────
+async function renderUsers(){
   const grid=$('t-u-grid'); if(!grid) return;
-  const u=s.user; if(!u){grid.innerHTML='<p style="color:var(--muted);text-align:center;padding:40px;">Carregando...</p>';return;}
+  const u=s.user; if(!u){grid.innerHTML='<p style="color:var(--muted);font-size:13px;padding:20px;">Carregando...</p>';return;}
   const displayName=u.displayName||u.username||'Usuário';
   const initial=displayName.charAt(0).toUpperCase();
-  const tbAv=$('t-tb-avatar');
-  const photoSrc=tbAv?.style.backgroundImage?.replace(/url\(["']?|["']?\)/g,'')||'';
-  const avatarInner=photoSrc
-    ?`<img src="${photoSrc}" style="width:100%;height:100%;object-fit:cover;border-radius:20px;">`
-    :`<span>${initial}</span>`;
-  const roleLabel=u.role==='master'?'Administrador':'Usuário';
-  const themeClr=s.company?.themeColor||'var(--accent)';
-  grid.innerHTML=`<div class="glass" style="padding:32px;border-radius:24px;text-align:center;position:relative;overflow:hidden;max-width:320px;margin:0 auto;">
-    <div style="position:absolute;top:0;left:0;right:0;height:3px;background:${themeClr};opacity:.5;"></div>
-    <div style="width:96px;height:96px;border-radius:22px;border:2.5px solid var(--accent);
-      margin:0 auto 20px;display:grid;place-items:center;font-size:36px;font-weight:900;
-      color:var(--accent);background:var(--bg3);overflow:hidden;">${avatarInner}</div>
-    <h4 style="font-family:'Inter',sans-serif;font-size:20px;font-weight:700;letter-spacing:-.028em;margin-bottom:10px;">${esc(displayName)}</h4>
-    <p style="font-size:11px;font-weight:800;text-transform:uppercase;color:var(--accent);
-      background:rgba(0,212,255,.1);padding:5px 18px;border-radius:30px;display:inline-block;letter-spacing:1px;">${roleLabel}</p>
-    <div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--muted);margin-top:16px;">@${esc(u.username||displayName.toLowerCase())}</div>
-    <div style="font-size:12px;color:var(--muted);margin-top:6px;">${esc(s.company?.name||'')}</div>
-    <button id="t-users-logout" style="margin-top:24px;width:100%;padding:12px;border-radius:12px;
-      background:rgba(255,91,112,.08);border:1px solid rgba(255,91,112,.2);color:var(--alert);
-      font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
-      </svg>
-      Encerrar Sessão
-    </button>
-  </div>`;
-  document.getElementById('t-users-logout')?.addEventListener('click',()=>window.LuminAuth?.logout());
+  const roleLabel = u.role==='master' ? 'Administrador'
+                   : u.role==='personal' ? 'Pessoal' : 'Usuário';
+
+  // Busca foto do Firestore (fonte da verdade)
+  let photoBase64 = '';
+  try {
+    const snap = await getDoc(doc(db,'users',u.uid));
+    photoBase64 = snap.data()?.photoBase64 || '';
+  } catch (e) {}
+
+  const avatarInner = photoBase64
+    ? `<img src="${photoBase64}" style="width:100%;height:100%;object-fit:cover;display:block;">`
+    : `<span style="font-size:18px;font-weight:600;color:var(--accent);">${initial}</span>`;
+
+  grid.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:14px;display:flex;align-items:center;gap:14px;">
+      <div style="width:44px;height:44px;border-radius:10px;background:var(--bg3);border:1px solid var(--border);overflow:hidden;display:grid;place-items:center;flex-shrink:0;">${avatarInner}</div>
+      <div style="flex:1;min-width:0;line-height:1.3;">
+        <div style="font-size:14px;font-weight:600;color:var(--text);letter-spacing:-.015em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(displayName)}</div>
+        <div style="font-size:12px;color:var(--muted);margin-top:2px;letter-spacing:-.005em;">@${esc(u.username||displayName.toLowerCase())} · ${roleLabel}</div>
+      </div>
+      <span style="padding:2px 8px;border-radius:6px;background:rgba(74,222,128,.12);color:#4ade80;font-size:10px;font-weight:500;letter-spacing:.02em;flex-shrink:0;">Você</span>
+    </div>`;
 }
 
 // ─── SAVE / EDIT / DELETE TX ──────────────────────────────────
@@ -1313,8 +1312,9 @@ function applyTheme(themeKey, customAccent) {
 // ─── CONFIGURAÇÕES: TEMA + FOTO DE PERFIL ─────────────────────
 function bindThemeColor() {
   // ── Foto de perfil ──
+  const avatarWrap    = $('t-profile-avatar-wrap');
   const avatarPreview = $('t-profile-avatar');
-  const avatarBtn     = $('t-profile-avatar-btn');
+  const uploadBtn     = $('t-profile-upload-btn');
   const avatarInput   = $('t-profile-avatar-input');
   const removeBtn     = $('t-profile-remove-photo');
   const nameEl        = $('t-profile-name');
@@ -1346,10 +1346,10 @@ function bindThemeColor() {
     }).catch(() => updateAvatarPreview(null));
   }
 
-  // Clique no avatar OU no botão da câmera abre o seletor
+  // Clique no avatar OU no botão "Alterar foto" abre o seletor
   const openFilePicker = () => avatarInput?.click();
-  avatarPreview?.addEventListener('click', openFilePicker);
-  avatarBtn?.addEventListener('click', openFilePicker);
+  avatarWrap?.addEventListener('click', openFilePicker);
+  uploadBtn?.addEventListener('click', e => { e.stopPropagation(); openFilePicker(); });
 
   avatarInput?.addEventListener('change', async e => {
     const file = e.target.files?.[0];

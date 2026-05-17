@@ -1357,32 +1357,44 @@
           <div class="glass" style="padding:20px;border-radius:16px;"><h3 style="font-size:17px;font-weight:700;margin-bottom:20px;">Distribuição de Gastos</h3><div style="height:200px;position:relative;"><canvas id="t-c-pie"></canvas></div></div>
           <div class="glass" style="padding:20px;border-radius:16px;"><h3 style="font-size:17px;font-weight:700;margin-bottom:20px;">Fluxo de Caixa (6 Meses)</h3><div style="height:200px;position:relative;"><canvas id="t-c-bar"></canvas></div></div>
         </div>
-        <!-- ═══ CONECTAR BANCO/GMAIL (linha discreta) ═══ -->
-        <div style="display:flex;gap:10px;align-items:center;margin-bottom:24px;padding:12px 16px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.05);border-radius:12px;flex-wrap:wrap;">
+        <!-- ═══ CONECTAR BANCO/GMAIL (cards horizontais) ═══ -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:10px;margin-bottom:24px;">
           <!-- Pluggy -->
-          <div id="pluggy-bank-card" style="display:flex;align-items:center;gap:10px;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="color:var(--muted);">
+          <div id="pluggy-bank-card" style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;flex-wrap:wrap;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted);flex-shrink:0;">
               <path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3"/>
             </svg>
-            <span style="font-size:13px;color:var(--text);font-weight:500;">Conectar banco</span>
-            <span id="pluggy-status-text" style="display:none;"></span>
-            <button id="btn-pluggy-connect" style="padding:5px 12px;border-radius:8px;background:rgba(0,212,255,.12);border:1px solid rgba(0,212,255,.25);color:var(--accent);font-size:12px;font-weight:500;cursor:pointer;">Conectar</button>
-            <button id="btn-pluggy-sync" style="display:none;padding:5px 12px;border-radius:8px;background:transparent;border:1px solid rgba(0,212,255,.25);color:var(--accent);font-size:12px;font-weight:500;cursor:pointer;">Sincronizar</button>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3;">
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                <span style="font-size:13px;color:var(--text);font-weight:500;letter-spacing:-.005em;">Conectar banco</span>
+                <span style="font-size:9px;font-weight:600;background:rgba(251,191,36,.15);color:#fbbf24;border-radius:5px;padding:2px 6px;letter-spacing:.02em;">BETA</span>
+              </div>
+              <span id="pluggy-status-text" style="display:none;font-size:11px;color:var(--success);margin-top:2px;"></span>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+              <button id="btn-pluggy-connect" style="padding:5px 12px;border-radius:7px;background:rgba(0,212,255,.10);border:1px solid rgba(0,212,255,.25);color:var(--accent);font-size:12px;font-weight:500;cursor:pointer;letter-spacing:-.005em;">Conectar</button>
+              <button id="btn-pluggy-sync" style="display:none;padding:5px 12px;border-radius:7px;background:transparent;border:1px solid var(--border);color:var(--muted);font-size:12px;font-weight:500;cursor:pointer;letter-spacing:-.005em;">Sincronizar</button>
+            </div>
           </div>
 
-          <span style="width:1px;height:18px;background:rgba(255,255,255,.08);"></span>
-
           <!-- Gmail -->
-          <div style="display:flex;align-items:center;gap:10px;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted);">
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:10px;flex-wrap:wrap;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted);flex-shrink:0;">
               <rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 6 10 7L22 6"/>
             </svg>
-            <span style="font-size:13px;color:var(--text);font-weight:500;">Sincronizar Gmail</span>
-            <span style="font-size:9px;font-weight:700;background:rgba(0,229,160,.15);color:#00e5a0;border-radius:6px;padding:2px 6px;letter-spacing:.04em;">GRÁTIS</span>
-            <span id="gmail-status" style="display:none;"></span>
-            <button id="btn-gmail-connect" style="padding:5px 12px;border-radius:8px;background:rgba(0,229,160,.12);border:1px solid rgba(0,229,160,.25);color:#00e5a0;font-size:12px;font-weight:500;cursor:pointer;">Conectar</button>
-            <button id="btn-gmail-sync" style="display:none;padding:5px 12px;border-radius:8px;background:transparent;border:1px solid rgba(0,229,160,.25);color:#00e5a0;font-size:12px;font-weight:500;cursor:pointer;">Sincronizar</button>
-            <button id="btn-gmail-disconnect" style="display:none;padding:5px 10px;border-radius:8px;background:transparent;border:1px solid var(--border);color:var(--muted);font-size:11px;cursor:pointer;">Desconectar</button>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3;">
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                <span style="font-size:13px;color:var(--text);font-weight:500;letter-spacing:-.005em;">Sincronizar Gmail</span>
+                <span style="font-size:9px;font-weight:600;background:rgba(74,222,128,.15);color:#4ade80;border-radius:5px;padding:2px 6px;letter-spacing:.02em;">GRÁTIS</span>
+                <span style="font-size:9px;font-weight:600;background:rgba(251,191,36,.15);color:#fbbf24;border-radius:5px;padding:2px 6px;letter-spacing:.02em;">BETA</span>
+              </div>
+              <span id="gmail-status" style="display:none;font-size:11px;color:var(--success);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:240px;"></span>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+              <button id="btn-gmail-connect" style="padding:5px 12px;border-radius:7px;background:rgba(74,222,128,.10);border:1px solid rgba(74,222,128,.25);color:#4ade80;font-size:12px;font-weight:500;cursor:pointer;letter-spacing:-.005em;">Conectar</button>
+              <button id="btn-gmail-sync" style="display:none;padding:5px 12px;border-radius:7px;background:transparent;border:1px solid var(--border);color:var(--muted);font-size:12px;font-weight:500;cursor:pointer;letter-spacing:-.005em;">Sincronizar</button>
+              <button id="btn-gmail-disconnect" style="display:none;padding:5px 10px;border-radius:7px;background:transparent;border:1px solid var(--border);color:var(--muted);font-size:11px;cursor:pointer;letter-spacing:-.005em;">Desconectar</button>
+            </div>
           </div>
         </div>
         <!-- ═══ /CONECTAR BANCO/GMAIL ═══ -->
@@ -1467,50 +1479,47 @@
         </div>
 
         <!-- Filtros de período -->
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:16px;">
-          <button class="t-rep-filter" data-rep="semanal"   style="padding:8px 16px;border-radius:20px;font-size:12px;font-weight:700;border:1px solid var(--border);background:transparent;color:var(--muted);min-height:36px;touch-action:manipulation;transition:.2s;">Últimos 7 dias</button>
-          <button class="t-rep-filter active" data-rep="mes_atual"  style="padding:8px 16px;border-radius:20px;font-size:12px;font-weight:700;border:1px solid var(--accent);background:rgba(0,212,255,.12);color:var(--accent);min-height:36px;touch-action:manipulation;transition:.2s;">Mês Atual</button>
-          <button class="t-rep-filter" data-rep="mes_passado" style="padding:8px 16px;border-radius:20px;font-size:12px;font-weight:700;border:1px solid var(--border);background:transparent;color:var(--muted);min-height:36px;touch-action:manipulation;transition:.2s;">Mês Passado</button>
-          <button class="t-rep-filter" data-rep="trimestre"  style="padding:8px 16px;border-radius:20px;font-size:12px;font-weight:700;border:1px solid var(--border);background:transparent;color:var(--muted);min-height:36px;touch-action:manipulation;transition:.2s;">Trimestre</button>
-          <button class="t-rep-filter" data-rep="anual"      style="padding:8px 16px;border-radius:20px;font-size:12px;font-weight:700;border:1px solid var(--border);background:transparent;color:var(--muted);min-height:36px;touch-action:manipulation;transition:.2s;">Ano Atual</button>
-          <button class="t-rep-filter" data-rep="personalizado" style="padding:8px 16px;border-radius:20px;font-size:12px;font-weight:700;border:1px solid var(--border);background:transparent;color:var(--muted);min-height:36px;touch-action:manipulation;transition:.2s;">📅 Personalizado</button>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:14px;">
+          <button class="t-rep-filter" data-rep="semanal">7 dias</button>
+          <button class="t-rep-filter active" data-rep="mes_atual">Mês atual</button>
+          <button class="t-rep-filter" data-rep="mes_passado">Mês passado</button>
+          <button class="t-rep-filter" data-rep="trimestre">Trimestre</button>
+          <button class="t-rep-filter" data-rep="anual">Ano</button>
+          <button class="t-rep-filter" data-rep="personalizado">Personalizado</button>
         </div>
 
         <!-- Filtro personalizado (oculto por padrão) -->
-        <div id="rep-custom-dates" style="display:none;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:16px;padding:16px;border-radius:16px;background:rgba(0,212,255,.04);border:1px solid rgba(0,212,255,.12);">
+        <div id="rep-custom-dates" style="display:none;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px;padding:14px;border-radius:10px;background:transparent;border:1px solid var(--border);">
           <div>
-            <label style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);display:block;margin-bottom:5px;">De</label>
-            <input type="date" id="rep-date-ini" class="input-field" style="font-size:13px;padding:9px 12px;border-radius:10px;" />
+            <label style="font-size:11px;font-weight:500;color:var(--muted);display:block;margin-bottom:5px;letter-spacing:-.005em;">De</label>
+            <input type="date" id="rep-date-ini" class="input-field" style="font-size:13px;padding:9px 12px;" />
           </div>
           <div>
-            <label style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);display:block;margin-bottom:5px;">Até</label>
-            <input type="date" id="rep-date-fim" class="input-field" style="font-size:13px;padding:9px 12px;border-radius:10px;" />
+            <label style="font-size:11px;font-weight:500;color:var(--muted);display:block;margin-bottom:5px;letter-spacing:-.005em;">Até</label>
+            <input type="date" id="rep-date-fim" class="input-field" style="font-size:13px;padding:9px 12px;" />
           </div>
-          <button id="rep-apply-custom" style="padding:9px 20px;border-radius:10px;background:var(--accent);color:#000;font-size:13px;font-weight:800;border:none;cursor:pointer;min-height:40px;">Aplicar</button>
+          <button id="rep-apply-custom" style="padding:9px 16px;border-radius:8px;background:var(--accent);color:var(--bg);font-size:13px;font-weight:600;border:1px solid color-mix(in srgb, var(--accent) 70%, black);cursor:pointer;min-height:38px;letter-spacing:-.005em;">Aplicar</button>
         </div>
 
-        <!-- Filtros avançados por categoria/tipo -->
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:20px;">
-          <span style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);">Categoria:</span>
-          <button class="t-rep-cat-filter active" data-cat="all" style="padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid var(--accent);background:rgba(0,212,255,.1);color:var(--accent);cursor:pointer;transition:.15s;">Todas</button>
-          <button class="t-rep-cat-filter" data-cat="entrada"    style="padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:.15s;">▲ Entradas</button>
-          <button class="t-rep-cat-filter" data-cat="saida-fixa" style="padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:.15s;">▼ Saídas Fixas</button>
-          <button class="t-rep-cat-filter" data-cat="variavel"   style="padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:.15s;">● Variáveis</button>
-          <button class="t-rep-cat-filter" data-cat="funcionario" style="padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:.15s;">👤 Funcionários</button>
-          <button class="t-rep-cat-filter" data-cat="comida" style="padding:5px 13px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:.15s;">🍽️ Comida</button>
-          <!-- Pesquisa inline nos relatórios -->
+        <!-- Categorias + busca (linha única, estilo dashboard) -->
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:20px;">
+          <button class="t-rep-cat-filter active" data-cat="all">Todas</button>
+          <button class="t-rep-cat-filter" data-cat="entrada">Entrada</button>
+          <button class="t-rep-cat-filter" data-cat="saida-fixa">Saída fixa</button>
+          <button class="t-rep-cat-filter" data-cat="variavel">Variável</button>
+          <button class="t-rep-cat-filter" data-cat="funcionario">Funcionário</button>
+          <button class="t-rep-cat-filter" data-cat="comida">Comida</button>
           <div style="margin-left:auto;position:relative;">
-            <input id="rep-search" type="text" placeholder="🔍 Filtrar…" autocomplete="off"
-              style="padding:6px 10px 6px 28px;border-radius:20px;font-size:11px;font-weight:600;
-              background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
-              color:var(--text);width:120px;" />
-            <svg style="position:absolute;left:9px;top:50%;transform:translateY(-50%);pointer-events:none;"
-              width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="rgba(228,240,246,.35)" stroke-width="2.5" stroke-linecap="round">
+            <svg style="position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--muted);"
+              width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
               <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
+            <input id="rep-search" type="text" placeholder="Filtrar…" autocomplete="off"
+              style="padding:6px 12px 6px 30px;border-radius:7px;font-size:12.5px;font-weight:400;
+              background:transparent;border:1px solid var(--border);
+              color:var(--text);width:160px;letter-spacing:-.005em;outline:none;" />
           </div>
-          <!-- Limpar filtros -->
-          <button id="rep-clear-filters" style="display:none;padding:5px 12px;border-radius:20px;font-size:11px;font-weight:700;border:1px solid rgba(255,91,112,.25);background:rgba(255,91,112,.08);color:var(--alert);cursor:pointer;">✕ Limpar</button>
+          <button id="rep-clear-filters" style="display:none;padding:6px 12px;border-radius:7px;font-size:12px;font-weight:500;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;letter-spacing:-.005em;">Limpar</button>
         </div>
 
         <!-- KPIs do período filtrado -->
@@ -1679,20 +1688,27 @@
             <h4>Perfil</h4>
             <p>Sua foto e nome aparecem na sidebar e nos relatórios.</p>
           </div>
-          <div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap;">
-            <div style="position:relative;flex-shrink:0;">
-              <div id="t-profile-avatar" style="width:72px;height:72px;border-radius:14px;background:var(--bg3);display:grid;place-items:center;color:var(--accent);font-size:26px;font-weight:600;border:1px solid var(--border);background-size:cover;background-position:center;overflow:hidden;cursor:pointer;">U</div>
-              <button id="t-profile-avatar-btn" title="Mudar foto" style="position:absolute;bottom:-4px;right:-4px;width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--bg);border:2px solid var(--bg2);display:grid;place-items:center;cursor:pointer;">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-              </button>
+          <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+            <div id="t-profile-avatar-wrap" style="position:relative;flex-shrink:0;cursor:pointer;">
+              <div id="t-profile-avatar" style="width:64px;height:64px;border-radius:12px;background:var(--bg3);display:grid;place-items:center;color:var(--accent);font-size:24px;font-weight:600;border:1px solid var(--border);background-size:cover;background-position:center;overflow:hidden;transition:filter .15s;">U</div>
+              <!-- Overlay hover só quando há mouse sobre -->
+              <div id="t-profile-avatar-hover" style="position:absolute;inset:0;border-radius:12px;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .15s;pointer-events:none;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              </div>
               <input type="file" id="t-profile-avatar-input" accept="image/*" style="display:none;">
             </div>
             <div style="flex:1;min-width:200px;">
-              <div id="t-profile-name" style="font-size:16px;font-weight:600;color:var(--text);letter-spacing:-.015em;">—</div>
+              <div id="t-profile-name" style="font-size:15px;font-weight:600;color:var(--text);letter-spacing:-.015em;">—</div>
               <div id="t-profile-email" style="font-size:13px;color:var(--muted);margin-top:2px;letter-spacing:-.005em;">—</div>
-              <button id="t-profile-remove-photo" style="display:none;margin-top:10px;padding:6px 12px;border-radius:7px;background:transparent;border:1px solid var(--border);color:var(--muted);font-size:12px;font-weight:500;cursor:pointer;">Remover foto</button>
+              <div style="display:flex;gap:8px;margin-top:10px;align-items:center;">
+                <button id="t-profile-upload-btn" style="padding:6px 12px;border-radius:7px;background:transparent;border:1px solid var(--border);color:var(--text);font-size:12px;font-weight:500;cursor:pointer;letter-spacing:-.005em;">Alterar foto</button>
+                <button id="t-profile-remove-photo" style="display:none;padding:6px 12px;border-radius:7px;background:transparent;border:1px solid var(--border);color:var(--muted);font-size:12px;font-weight:500;cursor:pointer;letter-spacing:-.005em;">Remover</button>
+              </div>
             </div>
           </div>
+          <style>
+            #t-profile-avatar-wrap:hover #t-profile-avatar-hover { opacity: 1; }
+          </style>
         </div>
 
         <!-- ── Tema ── -->
