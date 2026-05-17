@@ -1622,6 +1622,7 @@ function bindEvents(){
   });
 
   on('t-btn-logout',()=>window.LuminAuth?.logout());
+  on('t-settings-logout',()=>{ if (confirm('Encerrar sessão?')) window.LuminAuth?.logout(); });
 
   // ─── PLUGGY ─────────────────────────────────────────────────
   initPluggy();

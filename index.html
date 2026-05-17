@@ -1787,12 +1787,24 @@
         </div>
 
         <!-- ── Usuários ── -->
-        <div class="settings-card">
+        <div class="settings-card" style="margin-bottom:18px;">
           <div class="settings-card-head">
             <h4>Usuários autorizados</h4>
             <p>Quem tem acesso à sua conta.</p>
           </div>
           <div id="t-u-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;"></div>
+        </div>
+
+        <!-- ── Sair ── -->
+        <div class="settings-card">
+          <div class="settings-card-head" style="margin-bottom:14px;">
+            <h4>Sessão</h4>
+            <p>Você pode sair desta conta a qualquer momento.</p>
+          </div>
+          <button id="t-settings-logout" style="display:inline-flex;align-items:center;gap:8px;padding:9px 14px;border-radius:8px;background:transparent;border:1px solid var(--border);color:var(--alert);font-size:13px;font-weight:500;cursor:pointer;letter-spacing:-.005em;transition:background .12s, border-color .12s;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Encerrar sessão
+          </button>
         </div>
       </section>
 
