@@ -69,6 +69,19 @@ const PLUGGY_CLIENT_ID     = process.env.PLUGGY_CLIENT_ID     || 'SEU_CLIENT_ID_
 const PLUGGY_CLIENT_SECRET = process.env.PLUGGY_CLIENT_SECRET || 'SEU_CLIENT_SECRET_PLUGGY_AQUI';
 const PLUGGY_BASE_URL      = 'https://api.pluggy.ai';
 
+// ─── GOOGLE / GMAIL ────────────────────────────────────────────
+const GOOGLE_CLIENT_ID     = process.env.GOOGLE_CLIENT_ID;
+const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+// Em produção (Fly.io), o callback é via HTTPS. Em dev local, fallback pra localhost.
+const GMAIL_REDIRECT_URI   = process.env.FLY_APP_NAME
+  ? `https://${process.env.FLY_APP_NAME}.fly.dev/gmail/callback`
+  : `http://localhost:${process.env.PORT || 3001}/gmail/callback`;
+// Tokens persistidos no volume Fly.io (sobrevive a deploys)
+const GMAIL_TOKENS_FILE = fs.existsSync('/data')
+  ? '/data/gmail-tokens.json'
+  : path.join(__dirname, 'gmail-tokens.json');
+// (groq já declarado mais acima)
+
 // ─── CATEGORIAS (espelho do frontend) ──────────────────────────
 const CATS = {
   'entrada':     'Entrada',
@@ -1949,6 +1962,231 @@ const _origErr = console.error.bind(console);
 console.log = (...a) => { _origLog(...a); const t = a.join(' '); if (t.includes('[WA]') || t.includes('[CRON]') || t.includes('[Pluggy]') || t.includes('[WhatsApp]')) addLog('info', t); };
 console.warn = (...a) => { _origWarn(...a); addLog('warn', a.join(' ')); };
 console.error = (...a) => { _origErr(...a); addLog('error', a.join(' ')); };
+
+// ══════════════════════════════════════════════════════════════
+//  GMAIL SYNC — lê emails de bancos e extrai transações com IA
+// ══════════════════════════════════════════════════════════════
+
+function loadGmailTokens() {
+  try { return JSON.parse(fs.readFileSync(GMAIL_TOKENS_FILE, 'utf8')); }
+  catch { return {}; }
+}
+function saveGmailTokens(data) {
+  fs.writeFileSync(GMAIL_TOKENS_FILE, JSON.stringify(data, null, 2));
+}
+
+async function getGmailAccessToken(companyId) {
+  const all = loadGmailTokens();
+  const t   = all[companyId];
+  if (!t?.refresh_token) throw new Error('Gmail não conectado para esta empresa.');
+  if (Date.now() < (t.expiry || 0) - 60000) return { all, t, token: t.access_token };
+
+  const r = await axios.post('https://oauth2.googleapis.com/token', {
+    client_id:     GOOGLE_CLIENT_ID,
+    client_secret: GOOGLE_CLIENT_SECRET,
+    refresh_token: t.refresh_token,
+    grant_type:    'refresh_token'
+  });
+  t.access_token = r.data.access_token;
+  t.expiry       = Date.now() + r.data.expires_in * 1000;
+  all[companyId] = t;
+  saveGmailTokens(all);
+  console.log('[Gmail] Token renovado para', companyId);
+  return { all, t, token: t.access_token };
+}
+
+app.get('/gmail/status', (req, res) => {
+  const { companyId } = req.query;
+  const all = loadGmailTokens();
+  const t   = all[companyId];
+  res.json({ connected: !!t?.refresh_token, email: t?.email || null });
+});
+
+app.get('/gmail/auth-url', (req, res) => {
+  if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+    return res.status(500).json({ error: 'GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET não configurados no servidor.' });
+  }
+  const url =
+    `https://accounts.google.com/o/oauth2/v2/auth` +
+    `?client_id=${encodeURIComponent(GOOGLE_CLIENT_ID)}` +
+    `&redirect_uri=${encodeURIComponent(GMAIL_REDIRECT_URI)}` +
+    `&response_type=code` +
+    `&scope=${encodeURIComponent('https://www.googleapis.com/auth/gmail.readonly')}` +
+    `&access_type=offline` +
+    `&prompt=consent` +
+    `&state=${encodeURIComponent(req.query.companyId || '')}`;
+  res.json({ url });
+});
+
+app.get('/gmail/callback', async (req, res) => {
+  const { code, state: companyId, error } = req.query;
+  if (error) {
+    return res.send(`<script>window.opener?.postMessage({type:'gmail-error',error:'${error}'},'*');window.close();</script>`);
+  }
+  try {
+    const tokenRes = await axios.post('https://oauth2.googleapis.com/token', {
+      code,
+      client_id:     GOOGLE_CLIENT_ID,
+      client_secret: GOOGLE_CLIENT_SECRET,
+      redirect_uri:  GMAIL_REDIRECT_URI,
+      grant_type:    'authorization_code'
+    });
+    const { access_token, refresh_token, expires_in } = tokenRes.data;
+
+    const profileRes = await axios.get(
+      'https://gmail.googleapis.com/gmail/v1/users/me/profile',
+      { headers: { Authorization: `Bearer ${access_token}` } }
+    );
+    const email = profileRes.data.emailAddress;
+
+    const all = loadGmailTokens();
+    all[companyId] = {
+      access_token,
+      refresh_token: refresh_token || all[companyId]?.refresh_token,
+      expiry:        Date.now() + expires_in * 1000,
+      email,
+      parsedIds:     all[companyId]?.parsedIds || []
+    };
+    saveGmailTokens(all);
+    console.log(`[Gmail] Conectado: ${email} → empresa ${companyId}`);
+
+    res.send(`<!DOCTYPE html><html><head><title>Gmail conectado</title></head>
+      <body style="background:#0d0d1a;color:#fff;font-family:sans-serif;text-align:center;padding:40px;">
+        <h2>✅ Gmail conectado!</h2><p>Pode fechar esta janela.</p>
+        <script>
+          window.opener?.postMessage({type:'gmail-connected',email:'${email}'},'*');
+          setTimeout(()=>window.close(), 1500);
+        </script>
+      </body></html>`);
+  } catch (err) {
+    console.error('[Gmail] callback ERROR:', err.response?.data || err.message);
+    res.send(`<script>window.opener?.postMessage({type:'gmail-error',error:'${err.message}'},'*');window.close();</script>`);
+  }
+});
+
+app.get('/gmail/disconnect', (req, res) => {
+  const all = loadGmailTokens();
+  delete all[req.query.companyId];
+  saveGmailTokens(all);
+  console.log('[Gmail] Desconectado:', req.query.companyId);
+  res.json({ ok: true });
+});
+
+const BANK_SENDERS = [
+  'noreply@nubank.com.br', 'falecom@nubank.com.br', 'comunicados@nubank.com.br',
+  'naoresponda@itau.com.br', 'noreply@itau.com.br', 'itau@',
+  'notificacoes@bradesco.com.br', 'noreply@bradesco.com.br', 'bradesco@',
+  'santander@santander.com.br', 'noreply@santander.com.br',
+  'mensagens@bancodobrasil.com.br', 'noreply@bb.com.br',
+  'atendimento@caixa.gov.br',
+  'nao-responda@inter.co', 'noreply@inter.co',
+  'noreply@c6bank.com.br',
+  'noreply@neon.com.br',
+  'noreply@picpay.com',
+  'noreply@mercadopago.com',
+];
+
+function buildGmailQuery(dias) {
+  const fromList = BANK_SENDERS.slice(0, 15).map(s => `from:${s}`).join(' OR ');
+  return `(${fromList}) newer_than:${dias}d`;
+}
+
+function extractEmailBody(payload) {
+  let text = '';
+  function walk(part) {
+    if (part.mimeType === 'text/plain' && part.body?.data) {
+      text += Buffer.from(part.body.data, 'base64url').toString('utf-8') + '\n';
+    } else if (part.mimeType === 'text/html' && part.body?.data && !text) {
+      const html = Buffer.from(part.body.data, 'base64url').toString('utf-8');
+      text += html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() + '\n';
+    }
+    if (part.parts) part.parts.forEach(walk);
+  }
+  walk(payload);
+  if (!text && payload.body?.data) {
+    text = Buffer.from(payload.body.data, 'base64url').toString('utf-8');
+  }
+  return text.trim();
+}
+
+app.post('/gmail/sync', async (req, res) => {
+  const { companyId, dias = 7 } = req.body || {};
+  if (!companyId) return res.status(400).json({ error: 'companyId obrigatório.' });
+
+  try {
+    const { t, token } = await getGmailAccessToken(companyId);
+    const parsedIds = new Set(t.parsedIds || []);
+
+    const q = buildGmailQuery(Number(dias));
+    const listRes = await axios.get(
+      `https://gmail.googleapis.com/gmail/v1/users/me/messages`,
+      { params: { q, maxResults: 50 }, headers: { Authorization: `Bearer ${token}` } }
+    );
+    const messages = listRes.data.messages || [];
+    const novos    = messages.filter(m => !parsedIds.has(m.id));
+    console.log(`[Gmail] ${messages.length} emails, ${novos.length} novos`);
+
+    if (!novos.length) return res.json({ transactions: [], novas: 0 });
+
+    const transactions = [];
+    for (const msg of novos.slice(0, 25)) {
+      try {
+        const msgRes = await axios.get(
+          `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}`,
+          { params: { format: 'full' }, headers: { Authorization: `Bearer ${token}` } }
+        );
+        const payload  = msgRes.data.payload;
+        const headers  = payload.headers || [];
+        const subject  = headers.find(h => h.name === 'Subject')?.value || '';
+        const from     = headers.find(h => h.name === 'From')?.value    || '';
+        const dateHdr  = headers.find(h => h.name === 'Date')?.value    || '';
+        const body     = extractEmailBody(payload);
+        if (!body && !subject) { parsedIds.add(msg.id); continue; }
+
+        const prompt = `De: ${from}\nAssunto: ${subject}\nData: ${dateHdr}\n\n${body.slice(0, 2500)}`;
+        const completion = await groq.chat.completions.create({
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            { role: 'system', content: `Você é um parser de emails bancários brasileiros. Responda SOMENTE com JSON: {"valor":99.90,"tipo":"saida","descricao":"...","data":"2026-05-15","banco":"..."}. tipo: "entrada" ou "saida". Se NÃO for transação: {"ignorar":true}` },
+            { role: 'user', content: prompt }
+          ],
+          temperature: 0,
+          max_tokens: 200
+        });
+        const raw = completion.choices[0].message.content.trim();
+        const jsonStr = raw.replace(/^```json?\s*/i, '').replace(/\s*```$/, '').trim();
+        const parsed  = JSON.parse(jsonStr);
+
+        if (!parsed.ignorar && parsed.valor > 0) {
+          transactions.push({
+            id:          `gmail_${msg.id}`,
+            date:        parsed.data || new Date().toISOString().split('T')[0],
+            description: parsed.descricao || subject,
+            value:       Number(parsed.valor),
+            category:    parsed.tipo === 'entrada' ? 'entrada' : 'saida-fixa',
+            origem:      'email',
+            banco:       parsed.banco || from.split('<')[0].trim(),
+          });
+        }
+        parsedIds.add(msg.id);
+        await new Promise(r => setTimeout(r, 150));
+      } catch (e) {
+        console.warn(`[Gmail] Erro msg ${msg.id}:`, e.message);
+        parsedIds.add(msg.id);
+      }
+    }
+
+    const allTokens = loadGmailTokens();
+    if (allTokens[companyId]) {
+      allTokens[companyId].parsedIds = [...parsedIds].slice(-1000);
+      saveGmailTokens(allTokens);
+    }
+    res.json({ transactions, novas: transactions.length });
+  } catch (err) {
+    console.error('[Gmail] sync ERROR:', err.message);
+    res.status(err.message.includes('não conectado') ? 401 : 500).json({ error: err.message });
+  }
+});
 
 // ── Rota de saúde
 app.get('/health', (_, res) => res.json({
