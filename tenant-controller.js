@@ -110,9 +110,14 @@ function switchV(id){
   $$('.t-view').forEach(v=>v.classList.remove('active'));
   $(id)?.classList.add('active');
   $$('.t-nav-item').forEach(b=>b.classList.toggle('active',b.dataset.view===id));
-  const titles={'v-home':'Dashboard','v-cal':'Calendário','v-obrig':'Obrigações','v-rep':'Relatórios','v-papelao':'Compra Papelão','v-users':'Segurança'};
+  $$('.t-bn-item').forEach(b=>b.classList.toggle('active',b.dataset.view===id));
+  const titles={'v-home':'Dashboard','v-cal':'Calendário','v-obrig':'Obrigações','v-rep':'Relatórios','v-papelao':'Compra Papelão','v-users':'Conta','v-combustivel':'Logística'};
   const tEl=$('t-v-title'); if(tEl) tEl.textContent=titles[id]||'Lumin';
   closeSidebar();
+  // Volta ao topo (tanto no scroll container quanto na window mobile)
+  const scrollContainer = document.querySelector('#t-main > div[style*="overflow-y"]');
+  if (scrollContainer) scrollContainer.scrollTop = 0;
+  window.scrollTo({ top: 0, behavior: 'auto' });
   render();
 }
 
