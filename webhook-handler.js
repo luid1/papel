@@ -371,8 +371,8 @@ async function processarMensagem(msg) {
     if (!empresa) {
       console.log(`[WA] ❌ Número ${phone} não cadastrado em nenhuma empresa`);
       await msg.reply(
-        `⚠ Eita! Seu número *${phone}* não tá no sistema não.\n` +
-        `Fala com o admin do Lumin pra ele te cadastrar. 🙏`
+        `Seu número *${phone}* ainda não está cadastrado.\n\n` +
+        `Peça pro admin do Lumin te adicionar.`
       );
       return;
     }
@@ -403,7 +403,7 @@ async function processarMensagem(msg) {
     if (msg.type === 'ptt' || msg.type === 'audio') {
       textoOriginal = await transcreverAudio(msg);
       if (!textoOriginal) {
-        await msg.reply('⚠ Cara, não consegui pegar o áudio não. Tenta de novo? Manda mais devagar! 🎙');
+        await msg.reply('Não consegui entender o áudio. Tenta de novo falando mais devagar.');
         return;
       }
       console.log(`[WA] Transcrição: "${textoOriginal}"`);
@@ -462,7 +462,7 @@ async function processarMensagem(msg) {
     }
     if (/^(cancela|desfaz|apaga|deleta?\s*[uú]ltim)/i.test(textoOriginal)) {
       const ok = await deletarUltima(empresa.id);
-      await enviarResposta(msg, ok ? `✅ Última transação deletada! Se errei, me manda de novo.` : `⚠ Não achei nada pra deletar, mano.`);
+      await enviarResposta(msg, ok ? `Última transação removida.` : `Não tem nada pra remover.`);
       return;
     }
     if (/^(exportar?|pdf|relat[oó]rio\s*pdf|exportar?\s*pdf)$/i.test(textoOriginal)) {
@@ -573,14 +573,11 @@ async function processarMensagem(msg) {
     if (!transacoes || transacoes.length === 0) {
       console.log(`[WA] ⚠ Groq não identificou transação`);
       await msg.reply(
-        `🤔 Hmm, não entendi direito não, ${empresa.nome}.\n\n` +
-        `Manda assim ó:\n` +
-        `• "Entrada 500 cliente João"\n` +
-        `• "Aluguel 1200"\n` +
-        `• "Paguei a Maria 2000"\n` +
-        `• "Almoço 45 reais"\n` +
-        `• "Gasolina 300"\n\n` +
-        `Ou digita *ajuda* pra ver todos os comandos! 💡`
+        `Não entendi. Tente assim:\n` +
+        `• Entrada 500 cliente João\n` +
+        `• Aluguel 1200\n` +
+        `• Almoço 45\n\n` +
+        `Digite *ajuda* pra ver tudo.`
       );
       return;
     }
@@ -629,7 +626,7 @@ async function processarMensagem(msg) {
 
   } catch (err) {
     console.error('[WA] Erro:', err.message);
-    try { await msg.reply('❌ Deu ruim aqui! Tenta de novo daqui a pouco? 🙏'); } catch (_) {}
+    try { await msg.reply('Algo deu errado. Tenta de novo em alguns minutos.'); } catch (_) {}
   }
 } // fim processarMensagem
 
@@ -775,42 +772,49 @@ async function gerarResumoMensal(companyId, nome) {
 function formatarResumo(docs, nome, tipo, dataInicio, dataFim) {
   const fmt = v => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const fD  = d => d?.split('-').reverse().join('/');
+  const periodLabel = tipo === 'semanal' ? 'Resumo da semana' : 'Resumo do mês';
 
   if (!docs.length) {
-    return `📊 *Resumo ${tipo} — ${nome}*\n\nNenhuma transação registrada nesse período. Bora movimentar! 🚀`;
+    return `${periodLabel}\n\nSem lançamentos no período (${fD(dataInicio)} – ${fD(dataFim)}).`;
   }
 
   const txs = docs.map(d => d.data());
-
-  const totalEntrada  = txs.filter(t => t.category === 'entrada').reduce((a, t) => a + Number(t.amount || 0), 0);
-  const totalSaida    = txs.filter(t => t.category !== 'entrada').reduce((a, t) => a + Number(t.amount || 0), 0);
-  const saldo         = totalEntrada - totalSaida;
-  const saldoPositivo = saldo >= 0;
+  const totalEntrada = txs.filter(t => t.category === 'entrada').reduce((a, t) => a + Number(t.amount || 0), 0);
+  const totalSaida   = txs.filter(t => t.category !== 'entrada').reduce((a, t) => a + Number(t.amount || 0), 0);
+  const saldo        = totalEntrada - totalSaida;
 
   const porCategoria = {};
   for (const t of txs) {
+    if (t.category === 'entrada') continue;
     const cat = CATS[t.category] || t.category;
     porCategoria[cat] = (porCategoria[cat] || 0) + Number(t.amount || 0);
   }
+  const catLines = Object.entries(porCategoria)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([cat, val]) => `  ${cat}  ${fmt(val)}`);
 
-  const linhas = [
-    `📊 *Resumo ${tipo} — ${nome}*`,
-    `📅 ${fD(dataInicio)} até ${fD(dataFim)}`,
-    ``,
-    `💸 *Entradas:* ${fmt(totalEntrada)}`,
-    `📤 *Saídas:*   ${fmt(totalSaida)}`,
-    `${saldoPositivo ? '✅' : '🔴'} *Saldo:*    ${fmt(saldo)}`,
-    ``,
-    `📋 *Por categoria:*`,
-    ...Object.entries(porCategoria).map(([cat, val]) => `  • ${cat}: ${fmt(val)}`),
-    ``,
-    `📦 *Total de lançamentos:* ${txs.length}`,
-    saldoPositivo
-      ? `\nFirmeza, tá no azul! 💪`
-      : `\nAtenção: semana no vermelho. Bora controlar! 👀`
-  ];
+  // Comentário variado de acordo com saldo
+  let comentario;
+  const pct = totalEntrada > 0 ? (saldo / totalEntrada) * 100 : -100;
+  if (pct >= 30)      comentario = 'Resultado bem positivo.';
+  else if (pct >= 0)  comentario = 'Saldo no positivo.';
+  else if (pct >= -20) comentario = 'Saiu um pouco mais do que entrou.';
+  else                 comentario = 'Saídas bem acima das entradas.';
 
-  return linhas.join('\n');
+  return [
+    periodLabel,
+    `${fD(dataInicio)} – ${fD(dataFim)}`,
+    ``,
+    `Entradas  ${fmt(totalEntrada)}`,
+    `Saídas    ${fmt(totalSaida)}`,
+    `Saldo     ${fmt(saldo)}`,
+    ``,
+    catLines.length ? `Principais gastos:` : '',
+    ...catLines,
+    catLines.length ? `` : '',
+    `${txs.length} lançamento${txs.length !== 1 ? 's' : ''} · ${comentario}`,
+  ].filter(l => l !== undefined).join('\n');
 }
 
 // ─── LISTAR ÚLTIMAS TRANSAÇÕES ─────────────────────────────────
@@ -925,9 +929,9 @@ async function verificarAlertas(refs, empresa, chatId) {
       const entrada = snap.docs.map(d=>d.data()).filter(t=>(t.date||'')>=inicioMes && t.category==='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
       const pct = entrada / meta * 100;
       if (pct >= 100 && pct < 110) { // avisa só na primeira vez que bate
-        await waClient.sendMessage(chatId, `🏆 *META BATIDA, ${empresa.nome}!*\n\nVocê atingiu *${fmt(entrada)}* de *${fmt(meta)}* de faturamento esse mês!\n\nParabéns! 🔥🎉`);
+        await waClient.sendMessage(chatId, `Meta batida 🎉\n\n${empresa.nome}, você chegou em ${fmt(entrada)} (meta era ${fmt(meta)}).`);
       } else if (pct >= 80 && pct < 85) {
-        await waClient.sendMessage(chatId, `🎯 Quase lá, ${empresa.nome}! Você já chegou a *${Math.round(pct)}%* da sua meta de ${fmt(meta)}.\nFaltam só *${fmt(meta-entrada)}*! 💪`);
+        await waClient.sendMessage(chatId, `${empresa.nome}, você já está em ${Math.round(pct)}% da meta de ${fmt(meta)}.\nFaltam ${fmt(meta-entrada)}.`);
       }
     }
   } catch(e) { console.error('[Alerta Meta]', e.message); }
@@ -1009,7 +1013,7 @@ FORMATO OBRIGATÓRIO: responda em 1 a 3 mensagens curtas separadas por |||. Cada
     return partes.length > 0 ? partes : [raw];
   } catch (err) {
     console.error('[Pergunta] Erro:', err.message);
-    return [`🤔 Deu ruim aqui pra responder isso. Tenta de novo daqui a pouco!`];
+    return [`Não consegui processar isso agora. Tenta de novo em instantes.`];
   }
 }
 
@@ -1099,7 +1103,7 @@ EXEMPLO de formato correto:
     return partes.length > 0 ? partes : [raw];
   } catch (err) {
     console.error('[Consultoria] Erro:', err.message);
-    return [`🤔 Deu um probleminha aqui pra analisar. Tenta de novo daqui a pouco!`];
+    return [`Não consegui analisar agora. Tenta de novo em instantes.`];
   }
 }
 
@@ -1224,7 +1228,7 @@ async function enviarPDFMes(companyId, nomeEmpresa, chatId) {
     console.log(`[PDF] ✅ Enviado para ${chatId}`);
   } catch (err) {
     console.error('[PDF] Erro:', err.message);
-    await waClient.sendMessage(chatId, `❌ Deu ruim gerando o PDF. Tenta de novo daqui a pouco!`);
+    await waClient.sendMessage(chatId, `Não consegui gerar o PDF agora. Tenta de novo em alguns minutos.`);
   }
 }
 
@@ -1246,23 +1250,20 @@ async function tentarVerificacaoLid(msg, lidId) {
       console.log(`[WA] ✓ LID ${lidId} vinculado a ${digits} (${empresa.nome})`);
 
       await msg.reply(
-        `🔥 *Opa, ${empresa.nome}! Verificado com sucesso!*\n\n` +
-        `Tô aqui pra te ajudar a registrar tudo sem enrolação. ` +
-        `Manda pra mim direto no chat — pode ser texto ou áudio mesmo!\n\n` +
-        `Exemplos do que posso entender:\n` +
-        `• "Entrada 500 cliente João"\n` +
-        `• "Aluguel 1200"\n` +
-        `• "Almoço 45 reais"\n` +
-        `• "Gasolina 80"\n\n` +
-        `Bora! 🚀`
+        `Olá, ${empresa.nome}. Conta verificada.\n\n` +
+        `Pode mandar seus lançamentos por texto ou áudio. Exemplos:\n` +
+        `• Entrada 500 cliente João\n` +
+        `• Aluguel 1200\n` +
+        `• Almoço 45\n\n` +
+        `Digite *ajuda* pra ver tudo que dá pra fazer.`
       );
       // Retorna null para que o handler principal NÃO tente processar
       // o número de telefone como uma transação financeira
       return null;
     } else {
       await msg.reply(
-        `⚠ Eita! O número *${digits}* não tá cadastrado aqui não, mano.\n\n` +
-        `Cola com o admin do Lumin e pede pra ele te cadastrar primeiro. 👍`
+        `O número *${digits}* não está cadastrado.\n\n` +
+        `Peça pro admin do Lumin te adicionar primeiro.`
       );
       return null;
     }
@@ -1676,13 +1677,13 @@ async function gerarProjecaoMes(companyId, nome) {
 async function definirMeta(companyId, valor, nome, chatId) {
   const fmt = v => Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
   await db.collection('metas').doc(companyId).set({ valor, companyId, chatId, atualizadaEm: admin.firestore.FieldValue.serverTimestamp() });
-  await waClient.sendMessage(chatId, `🎯 *Meta definida!*\n\nMeta de faturamento de *${fmt(valor)}* pra ${MONTHS_BR[new Date().getMonth()]}!\nVou te avisar quando chegar perto. Bora! 💪`);
+  await waClient.sendMessage(chatId, `Meta de ${fmt(valor)} definida para ${MONTHS_BR[new Date().getMonth()]}.\n\nVou te avisar quando estiver chegando.`);
 }
 
 async function verMeta(companyId, nome) {
   const fmt = v => Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
   const metaDoc = await db.collection('metas').doc(companyId).get();
-  if (!metaDoc.exists) return `🎯 Você não tem meta definida ainda.\n\nDefine assim: *"meta 10000"* 🚀`;
+  if (!metaDoc.exists) return `Nenhuma meta definida ainda.\n\nPra definir: digite "meta 10000" (substituindo pelo valor).`;
 
   const meta = metaDoc.data().valor;
   const inicioMes = `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}-01`;
@@ -1697,9 +1698,9 @@ async function verMeta(companyId, nome) {
     `Meta: *${fmt(meta)}*`,
     `Realizado: *${fmt(entrada)}* (${pct}%)\n`,
     `[${bar}] ${pct}%\n`,
-    pct >= 100 ? `🏆 *META BATIDA! Parabéns!* 🔥🔥🔥` :
-    pct >= 80  ? `Quase lá! Faltam apenas *${fmt(meta-entrada)}* 💪` :
-    `Bora! Faltam *${fmt(meta-entrada)}* pra bater.`
+    pct >= 100 ? `Meta batida.` :
+    pct >= 80  ? `Faltam ${fmt(meta-entrada)} pra bater.` :
+    `Faltam ${fmt(meta-entrada)} para a meta.`
   ].join('\n');
 }
 
@@ -1794,20 +1795,28 @@ async function enviarResumoDia() {
     const chatId = lid || `${phone}@c.us`;
     try {
       const snap = await db.collection('transactions').where('companyId','==',companyId).get();
+      // TODAS as transações de hoje (WhatsApp, manual, Pluggy, Gmail)
       const txsHoje = snap.docs.map(d=>d.data()).filter(t=>t.date===hoje);
       if (!txsHoje.length) continue;
-      const compDoc = await db.collection('companies').doc(companyId).get();
-      const nome = compDoc.data()?.name || 'você';
+
       const entrada = txsHoje.filter(t=>t.category==='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
       const saida   = txsHoje.filter(t=>t.category!=='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
       const saldo   = entrada - saida;
+
+      // Comentário variado (não robotizado)
+      let comentario;
+      if (saldo > 1000)       comentario = 'Dia bom de receita.';
+      else if (saldo > 0)     comentario = 'Saldo positivo.';
+      else if (saldo === 0)   comentario = 'Empate técnico.';
+      else if (saldo > -500)  comentario = 'Saiu mais do que entrou.';
+      else                    comentario = 'Dia pesado em saídas.';
+
       await waClient.sendMessage(chatId,
-        `🌙 *Resumo do dia — ${nome}*\n\n` +
-        `💸 Entradas: *${fmt(entrada)}*\n` +
-        `📤 Saídas: *${fmt(saida)}*\n` +
-        `${saldo>=0?'✅':'🔴'} Resultado: *${fmt(saldo)}*\n\n` +
-        `_${txsHoje.length} lançamento${txsHoje.length!==1?'s':''} hoje_\n\n` +
-        `${saldo>=0 ? 'Dia positivo! 💪' : 'Dia no vermelho, mas amanhã é novo dia! 💙'}`
+        `Resumo de hoje\n\n` +
+        `Entradas  ${fmt(entrada)}\n` +
+        `Saídas    ${fmt(saida)}\n` +
+        `Saldo     ${fmt(saldo)}\n\n` +
+        `${txsHoje.length} lançamento${txsHoje.length!==1?'s':''} · ${comentario}`
       );
     } catch(e) { console.error('[ResumoDia]', e.message); }
   }
@@ -1838,7 +1847,7 @@ async function verificarSaldoNegativo(companyId, empresa, chatId) {
     await waClient.sendMessage(chatId,
       `🔴 *${empresa.nome}, seu saldo acumulado ficou negativo!*\n\n` +
       `Total de entradas: ${fmt(entrada)}\nTotal de saídas: ${fmt(saida)}\n` +
-      `Saldo: *${fmt(entrada-saida)}*\n\nBora verificar os lançamentos! 👀`
+      `Saldo: ${fmt(entrada-saida)}\n\nVale revisar os lançamentos do mês.`
     );
   }
 }
