@@ -520,6 +520,28 @@ async function deleteUser(uid) {
 }
 
 // ─── EDITAR EMPRESA ───────────────────────────────────────────
+let _editingCompanyPhones = []; // cópia local editável
+
+function renderCompanyPhonesList() {
+  const list = el("edit-company-phones-list");
+  if (!list) return;
+  if (_editingCompanyPhones.length === 0) {
+    list.innerHTML = `<span style="font-size:12px;color:var(--muted);">Nenhum telefone cadastrado ainda.</span>`;
+    return;
+  }
+  list.innerHTML = _editingCompanyPhones.map((p, i) => `
+    <div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:8px;padding:8px 12px;">
+      <span style="flex:1;font-family:monospace;font-size:13px;color:var(--text);">${p}</span>
+      <button type="button" onclick="window._removeCompanyPhone(${i})" style="background:rgba(255,91,112,.12);border:1px solid rgba(255,91,112,.25);color:var(--alert);border-radius:6px;padding:3px 10px;font-size:12px;cursor:pointer;">Remover</button>
+    </div>
+  `).join("");
+}
+
+window._removeCompanyPhone = function(idx) {
+  _editingCompanyPhones.splice(idx, 1);
+  renderCompanyPhonesList();
+};
+
 function openEditCompanyModal(companyId) {
   const company = _allCompanies[companyId];
   if (!company) return;
@@ -529,6 +551,11 @@ function openEditCompanyModal(companyId) {
   el("edit-company-phone").value      = company.phone       || "";
   el("edit-company-color").value      = company.themeColor  || "#00d4ff";
   el("edit-company-color-hex").value  = company.themeColor  || "#00d4ff";
+
+  // Carrega phones[] existentes
+  _editingCompanyPhones = Array.isArray(company.phones) ? [...company.phones] : [];
+  if (el("edit-company-new-phone")) el("edit-company-new-phone").value = "";
+  renderCompanyPhonesList();
 
   el("modal-edit-company").classList.add("active");
 }
@@ -546,7 +573,12 @@ async function saveCompanyEdit() {
   if (!name) { toast("Nome da empresa é obrigatório.", "err"); return; }
 
   try {
-    await updateDoc(doc(db, "companies", companyId), { name, phone, themeColor: color });
+    await updateDoc(doc(db, "companies", companyId), {
+      name,
+      phone,
+      themeColor: color,
+      phones: _editingCompanyPhones
+    });
     toast(`✓ Empresa "${name}" atualizada!`);
     closeEditCompanyModal();
     await renderCompanies();
@@ -626,6 +658,16 @@ function bindEvents() {
   // ── Modal editar empresa
   el("btn-save-edit-company")?.addEventListener("click", saveCompanyEdit);
   el("btn-close-edit-company-modal")?.addEventListener("click", closeEditCompanyModal);
+
+  el("btn-add-company-phone")?.addEventListener("click", () => {
+    const input = el("edit-company-new-phone");
+    const phone = (input?.value || "").trim().replace(/\D/g, "");
+    if (!phone) { toast("Digite um número válido.", "err"); return; }
+    if (_editingCompanyPhones.includes(phone)) { toast("Número já adicionado.", "err"); return; }
+    _editingCompanyPhones.push(phone);
+    renderCompanyPhonesList();
+    if (input) input.value = "";
+  });
   el("modal-edit-company")?.addEventListener("click", (e) => {
     if (e.target === el("modal-edit-company")) closeEditCompanyModal();
   });

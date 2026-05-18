@@ -1194,9 +1194,18 @@
         <input type="text" id="edit-company-name" class="input-field" placeholder="Nome da empresa">
       </div>
       <div>
-        <label class="form-label">Número WhatsApp <span style="color:var(--accent);">(para o bot reconhecer)</span></label>
+        <label class="form-label">Número WhatsApp principal</label>
         <input type="text" id="edit-company-phone" class="input-field" placeholder="5511999990001" inputmode="numeric">
         <p style="font-size:11px;color:var(--muted);margin-top:5px;">Formato: DDI + DDD + número, sem espaços. Ex: 5511999990001</p>
+      </div>
+      <div>
+        <label class="form-label">Telefones vinculados ao bot <span style="color:var(--accent);font-size:11px;">(todos os usuários desta empresa)</span></label>
+        <div id="edit-company-phones-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;"></div>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="edit-company-new-phone" class="input-field" placeholder="5511999990001" inputmode="numeric" style="flex:1;">
+          <button type="button" id="btn-add-company-phone" class="btn-primary" style="padding:0 18px;white-space:nowrap;">+ Adicionar</button>
+        </div>
+        <p style="font-size:11px;color:var(--muted);margin-top:5px;">Adicione todos os números que devem salvar transações nesta empresa.</p>
       </div>
       <div>
         <label class="form-label">Cor de Identidade</label>
