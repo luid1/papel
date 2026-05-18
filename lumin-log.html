@@ -368,6 +368,7 @@ function initDriver(name) {
     const oldB = S.truckBlack, oldW = S.truckWhite;
     S.truckBlack = nn(d.truckBlack);
     S.truckWhite = nn(d.truckWhite);
+    S.dailyRoute = d.dailyRoute || null;     // Roteiro do dia definido pelo admin
     if (_firstLoad) {
       _firstLoad = false;
       _loadClients().then(render).catch(render);
@@ -375,6 +376,9 @@ function initDriver(name) {
       // Mudou via admin (não foi este device): re-renderiza a tela atual
       if ((oldB !== S.truckBlack || oldW !== S.truckWhite) && !S.saving) {
         if (oldB > S.truckBlack || oldW > S.truckWhite) toast('🔄 Caixas zeradas pelo admin');
+        render();
+      } else if (S.step === 'choose') {
+        // Re-render só se na tela inicial (pra atualizar roteiro)
         render();
       }
     }
@@ -585,6 +589,62 @@ function initDriver(name) {
     </div>`;
   }
 
+  /* ── Roteiro do dia (definido pelo admin) ── */
+  function _renderRoteiroDoDia() {
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+    const route = S.dailyRoute;
+    if (!route || route.date !== todayStr || !route.clients?.length) return '';
+
+    const completed = new Set(route.completed || []);
+    const total = route.clients.length;
+    const done = route.clients.filter(c => completed.has(c)).length;
+    const pct = total ? Math.round((done/total)*100) : 0;
+
+    return `
+      <div style="background:rgba(0,212,255,.05);border:1px solid rgba(0,212,255,.2);border-radius:14px;padding:14px 16px;margin-bottom:18px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:10px;">
+          <div>
+            <div style="font-size:.95rem;font-weight:700;color:var(--accent);letter-spacing:-.01em;">📋 Roteiro de hoje</div>
+            <div style="font-size:.78rem;color:rgba(228,240,246,.55);margin-top:2px;">${done}/${total} concluído(s) · ${pct}%</div>
+          </div>
+          <div style="width:54px;height:54px;border-radius:50%;background:conic-gradient(var(--accent) ${pct*3.6}deg, rgba(255,255,255,.08) 0);display:grid;place-items:center;">
+            <div style="width:42px;height:42px;border-radius:50%;background:var(--bg);display:grid;place-items:center;font-size:.82rem;font-weight:800;color:var(--accent);">${pct}%</div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px;">
+          ${route.clients.map(c => {
+            const isDone = completed.has(c);
+            const safe = c.replace(/'/g,"\\'");
+            return `
+              <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:9px;background:${isDone?'rgba(74,222,128,.08)':'rgba(255,255,255,.03)'};border:1px solid ${isDone?'rgba(74,222,128,.25)':'rgba(255,255,255,.08)'};">
+                <button onclick="window._toggleRoteiro('${safe}')" aria-label="Marcar como concluído"
+                  style="width:22px;height:22px;border-radius:5px;border:1.5px solid ${isDone?'#4ade80':'rgba(255,255,255,.25)'};background:${isDone?'#4ade80':'transparent'};display:grid;place-items:center;flex-shrink:0;cursor:pointer;padding:0;">
+                  ${isDone ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#0a0a0c" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+                </button>
+                <span style="flex:1;font-size:.88rem;color:${isDone?'rgba(228,240,246,.55)':'var(--text)'};${isDone?'text-decoration:line-through;':''}font-weight:500;letter-spacing:-.005em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(c)}</span>
+                <button onclick="window._selecionarCliente('${safe}');window.escolherModo('client');"
+                  style="background:transparent;border:1px solid rgba(0,212,255,.3);color:var(--accent);font-size:.72rem;font-weight:600;padding:4px 10px;border-radius:6px;cursor:pointer;letter-spacing:-.005em;white-space:nowrap;">Ir →</button>
+              </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+  }
+
+  window._toggleRoteiro = async function(cli) {
+    const route = S.dailyRoute;
+    if (!route) return;
+    const completed = new Set(route.completed || []);
+    if (completed.has(cli)) completed.delete(cli); else completed.add(cli);
+    const updated = { ...route, completed: Array.from(completed) };
+    S.dailyRoute = updated;
+    try {
+      await db.collection('ll_drivers').doc(name).set({ dailyRoute: updated }, { merge: true });
+      render();
+    } catch (e) { toast('Erro ao salvar', 2000); }
+  };
+  function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
   /* ════ TELA INICIAL ════ */
   function vChoose() {
     const showGeoBtn = !_geoEnabled;
@@ -604,6 +664,8 @@ function initDriver(name) {
           </button>
         ` : ''}
       </div>
+
+      ${_renderRoteiroDoDia()}
       <div style="font-family:'Montserrat',sans-serif;font-size:1.1rem;font-weight:900;
         text-align:center;margin-bottom:13px;">O que você vai fazer?</div>
       <div class="home-grid">

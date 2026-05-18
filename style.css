@@ -1671,6 +1671,16 @@ details.admin-card[open] .details-chevron { transform: rotate(180deg); }
   0%, 100% { box-shadow: 0 0 0 0 rgba(74,222,128,.6); }
   50%      { box-shadow: 0 0 0 4px rgba(74,222,128,0); }
 }
+@keyframes pulseRing {
+  0%   { transform: scale(.6); opacity: .9; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+/* Leaflet — popup dark-friendly */
+.leaflet-popup-content-wrapper {
+  background: #fff; color: #111; border-radius: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.4);
+}
+.leaflet-popup-tip { background: #fff; }
+.leaflet-container { background: #1a1a1f; }
 
 /* Linha de motorista no Resumo da Semana */
 .llm-week-row {

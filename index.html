@@ -18,6 +18,9 @@
   <!-- SheetJS — Exportação Excel -->
   <!-- ExcelJS: exportação fiel ao Pasta1.xlsx (fórmulas, merges, cores) -->
   <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+  <!-- Leaflet — Mapa em tempo real dos motoristas -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin/>
+  <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin></script>
   <!-- Pluggy Connect Widget — Open Finance Brasil -->
   <script src="https://cdn.pluggy.ai/pluggy-connect/v2.8.2/pluggy-connect.js"></script>
 
@@ -529,6 +532,28 @@
           <div class="llm-kpi">
             <p class="llm-kpi-label">Lançamentos</p>
             <div class="llm-kpi-val num" id="ll-today-count" style="color:var(--text);">0</div>
+          </div>
+        </div>
+
+        <!-- Mapa ao vivo dos motoristas -->
+        <div class="llm-section">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px;flex-wrap:wrap;">
+            <div>
+              <p class="llm-section-title" style="margin:0 0 2px;">Onde estão agora</p>
+              <p style="font-size:11.5px;color:var(--muted);margin:0;letter-spacing:-.005em;">
+                <span id="ll-map-status" style="display:inline-flex;align-items:center;gap:5px;">
+                  <span style="width:6px;height:6px;border-radius:50%;background:#4ade80;display:inline-block;"></span>
+                  <span id="ll-map-count">0</span> motorista(s) com localização
+                </span>
+              </p>
+            </div>
+            <button id="ll-map-fit" class="llm-action-btn" style="height:28px;padding:0 10px;font-size:11.5px;">Centralizar</button>
+          </div>
+          <div id="ll-map" style="height:300px;border-radius:9px;overflow:hidden;background:var(--bg3);border:1px solid var(--border);position:relative;">
+            <div id="ll-map-empty" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;letter-spacing:-.005em;text-align:center;padding:20px;">
+              Nenhum motorista compartilhando localização.<br>
+              <span style="font-size:11.5px;opacity:.7;">Peça pros motoristas tocarem em "Permitir localização" no app.</span>
+            </div>
           </div>
         </div>
 

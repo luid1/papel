@@ -197,8 +197,9 @@ window.llmSwitchTab = function(tab) {
     if (panel) panel.style.display = isActive ? 'block' : 'none';
     if (btn)   btn.classList.toggle('active', isActive);
   });
-  if (tab === 'dashboard' && typeof window.llRenderCharts === 'function') {
-    setTimeout(window.llRenderCharts, 80);
+  if (tab === 'dashboard') {
+    if (typeof window.llRenderCharts === 'function') setTimeout(window.llRenderCharts, 80);
+    setTimeout(() => refreshMap(), 100);
   }
 };
 
@@ -294,6 +295,222 @@ window.llmZerarClientes = async function() {
   await batch.commit();
   toast('✓ Saldos dos clientes zerados.');
 };
+
+// ═══════════════════════════════════════════════════════════════
+// ROTEIRO DO DIA — admin define lista de clientes pra cada motorista
+// ═══════════════════════════════════════════════════════════════
+function ensureRouteModal() {
+  if (document.getElementById('llm-route-modal')) return;
+  const modal = document.createElement('div');
+  modal.id = 'llm-route-modal';
+  modal.style.cssText = 'display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);align-items:center;justify-content:center;padding:20px;';
+  modal.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:14px;width:100%;max-width:480px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;">
+      <div style="padding:18px 20px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:10px;">
+        <div style="flex:1;min-width:0;">
+          <h3 id="llm-route-title" style="font-family:'Inter',sans-serif;font-size:16px;font-weight:600;letter-spacing:-.02em;margin:0 0 2px;color:var(--text);">Roteiro do dia</h3>
+          <p style="margin:0;font-size:12.5px;color:var(--muted);letter-spacing:-.005em;">Cole ou digite a lista de clientes — um por linha.</p>
+        </div>
+        <button id="llm-route-close" style="width:30px;height:30px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-size:14px;">✕</button>
+      </div>
+      <div style="padding:14px 20px;overflow-y:auto;">
+        <label class="form-label" style="margin-top:0;">Data</label>
+        <input type="date" id="llm-route-date" class="input-field" style="margin-bottom:14px;">
+        <label class="form-label">Clientes (1 por linha)</label>
+        <textarea id="llm-route-textarea" class="input-field" rows="10" style="padding:10px 12px;font-family:'Inter',sans-serif;font-size:13px;line-height:1.6;resize:vertical;min-height:160px;" placeholder="Dalila&#10;ROP/CRFF&#10;Alnutrição"></textarea>
+        <p style="font-size:11.5px;color:var(--muted);margin-top:8px;letter-spacing:-.005em;">
+          O motorista vai ver essa lista na tela inicial do app, e marcar quando passar em cada cliente.
+        </p>
+      </div>
+      <div style="padding:14px 20px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:8px;">
+        <button id="llm-route-clear" class="llm-action-btn" style="color:var(--alert);">Limpar roteiro</button>
+        <div style="display:flex;gap:6px;">
+          <button id="llm-route-cancel" class="llm-action-btn">Cancelar</button>
+          <button id="llm-route-save" class="btn-primary" style="padding:0 16px;height:32px;font-size:13px;">Salvar</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+
+  document.getElementById('llm-route-close').addEventListener('click', () => modal.style.display = 'none');
+  document.getElementById('llm-route-cancel').addEventListener('click', () => modal.style.display = 'none');
+  modal.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
+}
+
+let _routeDriver = null;
+async function openRouteModal(driverName) {
+  ensureRouteModal();
+  _routeDriver = driverName;
+  const modal = document.getElementById('llm-route-modal');
+  document.getElementById('llm-route-title').textContent = `Roteiro do dia · ${driverName}`;
+  // Data padrão: hoje
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+  document.getElementById('llm-route-date').value = todayStr;
+
+  // Busca roteiro existente
+  const driver = _drivers.find(d => d.name === driverName);
+  const existing = driver?.dailyRoute;
+  if (existing && existing.date === todayStr) {
+    document.getElementById('llm-route-textarea').value = (existing.clients || []).join('\n');
+  } else {
+    document.getElementById('llm-route-textarea').value = '';
+  }
+
+  // Bind dos botões salvar/limpar (re-bind a cada abertura pra usar driver correto)
+  const saveBtn = document.getElementById('llm-route-save');
+  const clearBtn = document.getElementById('llm-route-clear');
+  saveBtn.onclick = saveRoute;
+  clearBtn.onclick = clearRoute;
+
+  modal.style.display = 'flex';
+}
+
+async function saveRoute() {
+  if (!_routeDriver) return;
+  const date = document.getElementById('llm-route-date').value;
+  const text = document.getElementById('llm-route-textarea').value.trim();
+  const clients = text.split('\n').map(s => s.trim()).filter(Boolean);
+  if (!date) { toast('Selecione a data', true); return; }
+
+  const saveBtn = document.getElementById('llm-route-save');
+  saveBtn.disabled = true;
+  saveBtn.textContent = 'Salvando...';
+  try {
+    await setDoc(doc(db, COL_DRIVERS, _routeDriver), {
+      dailyRoute: { date, clients, completed: [], updatedAt: serverTimestamp() }
+    }, { merge: true });
+    toast(`✓ Roteiro de ${_routeDriver} salvo (${clients.length} clientes)`);
+    document.getElementById('llm-route-modal').style.display = 'none';
+  } catch (e) {
+    console.error('[Route]', e);
+    toast('Erro ao salvar', true);
+  } finally {
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Salvar';
+  }
+}
+
+async function clearRoute() {
+  if (!_routeDriver) return;
+  if (!confirm(`Apagar o roteiro de ${_routeDriver}?`)) return;
+  try {
+    await setDoc(doc(db, COL_DRIVERS, _routeDriver), { dailyRoute: null }, { merge: true });
+    toast(`Roteiro de ${_routeDriver} apagado.`);
+    document.getElementById('llm-route-modal').style.display = 'none';
+  } catch (e) { toast('Erro', true); }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MAPA AO VIVO DOS MOTORISTAS (Leaflet + OpenStreetMap)
+// ═══════════════════════════════════════════════════════════════
+let _map = null;
+let _mapMarkers = {}; // { driverName: L.Marker }
+
+function initMap() {
+  if (_map || typeof L === 'undefined') return;
+  const el = document.getElementById('ll-map');
+  if (!el) return;
+  // Centro padrão: São Paulo
+  _map = L.map(el, { zoomControl: true, attributionControl: false }).setView([-23.55, -46.63], 11);
+  // Tile escuro (CARTO) — combina com nosso tema
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    maxZoom: 19,
+    subdomains: 'abcd'
+  }).addTo(_map);
+  // Bind do botão "Centralizar"
+  const fitBtn = document.getElementById('ll-map-fit');
+  if (fitBtn && !fitBtn._bound) {
+    fitBtn._bound = true;
+    fitBtn.addEventListener('click', () => fitMapToMarkers(true));
+  }
+  setTimeout(() => _map.invalidateSize(), 100); // corrige tiles se carrega escondido
+}
+
+function makeDriverIcon(name, isLive) {
+  const initial = (name || '?').charAt(0).toUpperCase();
+  const color = isLive ? '#4ade80' : '#888';
+  const pulse = isLive ? `<span style="position:absolute;inset:-4px;border-radius:50%;border:2px solid ${color};animation:pulseRing 1.8s ease-out infinite;opacity:.6;"></span>` : '';
+  return L.divIcon({
+    className: 'll-map-pin-wrap',
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+    html: `<div style="position:relative;width:28px;height:28px;">
+      ${pulse}
+      <div style="position:absolute;inset:0;border-radius:50%;background:${color};color:#0a0a0c;display:grid;place-items:center;font-size:13px;font-weight:700;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.4);">${initial}</div>
+    </div>`
+  });
+}
+
+function refreshMap() {
+  if (typeof L === 'undefined') return;
+  const el = document.getElementById('ll-map');
+  if (!el) return;
+  initMap();
+  if (!_map) return;
+
+  const withGeo = _drivers.filter(d => d.currentLocation?.lat && d.currentLocation?.lng);
+  const empty = document.getElementById('ll-map-empty');
+  const counter = document.getElementById('ll-map-count');
+  if (counter) counter.textContent = withGeo.length;
+  if (empty) empty.style.display = withGeo.length ? 'none' : 'flex';
+
+  // Remove markers de motoristas que não estão mais com geo
+  const stillThere = new Set(withGeo.map(d => d.name));
+  Object.keys(_mapMarkers).forEach(name => {
+    if (!stillThere.has(name)) {
+      _map.removeLayer(_mapMarkers[name]);
+      delete _mapMarkers[name];
+    }
+  });
+
+  // Adiciona/atualiza markers
+  const now = Date.now();
+  withGeo.forEach(d => {
+    const loc = d.currentLocation;
+    const ts = loc.ts?.toDate?.() || (loc.ts ? new Date(loc.ts) : null);
+    const ageMin = ts ? Math.round((now - ts.getTime()) / 60000) : 999;
+    const isLive = ageMin <= 5;
+    const popup = `
+      <div style="font-family:Inter,sans-serif;min-width:140px;">
+        <div style="font-size:13px;font-weight:600;margin-bottom:2px;color:#111;">${esc(d.name)}</div>
+        <div style="font-size:11.5px;color:#666;margin-bottom:4px;">
+          ${isLive ? '🟢 Ao vivo' : '⚪ Última posição'} · ${ageMin < 1 ? 'agora' : `há ${ageMin} min`}
+        </div>
+        <div style="font-size:11px;color:#888;">
+          ${(d.truckBlack||0)+(d.truckWhite||0)} caixas em carga · ±${loc.acc||'?'}m
+        </div>
+        <a href="https://www.google.com/maps?q=${loc.lat},${loc.lng}" target="_blank" rel="noopener" style="display:inline-block;margin-top:6px;font-size:11px;color:#3b82f6;text-decoration:none;">Abrir no Google Maps →</a>
+      </div>`;
+
+    if (_mapMarkers[d.name]) {
+      _mapMarkers[d.name].setLatLng([loc.lat, loc.lng]);
+      _mapMarkers[d.name].setIcon(makeDriverIcon(d.name, isLive));
+      _mapMarkers[d.name].setPopupContent(popup);
+    } else {
+      _mapMarkers[d.name] = L.marker([loc.lat, loc.lng], { icon: makeDriverIcon(d.name, isLive) })
+        .addTo(_map)
+        .bindPopup(popup);
+    }
+  });
+
+  // Centraliza no primeiro carregamento
+  if (withGeo.length && !_map._fittedOnce) {
+    _map._fittedOnce = true;
+    fitMapToMarkers(false);
+  }
+}
+
+function fitMapToMarkers(animate = true) {
+  if (!_map) return;
+  const markers = Object.values(_mapMarkers);
+  if (!markers.length) return;
+  const group = L.featureGroup(markers);
+  _map.fitBounds(group.getBounds().pad(0.2), { animate, maxZoom: 14 });
+}
+
+// Expor pra render externa
+window.llRefreshMap = refreshMap;
 
 // ═══════════════════════════════════════════════════════════════
 // RESUMO DA SEMANA (segunda → domingo)
@@ -726,34 +943,25 @@ function renderDrivers() {
             ${fotosHtml}
           </div>
 
-          <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;">
-            <a href="${link}" target="_blank"
-              style="font-size:11px;font-weight:700;color:var(--accent);
-              padding:8px 12px;border:1px solid rgba(0,212,255,.2);border-radius:8px;
-              background:rgba(0,212,255,.06);display:inline-flex;align-items:center;gap:4px;
-              text-decoration:none;">
-              ↗ Link
+          <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;align-items:center;">
+            <button class="llm-route-btn llm-action-btn" data-driver-name="${esc(d.name)}" style="color:var(--accent);">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+              Roteiro
+            </button>
+            <a href="${link}" target="_blank" class="llm-action-btn" style="text-decoration:none;color:var(--muted);">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              Link
             </a>
-            <button class="llm-edit-btn"
-              data-driver-id="${esc(d.id)}" data-driver-name="${esc(d.name)}"
-              style="padding:8px 12px;border-radius:8px;background:rgba(255,179,71,.08);
-              border:1px solid rgba(255,179,71,.2);color:#ffb347;font-size:11px;
-              font-weight:700;cursor:pointer;">
-              ✏️ Editar
+            <button class="llm-edit-btn llm-action-btn" data-driver-id="${esc(d.id)}" data-driver-name="${esc(d.name)}">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              Editar
             </button>
-            <button class="llm-reset-btn"
-              data-driver-id="${esc(d.id)}" data-driver-name="${esc(d.name)}"
-              style="padding:8px 12px;border-radius:8px;background:rgba(255,91,112,.08);
-              border:1px solid rgba(255,91,112,.2);color:var(--alert,#ff5b70);font-size:11px;
-              font-weight:700;cursor:pointer;">
-              ↺ Reset
+            <button class="llm-reset-btn llm-action-btn" data-driver-id="${esc(d.id)}" data-driver-name="${esc(d.name)}" style="color:var(--alert);">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+              Reset
             </button>
-            <button class="llm-delete-btn"
-              data-driver-id="${esc(d.id)}" data-driver-name="${esc(d.name)}"
-              style="padding:8px 12px;border-radius:8px;background:rgba(180,40,60,.1);
-              border:1px solid rgba(180,40,60,.25);color:#ff3355;font-size:11px;
-              font-weight:700;cursor:pointer;">
-              🗑 Excluir
+            <button class="llm-delete-btn llm-action-btn" data-driver-id="${esc(d.id)}" data-driver-name="${esc(d.name)}" title="Excluir" style="width:30px;padding:0;">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
             </button>
           </div>
         </div>
@@ -767,6 +975,9 @@ function renderDrivers() {
   });
   el.querySelectorAll('.llm-reset-btn').forEach(btn => {
     btn.addEventListener('click', () => llmResetDriver(btn.dataset.driverId, btn.dataset.driverName));
+  });
+  el.querySelectorAll('.llm-route-btn').forEach(btn => {
+    btn.addEventListener('click', () => openRouteModal(btn.dataset.driverName));
   });
   el.querySelectorAll('.llm-delete-btn').forEach(btn => {
     btn.addEventListener('click', () => llmDeleteDriver(btn.dataset.driverId, btn.dataset.driverName));
@@ -919,6 +1130,7 @@ function startListeners() {
       _drivers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       renderDrivers();
       renderWeekSummary();
+      refreshMap();
     },
     err => console.error('[LLM-Motoristas] Drivers:', err)
   );
