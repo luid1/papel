@@ -1253,26 +1253,91 @@ async function tentarVerificacaoLid(msg, lidId) {
 }
 
 // ─── BUSCAR EMPRESA POR TELEFONE (suporta phone único ou array phones[]) ─
+// Normaliza telefone para comparação: só dígitos, sem 55 inicial, sem 9 mobile
+function normalizePhone(p) {
+  if (!p) return '';
+  let digits = String(p).replace(/\D/g, '');
+  // Remove código do país 55 se estiver
+  if (digits.length >= 12 && digits.startsWith('55')) digits = digits.slice(2);
+  // Remove 9 mobile inicial dos celulares brasileiros (DDD + 9 + 8 dígitos = 11 chars)
+  if (digits.length === 11 && digits[2] === '9') digits = digits.slice(0,2) + digits.slice(3);
+  return digits; // ex: 11984661175 → "11984661175" → após normalizar → "1184661175"
+}
+
+// Gera todas variações possíveis do número pra match
+function phoneVariations(phone) {
+  const raw = String(phone || '').replace(/\D/g, '');
+  if (!raw) return [];
+  const norm = normalizePhone(raw);
+  const set = new Set();
+  set.add(raw);                      // como veio
+  if (norm) set.add(norm);           // sem 55 e sem 9
+  if (norm) set.add('55' + norm);    // 55 + sem 9
+  if (norm && norm.length === 10) {  // adiciona 9 mobile
+    const com9 = norm.slice(0,2) + '9' + norm.slice(2);
+    set.add(com9);
+    set.add('55' + com9);
+  }
+  // Variação com 55 mas sem 9 mobile
+  if (raw.length >= 12 && raw.startsWith('55')) {
+    set.add(raw.slice(2));
+  }
+  return Array.from(set);
+}
+
 async function buscarEmpresaPorTelefone(phone) {
-  // 1) campo phone (principal)
-  let snap = await db.collection('companies').where('phone', '==', phone).limit(1).get();
-  if (!snap.empty) {
-    const doc = snap.docs[0];
-    return { id: doc.id, nome: doc.data().name, ...doc.data() };
+  const variations = phoneVariations(phone);
+  console.log(`[WA] 🔍 Buscando empresa por telefone — variações:`, variations);
+
+  // 1) Tenta match exato em qualquer variação no campo 'phone'
+  for (const v of variations) {
+    const snap = await db.collection('companies').where('phone', '==', v).limit(1).get();
+    if (!snap.empty) {
+      const doc = snap.docs[0];
+      console.log(`[WA] ✓ Match em companies.phone="${v}" → ${doc.data().name}`);
+      return { id: doc.id, nome: doc.data().name, ...doc.data() };
+    }
   }
-  // 2) campo phones[] (multi-usuário — vários números por empresa)
-  snap = await db.collection('companies').where('phones', 'array-contains', phone).limit(1).get();
-  if (!snap.empty) {
-    const doc = snap.docs[0];
-    return { id: doc.id, nome: doc.data().name, ...doc.data() };
+
+  // 2) Match em phones[] (multi-usuário)
+  for (const v of variations) {
+    const snap = await db.collection('companies').where('phones', 'array-contains', v).limit(1).get();
+    if (!snap.empty) {
+      const doc = snap.docs[0];
+      console.log(`[WA] ✓ Match em companies.phones[]="${v}" → ${doc.data().name}`);
+      return { id: doc.id, nome: doc.data().name, ...doc.data() };
+    }
   }
-  // 3) Checa mapping LID reverso (fallback para usuários já verificados)
-  const lidSnap = await db.collection('whatsapp_lid_mappings').where('phone', '==', phone).limit(1).get();
-  if (!lidSnap.empty) {
-    const { companyId } = lidSnap.docs[0].data();
-    const compDoc = await db.collection('companies').doc(companyId).get();
-    if (compDoc.exists) return { id: compDoc.id, nome: compDoc.data().name, ...compDoc.data() };
+
+  // 3) Mapping LID reverso (qualquer variação do phone)
+  for (const v of variations) {
+    const lidSnap = await db.collection('whatsapp_lid_mappings').where('phone', '==', v).limit(1).get();
+    if (!lidSnap.empty) {
+      const { companyId } = lidSnap.docs[0].data();
+      const compDoc = await db.collection('companies').doc(companyId).get();
+      if (compDoc.exists) {
+        console.log(`[WA] ✓ Match via LID mapping(${v}) → ${compDoc.data().name}`);
+        return { id: compDoc.id, nome: compDoc.data().name, ...compDoc.data() };
+      }
+    }
   }
+
+  // 4) Última tentativa: varre TODAS as empresas e compara normalizado
+  // (proteção contra phone salvo com formato estranho — espaços, parênteses, etc.)
+  const all = await db.collection('companies').get();
+  const target = normalizePhone(phone);
+  for (const doc of all.docs) {
+    const data = doc.data();
+    const candidatos = [data.phone, ...(data.phones || [])].filter(Boolean);
+    for (const c of candidatos) {
+      if (normalizePhone(c) === target && target) {
+        console.log(`[WA] ✓ Match por normalização "${c}"→"${target}" → ${data.name}`);
+        return { id: doc.id, nome: data.name, ...data };
+      }
+    }
+  }
+
+  console.log(`[WA] ❌ Nenhuma empresa encontrada para telefone ${phone}`);
   return null;
 }
 
