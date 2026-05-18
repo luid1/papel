@@ -420,6 +420,34 @@ async function processarMensagem(msg) {
       await enviarResposta(msg, formatAjuda(empresa.nome));
       return;
     }
+
+    // Comando de diagnóstico — útil pra debug
+    if (/^(diagnost|quem.sou.eu|debug|check)/i.test(textoOriginal)) {
+      // Conta quantas transações tem na empresa atual nos últimos 7 dias
+      const seteDiasAtras = new Date();
+      seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
+      const dataLimite = seteDiasAtras.toISOString().split('T')[0];
+      const txSnap = await db.collection('transactions')
+        .where('companyId', '==', empresa.id)
+        .get();
+      const total = txSnap.size;
+      const recentes = txSnap.docs
+        .map(d => d.data())
+        .filter(t => (t.date || '') >= dataLimite);
+      const ultimasViaBot = recentes.filter(t => t.origem === 'whatsapp').length;
+
+      let info = `🔍 *Diagnóstico*\n\n`;
+      info += `📞 Seu número: \`${phone}\`\n`;
+      info += `🏢 Empresa: *${empresa.nome}*\n`;
+      info += `🆔 companyId: \`${empresa.id}\`\n\n`;
+      info += `📊 *Estatísticas:*\n`;
+      info += `• Transações totais: ${total}\n`;
+      info += `• Últimos 7 dias: ${recentes.length}\n`;
+      info += `• Via WhatsApp (7d): ${ultimasViaBot}\n\n`;
+      info += `Se este *NÃO* é o seu painel, me avisa que vou recadastrar.`;
+      await msg.reply(info);
+      return;
+    }
     if (/^(resumo|relat[oó]rio|resumão|como\s*t[aá]|saldo|extrato)$/i.test(textoOriginal)) {
       await enviarResposta(msg, await gerarResumoSemanal(empresa.id, empresa.nome));
       return;
@@ -911,7 +939,7 @@ async function processarFotoNota(msg) {
     const media = await msg.downloadMedia();
     if (!media?.data) return null;
 
-    const hoje = new Date().toISOString().split('T')[0];
+    const hoje = hojeBR();
     const res  = await groq.chat.completions.create({
       model: 'meta-llama/llama-4-scout-17b-16e-instruct',
       messages: [{
@@ -1253,6 +1281,19 @@ async function tentarVerificacaoLid(msg, lidId) {
 }
 
 // ─── BUSCAR EMPRESA POR TELEFONE (suporta phone único ou array phones[]) ─
+// Retorna a data de HOJE no fuso de Brasília (UTC-3) no formato YYYY-MM-DD
+// (evita bug onde Fly.io em UTC salva lançamentos da noite com data de amanhã)
+function hojeBR() {
+  const d = new Date();
+  // Converte pra UTC-3 manualmente
+  const utcTime = d.getTime() + (d.getTimezoneOffset() * 60000);
+  const brTime  = new Date(utcTime - 3 * 60 * 60 * 1000);
+  const y  = brTime.getFullYear();
+  const m  = String(brTime.getMonth() + 1).padStart(2, '0');
+  const dd = String(brTime.getDate()).padStart(2, '0');
+  return `${y}-${m}-${dd}`;
+}
+
 // Normaliza telefone para comparação: só dígitos, sem 55 inicial, sem 9 mobile
 function normalizePhone(p) {
   if (!p) return '';
@@ -1384,7 +1425,7 @@ function normalizarCategoria(cat) {
 
 // ─── INTERPRETAR TRANSAÇÕES COM GROQ (suporta múltiplas) ──────
 async function interpretarTransacoes(texto) {
-  const hoje = new Date().toISOString().split('T')[0];
+  const hoje = hojeBR();
 
   const prompt = `
 Você é um assistente financeiro brasileiro. Analise o texto e extraia TODAS as transações financeiras mencionadas.
@@ -1743,7 +1784,7 @@ async function verificarAlertaCategoria(refs, empresa) {
 // ─── RESUMO DO DIA ─────────────────────────────────────────────
 async function enviarResumoDia() {
   const fmt = v => Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-  const hoje = new Date().toISOString().split('T')[0];
+  const hoje = hojeBR();
   const mapsSnap = await db.collection('whatsapp_lid_mappings').get();
   if (mapsSnap.empty) return;
   const vistos = new Set();
@@ -1896,7 +1937,7 @@ async function fetchPluggyRaw(itemId, dias = 7) {
   });
   const accounts = accountsRes.data.results || [];
 
-  const to   = new Date().toISOString().split('T')[0];
+  const to   = hojeBR();
   const from = new Date(Date.now() - dias * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
   let rawTxs = [];
@@ -2225,7 +2266,7 @@ app.post('/gmail/sync', async (req, res) => {
         if (!parsed.ignorar && parsed.valor > 0) {
           transactions.push({
             id:          `gmail_${msg.id}`,
-            date:        parsed.data || new Date().toISOString().split('T')[0],
+            date:        parsed.data || hojeBR(),
             description: parsed.descricao || subject,
             value:       Number(parsed.valor),
             category:    parsed.tipo === 'entrada' ? 'entrada' : 'saida-fixa',
