@@ -423,7 +423,6 @@ async function processarMensagem(msg) {
 
     // Comando de diagnóstico — útil pra debug
     if (/^(diagnost|quem.sou.eu|debug|check)/i.test(textoOriginal)) {
-      // Conta quantas transações tem na empresa atual nos últimos 7 dias
       const seteDiasAtras = new Date();
       seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
       const dataLimite = seteDiasAtras.toISOString().split('T')[0];
@@ -436,15 +435,37 @@ async function processarMensagem(msg) {
         .filter(t => (t.date || '') >= dataLimite);
       const ultimasViaBot = recentes.filter(t => t.origem === 'whatsapp').length;
 
-      let info = `🔍 *Diagnóstico*\n\n`;
-      info += `📞 Seu número: \`${phone}\`\n`;
-      info += `🏢 Empresa: *${empresa.nome}*\n`;
-      info += `🆔 companyId: \`${empresa.id}\`\n\n`;
-      info += `📊 *Estatísticas:*\n`;
-      info += `• Transações totais: ${total}\n`;
+      // CHECA CONFLITOS: outras empresas com mesmo telefone (qualquer variação)
+      const variations = phoneVariations(phone);
+      const todasEmpresas = await db.collection('companies').get();
+      const conflitos = [];
+      todasEmpresas.forEach(d => {
+        if (d.id === empresa.id) return;  // pula a própria
+        const data = d.data();
+        const candidatos = [data.phone, ...(data.phones || [])].filter(Boolean);
+        const match = candidatos.some(c => {
+          const norm = normalizePhone(c);
+          return variations.some(v => v === c || normalizePhone(v) === norm);
+        });
+        if (match) conflitos.push(data.name || d.id);
+      });
+
+      let info = `Diagnóstico\n\n`;
+      info += `Número: ${phone}\n`;
+      info += `Empresa: ${empresa.nome}\n`;
+      info += `ID: ${empresa.id}\n\n`;
+      info += `Transações nessa empresa:\n`;
+      info += `• Total: ${total}\n`;
       info += `• Últimos 7 dias: ${recentes.length}\n`;
-      info += `• Via WhatsApp (7d): ${ultimasViaBot}\n\n`;
-      info += `Se este *NÃO* é o seu painel, me avisa que vou recadastrar.`;
+      info += `• Via WhatsApp (7d): ${ultimasViaBot}`;
+
+      if (conflitos.length) {
+        info += `\n\n⚠ CONFLITO DETECTADO\n`;
+        info += `Seu número também está cadastrado em:\n`;
+        conflitos.forEach(c => info += `• ${c}\n`);
+        info += `\nO bot está salvando em "${empresa.nome}". Se não é a empresa certa, peça pro admin remover seu número das outras.`;
+      }
+
       await msg.reply(info);
       return;
     }
@@ -2304,6 +2325,69 @@ app.post('/gmail/sync', async (req, res) => {
 });
 
 // ── Rota de saúde
+// Auditoria: lista todas as empresas com telefone + dados de localização do bot
+app.get('/audit/companies', async (_, res) => {
+  try {
+    const snap = await db.collection('companies').get();
+    const list = snap.docs.map(d => {
+      const data = d.data();
+      const phones = [data.phone, ...(data.phones || [])].filter(Boolean);
+      return {
+        id: d.id,
+        name: data.name,
+        type: data.type || 'company',
+        active: data.active !== false,
+        phones,
+        phonesNorm: phones.map(normalizePhone)
+      };
+    });
+    res.json({ total: list.length, companies: list });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Busca empresa pelo telefone (mesmo lookup do bot)
+app.get('/audit/lookup', async (req, res) => {
+  try {
+    const phone = String(req.query.phone || '').replace(/\D/g, '');
+    if (!phone) return res.status(400).json({ error: 'phone required' });
+    const variations = phoneVariations(phone);
+    const empresa = await buscarEmpresaPorTelefone(phone);
+    res.json({
+      input: phone,
+      variations,
+      found: empresa ? { id: empresa.id, name: empresa.nome, type: empresa.type, phones: [empresa.phone, ...(empresa.phones||[])].filter(Boolean) } : null
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Auditoria: lista empresas com telefones conflitantes (mesmo número em 2+)
+app.get('/audit/phone-conflicts', async (_, res) => {
+  try {
+    const snap = await db.collection('companies').get();
+    const byPhone = {};   // norm -> [{id, name, raw}]
+    snap.forEach(d => {
+      const data = d.data();
+      const candidatos = [data.phone, ...(data.phones || [])].filter(Boolean);
+      candidatos.forEach(raw => {
+        const norm = normalizePhone(raw);
+        if (!norm) return;
+        if (!byPhone[norm]) byPhone[norm] = [];
+        byPhone[norm].push({ id: d.id, name: data.name || d.id, raw });
+      });
+    });
+    const conflicts = Object.entries(byPhone)
+      .filter(([, arr]) => arr.length > 1)
+      .map(([phone, empresas]) => ({ phone, count: empresas.length, empresas }));
+    res.json({ total: conflicts.length, conflicts });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/health', (_, res) => res.json({
   status:    'ok',
   service:   'lumin-backend',

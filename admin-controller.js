@@ -9,7 +9,7 @@ import { db, auth } from "./firebase-config.js";
 import {
   collection, doc, getDocs, getDoc,
   setDoc, updateDoc, deleteDoc,
-  writeBatch, serverTimestamp, query, orderBy
+  writeBatch, serverTimestamp, query, orderBy, arrayUnion
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 import {
   createUserWithEmailAndPassword,
@@ -367,9 +367,10 @@ async function createUserForCompany() {
   const username    = el("adm-add-user-login")?.value.trim().toLowerCase();
   const displayName = el("adm-add-user-name")?.value.trim();
   const password    = el("adm-add-user-pass")?.value.trim();
+  const phone       = el("adm-add-user-phone")?.value.replace(/\D/g, '');
 
   if (!companyId || !username || !displayName || !password) {
-    setMsg("adm-add-user-msg", "Preencha todos os campos.", false);
+    setMsg("adm-add-user-msg", "Preencha Empresa, Nome, Login e Senha.", false);
     return;
   }
   if (password.length < 6) {
@@ -386,13 +387,21 @@ async function createUserForCompany() {
     const uid        = credential.user.uid;
 
     await setDoc(doc(db, "users", uid), {
-      username, displayName, email,
+      username, displayName, email, phone,
       role: "tenant", companyId, active: true, createdAt: serverTimestamp()
     });
 
+    // CRUCIAL: adiciona o telefone no array phones[] da empresa
+    // pra o bot WhatsApp identificar esse usuário e salvar nas transações da empresa
+    if (phone) {
+      await updateDoc(doc(db, "companies", companyId), {
+        phones: arrayUnion(phone)
+      });
+    }
+
     const companyName = _allCompanies[companyId]?.name || companyId;
     setMsg("adm-add-user-msg", `✓ "@${username}" adicionado à empresa "${companyName}"!`, true);
-    ["adm-add-user-login","adm-add-user-name","adm-add-user-pass"].forEach(id => {
+    ["adm-add-user-login","adm-add-user-name","adm-add-user-pass","adm-add-user-phone"].forEach(id => {
       if (el(id)) el(id).value = "";
     });
 

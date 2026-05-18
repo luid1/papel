@@ -281,7 +281,7 @@
       <!-- Adicionar utilizador a empresa existente -->
       <div class="admin-card">
         <h3>Adicionar usuário a empresa existente</h3>
-        <p>Múltiplos colaboradores acessando o painel da mesma empresa.</p>
+        <p>Múltiplos colaboradores acessando o painel da mesma empresa. O telefone é importante para o bot WhatsApp identificar esse usuário.</p>
         <div class="admin-form-grid">
           <div>
             <label class="form-label">Empresa</label>
@@ -294,6 +294,10 @@
             <input type="text" id="adm-add-user-name" class="input-field" placeholder="Ex: Wallace Duarte">
           </div>
           <div>
+            <label class="form-label">Número do WhatsApp</label>
+            <input type="text" id="adm-add-user-phone" class="input-field" placeholder="5511999990001" inputmode="numeric">
+          </div>
+          <div>
             <label class="form-label">Login de Acesso</label>
             <input type="text" id="adm-add-user-login" class="input-field" placeholder="Ex: wallaceduarte" autocomplete="off" spellcheck="false">
           </div>
@@ -301,8 +305,8 @@
             <label class="form-label">Senha de Acesso</label>
             <input type="password" id="adm-add-user-pass" class="input-field" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
           </div>
-          <div style="display:flex;align-items:flex-end;grid-column:1/-1;">
-            <button id="btn-adm-add-user-save" class="btn-primary">Adicionar usuário</button>
+          <div style="display:flex;align-items:flex-end;">
+            <button id="btn-adm-add-user-save" class="btn-primary" style="width:100%;">Adicionar usuário</button>
           </div>
         </div>
         <div id="adm-add-user-msg" style="display:none;margin-top:14px;padding:12px 16px;border-radius:10px;font-size:13px;font-weight:600;"></div>
