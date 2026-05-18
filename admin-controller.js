@@ -638,9 +638,7 @@ async function loadCompanyFeatures(companyId) {
 function updateToggleUI(feat, active) {
   const toggle = document.querySelector(`.feat-toggle[data-feat="${feat}"]`);
   if (!toggle) return;
-  toggle.style.background = active ? "var(--accent)" : "rgba(255,255,255,.12)";
-  const knob = toggle.querySelector("div");
-  if (knob) knob.style.left = active ? "23px" : "3px";
+  toggle.classList.toggle('active', active);
 
   // Atualiza o label de status ao lado da chavinha
   const label = el(`feat-${feat}-label`);
