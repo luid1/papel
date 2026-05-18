@@ -389,8 +389,14 @@ function renderWeekSummary() {
 
 window.llmEncerrarSemana = async function() {
   const { from, to } = getWeekRange(_weekOffset);
-  if (!confirm(`Encerrar a semana de ${fmtDate(from)} a ${fmtDate(to)}?\n\nIsto vai ZERAR os caixas em rota dos motoristas. Os registros da semana ficam preservados em "Registros".`)) return;
+  if (!confirm(`Encerrar a semana de ${fmtDate(from)} a ${fmtDate(to)}?\n\n• Vai baixar o relatório Excel da semana\n• Vai ZERAR os caixas em rota dos motoristas\n• Os registros ficam preservados em "Registros"`)) return;
 
+  toast('Gerando relatório da semana...');
+
+  // 1. Exporta Excel ANTES de zerar (assim o relatório reflete o que aconteceu)
+  await exportWeekExcel(from, to);
+
+  // 2. Zera caixas em rota
   const batch = writeBatch(db);
   _drivers.forEach(d => {
     if ((d.truckBlack || 0) + (d.truckWhite || 0) === 0) return;
@@ -408,8 +414,196 @@ window.llmEncerrarSemana = async function() {
     });
   });
   await batch.commit();
-  toast('✓ Semana encerrada. Caixas em rota zerados.');
+  toast('✓ Semana encerrada. Excel baixado e caixas zerados.');
 };
+
+// ─── Export Excel da semana (relatório com 2 abas: Resumo + Detalhes) ────
+async function exportWeekExcel(from, to) {
+  // Carrega ExcelJS sob demanda
+  if (typeof ExcelJS === 'undefined') {
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
+      s.onload = resolve; s.onerror = reject;
+      document.head.appendChild(s);
+    }).catch(() => { toast('❌ Falha ao carregar ExcelJS', true); throw new Error('ExcelJS load fail'); });
+  }
+
+  const fromYmd = ymd(from), toYmd = ymd(to);
+  const wkRegs = _registros.filter(r => (r.data || '') >= fromYmd && (r.data || '') <= toYmd);
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'Lumin · Controle Hetros';
+  wb.created = new Date();
+
+  // ── Paleta
+  const C = {
+    headerBg: 'FF111114',  headerFg: 'FFFFFFFF',
+    rowAlt:   'FFF7F7F7',  border:   'FFE5E5E5',
+    accent:   'FF00D4FF',  success:  'FF22C55E',  alert: 'FFEF4444',
+  };
+  const fmtBRL = '"R$" #,##0.00';
+  const border = { top:{style:'thin',color:{argb:C.border}}, bottom:{style:'thin',color:{argb:C.border}}, left:{style:'thin',color:{argb:C.border}}, right:{style:'thin',color:{argb:C.border}} };
+
+  // ════════════════════════════════════════════════
+  // ABA 1: RESUMO POR MOTORISTA
+  // ════════════════════════════════════════════════
+  const ws1 = wb.addWorksheet('Resumo', { views: [{ state: 'frozen', ySplit: 5 }] });
+  ws1.columns = [
+    { width: 28 }, { width: 14 }, { width: 14 }, { width: 14 }, { width: 14 },
+    { width: 14 }, { width: 14 }, { width: 16 }, { width: 14 }
+  ];
+
+  // Título
+  ws1.mergeCells('A1:I1');
+  const t1 = ws1.getCell('A1');
+  t1.value = 'CONTROLE HETROS · Resumo da Semana';
+  t1.font = { name: 'Calibri', size: 16, bold: true, color: { argb: C.headerFg } };
+  t1.alignment = { horizontal: 'left', vertical: 'middle' };
+  t1.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.headerBg } };
+  ws1.getRow(1).height = 30;
+
+  ws1.mergeCells('A2:I2');
+  const t2 = ws1.getCell('A2');
+  t2.value = `Período: ${fmtDate(from)} a ${fmtDate(to)} · Gerado em ${new Date().toLocaleString('pt-BR')}`;
+  t2.font = { name: 'Calibri', size: 10, italic: true, color: { argb: 'FF666666' } };
+
+  // Aglomerar por motorista
+  const sumByDriver = {};
+  const driverNames = new Set(_drivers.map(d => d.name));
+  wkRegs.forEach(r => { if (r.motorista) driverNames.add(String(r.motorista).trim()); });
+  driverNames.forEach(name => {
+    sumByDriver[name] = { entradas:0, saidas:0, pretas:0, brancas:0, valor:0, count:0, dias:new Set(), clientes:new Set() };
+  });
+  wkRegs.forEach(r => {
+    const name = (r.motorista || '').trim();
+    if (!name || !sumByDriver[name]) return;
+    const cx = Number(r.quantidadeCx || 0);
+    const bucket = sumByDriver[name];
+    if (r.tipo === 'ENTRADA') bucket.entradas += cx;
+    if (r.tipo === 'SAÍDA')   bucket.saidas   += cx;
+    if ((r.cor||'').toLowerCase().includes('pret'))  bucket.pretas  += cx;
+    if ((r.cor||'').toLowerCase().includes('branc')) bucket.brancas += cx;
+    bucket.valor += Number(r.valorTotal || 0);
+    bucket.count++;
+    if (r.data) bucket.dias.add(r.data);
+    if (r.cliente) bucket.clientes.add(r.cliente);
+  });
+
+  // Cabeçalho da tabela
+  const headers1 = ['Motorista', 'Entradas', 'Saídas', 'Pretas', 'Brancas', 'Clientes', 'Dias ativos', 'Valor total', 'Nº registros'];
+  ws1.addRow([]);
+  ws1.addRow([]);
+  ws1.addRow(headers1).eachCell(c => {
+    c.font = { bold: true, color: { argb: C.headerFg } };
+    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.headerBg } };
+    c.alignment = { horizontal: 'center', vertical: 'middle' };
+    c.border = border;
+  });
+  ws1.getRow(5).height = 24;
+
+  const sorted = Array.from(driverNames).sort((a,b) => {
+    const A = sumByDriver[a], B = sumByDriver[b];
+    return (B.entradas+B.saidas) - (A.entradas+A.saidas);
+  });
+
+  sorted.forEach((name, idx) => {
+    const s = sumByDriver[name];
+    const row = ws1.addRow([name, s.entradas, s.saidas, s.pretas, s.brancas, s.clientes.size, s.dias.size, s.valor, s.count]);
+    row.eachCell((c, col) => {
+      c.alignment = { horizontal: col === 1 ? 'left' : 'center', vertical: 'middle' };
+      c.border = border;
+      c.font = { name: 'Calibri', size: 11 };
+      if (idx % 2 === 1) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.rowAlt } };
+    });
+    row.getCell(1).font = { bold: true };
+    row.getCell(2).font = { color: { argb: C.success } };
+    row.getCell(3).font = { color: { argb: C.alert } };
+    row.getCell(8).numFmt = fmtBRL;
+  });
+
+  // Linha total
+  const totalsRow = ws1.addRow([
+    'TOTAL',
+    sorted.reduce((a,n)=>a+sumByDriver[n].entradas,0),
+    sorted.reduce((a,n)=>a+sumByDriver[n].saidas,0),
+    sorted.reduce((a,n)=>a+sumByDriver[n].pretas,0),
+    sorted.reduce((a,n)=>a+sumByDriver[n].brancas,0),
+    new Set(wkRegs.map(r=>r.cliente).filter(Boolean)).size,
+    new Set(wkRegs.map(r=>r.data).filter(Boolean)).size,
+    sorted.reduce((a,n)=>a+sumByDriver[n].valor,0),
+    sorted.reduce((a,n)=>a+sumByDriver[n].count,0)
+  ]);
+  totalsRow.eachCell(c => {
+    c.font = { bold: true, color: { argb: C.headerFg } };
+    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.headerBg } };
+    c.alignment = { horizontal: 'center', vertical: 'middle' };
+    c.border = border;
+  });
+  totalsRow.getCell(8).numFmt = fmtBRL;
+
+  // ════════════════════════════════════════════════
+  // ABA 2: DETALHES (todos os registros da semana)
+  // ════════════════════════════════════════════════
+  const ws2 = wb.addWorksheet('Detalhes', { views: [{ state: 'frozen', ySplit: 5 }] });
+  ws2.columns = [
+    { width: 12 }, { width: 12 }, { width: 22 }, { width: 22 }, { width: 10 },
+    { width: 10 }, { width: 12 }, { width: 16 }
+  ];
+  ws2.mergeCells('A1:H1');
+  ws2.getCell('A1').value = 'CONTROLE HETROS · Detalhes da Semana';
+  ws2.getCell('A1').font = { size: 16, bold: true, color: { argb: C.headerFg } };
+  ws2.getCell('A1').fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.headerBg } };
+  ws2.getCell('A1').alignment = { horizontal: 'left', vertical: 'middle' };
+  ws2.getRow(1).height = 30;
+  ws2.mergeCells('A2:H2');
+  ws2.getCell('A2').value = `${fmtDate(from)} a ${fmtDate(to)} · ${wkRegs.length} registro(s)`;
+  ws2.getCell('A2').font = { size: 10, italic: true, color: { argb: 'FF666666' } };
+
+  ws2.addRow([]); ws2.addRow([]);
+  const headers2 = ['Data', 'Tipo', 'Cliente', 'Motorista', 'Cor', 'Qtd', 'Valor unit.', 'Valor total'];
+  ws2.addRow(headers2).eachCell(c => {
+    c.font = { bold: true, color: { argb: C.headerFg } };
+    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.headerBg } };
+    c.alignment = { horizontal: 'center', vertical: 'middle' };
+    c.border = border;
+  });
+
+  const sortedRegs = [...wkRegs].sort((a,b) => (b.data||'').localeCompare(a.data||''));
+  sortedRegs.forEach((r, idx) => {
+    const row = ws2.addRow([
+      r.data || '',
+      r.tipo || '',
+      r.cliente || '',
+      r.motorista || '',
+      r.cor || '',
+      Number(r.quantidadeCx || 0),
+      Number(r.valorUnitario || 0),
+      Number(r.valorTotal || 0)
+    ]);
+    row.eachCell((c, col) => {
+      c.alignment = { horizontal: col >= 6 ? 'right' : 'left', vertical: 'middle' };
+      c.border = border;
+      c.font = { name: 'Calibri', size: 10 };
+      if (idx % 2 === 1) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.rowAlt } };
+    });
+    row.getCell(2).font = { color: { argb: r.tipo === 'ENTRADA' ? C.success : C.alert }, bold: true };
+    row.getCell(7).numFmt = fmtBRL;
+    row.getCell(8).numFmt = fmtBRL;
+  });
+
+  // Download
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/octet-stream' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `controle-hetros-semana-${fromYmd}-a-${toYmd}.xlsx`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 
 // ═══════════════════════════════════════════════════════════════
 // RENDER MOTORISTAS

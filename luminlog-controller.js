@@ -236,15 +236,74 @@ function calcCaixasNoCaminhao() {
 
 // ─── RENDER KPIs TOPO ─────────────────────────────────────────
 function renderKpis() {
-  const totEntrada = _registros.filter(r => r.tipo === 'ENTRADA').reduce((a, r) => a + (r.quantidadeCx || 0), 0);
-  const totSaida   = _registros.filter(r => r.tipo === 'SAÍDA').reduce((a, r)   => a + (r.quantidadeCx || 0), 0);
-  const totValor   = _registros.reduce((a, r) => a + (r.valorTotal || 0), 0);
-  const totCount   = _registros.length;
+  // ── Helpers de data ─────────────────────────────────────────
+  const todayD = new Date();
+  const todayYmd = `${todayD.getFullYear()}-${String(todayD.getMonth()+1).padStart(2,'0')}-${String(todayD.getDate()).padStart(2,'0')}`;
+  const dow = todayD.getDay();
+  const mondayD = new Date(todayD.getFullYear(), todayD.getMonth(), todayD.getDate() + ((dow === 0) ? -6 : (1 - dow)));
+  const mondayYmd = `${mondayD.getFullYear()}-${String(mondayD.getMonth()+1).padStart(2,'0')}-${String(mondayD.getDate()).padStart(2,'0')}`;
+  const sundayD = new Date(mondayD.getFullYear(), mondayD.getMonth(), mondayD.getDate() + 6);
+  const sundayYmd = `${sundayD.getFullYear()}-${String(sundayD.getMonth()+1).padStart(2,'0')}-${String(sundayD.getDate()).padStart(2,'0')}`;
 
-  const el_ent = $('ll-total-entrada'); if (el_ent) el_ent.textContent = `${totEntrada} cx`;
-  const el_sai = $('ll-total-saida');   if (el_sai) el_sai.textContent = `${totSaida} cx`;
-  const el_val = $('ll-total-valor');   if (el_val) el_val.textContent = fmt(totValor);
-  const el_cnt = $('ll-total-count');   if (el_cnt) el_cnt.textContent = totCount;
+  // ── Hoje ────────────────────────────────────────────────────
+  const todayRegs = _registros.filter(r => r.data === todayYmd);
+  const tEnt = todayRegs.filter(r => r.tipo === 'ENTRADA').reduce((a,r)=>a+(r.quantidadeCx||0),0);
+  const tSai = todayRegs.filter(r => r.tipo === 'SAÍDA').reduce((a,r)=>a+(r.quantidadeCx||0),0);
+  const tDrivers = new Set(todayRegs.map(r=>r.motorista).filter(Boolean)).size;
+
+  const $ = id => document.getElementById(id);
+  $('ll-today-entrada') && ($('ll-today-entrada').textContent = `${tEnt} cx`);
+  $('ll-today-saida')   && ($('ll-today-saida').textContent   = `${tSai} cx`);
+  $('ll-today-drivers') && ($('ll-today-drivers').textContent = tDrivers);
+  $('ll-today-count')   && ($('ll-today-count').textContent   = todayRegs.length);
+  const todayDateEl = $('ll-today-date');
+  if (todayDateEl) todayDateEl.textContent = todayD.toLocaleDateString('pt-BR', {weekday:'long',day:'2-digit',month:'long'});
+
+  // Feed dos últimos lançamentos de hoje (até 8, mais recentes primeiro)
+  const feed = $('ll-today-feed');
+  if (feed) {
+    if (!todayRegs.length) {
+      feed.innerHTML = '<p style="color:var(--muted);font-size:13px;padding:8px 0;letter-spacing:-.005em;">Nenhum lançamento hoje ainda.</p>';
+    } else {
+      const sorted = [...todayRegs].sort((a,b) => {
+        const tA = a.createdAt?.toMillis?.() ?? 0;
+        const tB = b.createdAt?.toMillis?.() ?? 0;
+        return tB - tA;
+      }).slice(0, 8);
+      feed.innerHTML = sorted.map(r => {
+        const ts = r.createdAt?.toDate?.();
+        const hora = ts ? ts.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) : '';
+        const isIn = r.tipo === 'ENTRADA';
+        const color = isIn ? 'var(--success)' : 'var(--alert)';
+        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;letter-spacing:-.005em;">
+          <span style="width:6px;height:6px;border-radius:50%;background:${color};flex-shrink:0;"></span>
+          <span style="color:var(--text);flex-shrink:0;font-weight:500;min-width:40px;">${hora}</span>
+          <span style="color:${color};font-weight:500;min-width:64px;">${isIn?'+':'−'} ${r.quantidadeCx||0} ${(r.cor||'').toLowerCase().includes('branc')?'br':'pt'}</span>
+          <span style="color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${esc(r.cliente||'—')}</span>
+          <span style="color:var(--muted);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px;">${esc(r.motorista||'—')}</span>
+        </div>`;
+      }).join('');
+      const lastChild = feed.lastElementChild;
+      if (lastChild) lastChild.style.borderBottom = 'none';
+    }
+  }
+
+  // ── Esta semana ────────────────────────────────────────────
+  const weekRegs = _registros.filter(r => (r.data||'') >= mondayYmd && (r.data||'') <= sundayYmd);
+  const totEntrada = weekRegs.filter(r => r.tipo === 'ENTRADA').reduce((a, r) => a + (r.quantidadeCx || 0), 0);
+  const totSaida   = weekRegs.filter(r => r.tipo === 'SAÍDA').reduce((a, r)   => a + (r.quantidadeCx || 0), 0);
+  const totValor   = weekRegs.reduce((a, r) => a + (r.valorTotal || 0), 0);
+  const totCount   = weekRegs.length;
+
+  $('ll-total-entrada') && ($('ll-total-entrada').textContent = `${totEntrada} cx`);
+  $('ll-total-saida')   && ($('ll-total-saida').textContent   = `${totSaida} cx`);
+  $('ll-total-valor')   && ($('ll-total-valor').textContent   = fmt(totValor));
+  $('ll-total-count')   && ($('ll-total-count').textContent   = totCount);
+  const wkLbl = $('ll-week-date');
+  if (wkLbl) {
+    const fmt2 = d => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+    wkLbl.textContent = `${fmt2(mondayD)} a ${fmt2(sundayD)}`;
+  }
 
   // ── Painel: caixas no caminhão por motorista ───────────────────
   const saldoMot = calcCaixasNoCaminhao();
