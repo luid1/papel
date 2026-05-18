@@ -1497,6 +1497,155 @@ tr:hover td { background: rgba(255,255,255,.025); }
   color: var(--text) !important;
 }
 
+/* ══════════════════════════════════════════════
+   CONTROLE HETROS — Componentes
+══════════════════════════════════════════════ */
+
+/* KPI cards (Visão geral) */
+.llm-kpi {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.llm-kpi-label {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+  letter-spacing: -.005em;
+  margin: 0 0 6px;
+}
+.llm-kpi-val {
+  font-family: 'Inter', sans-serif;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -.025em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+/* Section card */
+.llm-section {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+.llm-section-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  letter-spacing: -.018em;
+  margin: 0 0 12px;
+}
+
+/* Action buttons (Atualizar / Exportar / Filtros) */
+.llm-action-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 0 12px; height: 32px;
+  border-radius: 7px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 12.5px; font-weight: 500;
+  letter-spacing: -.005em;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color .12s, border-color .12s, background .12s;
+  font-family: 'Inter', sans-serif;
+}
+.llm-action-btn:hover {
+  color: var(--text);
+  border-color: rgba(255,255,255,.16);
+  background: rgba(255,255,255,.02);
+}
+
+/* Filter buttons (Todos/Entradas/Saídas) — usa pill style */
+.ll-filter-btn {
+  padding: 5px 12px;
+  border-radius: 7px;
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: -.005em;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color .12s, background .12s, border-color .12s;
+  font-family: 'Inter', sans-serif;
+}
+.ll-filter-btn:hover {
+  color: var(--text);
+  background: rgba(255,255,255,.04);
+}
+.ll-filter-btn.active {
+  background: rgba(255,255,255,.06);
+  color: var(--text);
+  border-color: var(--border);
+}
+.ll-filter-btn.active::before {
+  content: '';
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  display: inline-block;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+/* Pill filter (radar de suspeitas) */
+.llm-pill {
+  padding: 4px 11px;
+  border-radius: 7px;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: -.005em;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color .12s, background .12s, border-color .12s;
+  font-family: 'Inter', sans-serif;
+}
+.llm-pill:hover { color: var(--text); }
+.llm-pill.active {
+  background: rgba(255,255,255,.06);
+  color: var(--text);
+  border-color: rgba(255,255,255,.16);
+}
+
+/* Sub-tabs do Controle Hetros — estilo "browser tabs" minimalista */
+.llm-subtab {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 9px 14px;
+  border: none; background: transparent;
+  color: var(--muted);
+  font-size: 13px; font-weight: 500;
+  letter-spacing: -.005em;
+  cursor: pointer;
+  position: relative;
+  white-space: nowrap;
+  transition: color .12s;
+  font-family: 'Inter', sans-serif;
+}
+.llm-subtab svg { opacity: .7; }
+.llm-subtab:hover { color: var(--text); }
+.llm-subtab.active {
+  color: var(--text);
+}
+.llm-subtab.active svg { color: var(--accent); opacity: 1; }
+.llm-subtab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px; left: 0; right: 0;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 1px;
+}
+
 /* Features — linha clean estilo Linear */
 .feat-row {
   display: flex;

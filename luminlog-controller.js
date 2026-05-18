@@ -453,25 +453,9 @@ function renderTabela() {
 // ─── RADAR DE SUSPEITAS ────────────────────────────────────────
 window.llSetRadarFiltro = function(filtro) {
   _radarFiltro = filtro;
-  const cores = {
-    risco:   { bg: 'rgba(255,91,112,.12)',  bdr: 'rgba(255,91,112,.3)',  cor: 'var(--alert)'   },
-    saldo:   { bg: 'rgba(255,179,71,.1)',   bdr: 'rgba(255,179,71,.25)', cor: 'var(--warning)' },
-    taxa:    { bg: 'rgba(167,139,250,.1)',  bdr: 'rgba(167,139,250,.25)',cor: '#a78bfa'        },
-    semfoto: { bg: 'rgba(0,212,255,.1)',    bdr: 'rgba(0,212,255,.25)',  cor: 'var(--accent)'  },
-  };
   ['risco','saldo','taxa','semfoto'].forEach(f => {
     const btn = document.getElementById(`ll-radar-f-${f}`);
-    if (!btn) return;
-    if (f === filtro) {
-      const c = cores[f];
-      btn.style.background  = c.bg;
-      btn.style.borderColor = c.bdr;
-      btn.style.color       = c.cor;
-    } else {
-      btn.style.background  = 'transparent';
-      btn.style.borderColor = 'rgba(255,255,255,.1)';
-      btn.style.color       = 'var(--muted)';
-    }
+    if (btn) btn.classList.toggle('active', f === filtro);
   });
   _renderRadar();
 };

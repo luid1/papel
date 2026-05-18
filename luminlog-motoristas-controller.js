@@ -1,6 +1,6 @@
 /**
  * ═══════════════════════════════════════════════════════════════
- *  LUMIN — Lumin Log Motoristas Controller
+ *  LUMIN — Controle Hetros Motoristas Controller
  *  Arquivo: luminlog-motoristas-controller.js
  *
  *  Integração entre o app de motoristas e o painel admin.
@@ -168,20 +168,13 @@ function openEditModal(driverId, driverName) {
 // ═══════════════════════════════════════════════════════════════
 window.llmSwitchTab = function(tab) {
   const tabs = ['dashboard', 'registros', 'motoristas', 'clientes'];
-
-  const base     = 'flex:1;padding:10px 6px;border-radius:10px;font-size:11px;font-weight:800;cursor:pointer;transition:.2s;white-space:nowrap;';
-  const active   = base + 'background:rgba(0,212,255,.15);border:1px solid rgba(0,212,255,.3);color:var(--accent);';
-  const inactive = base + 'background:transparent;border:1px solid transparent;color:rgba(228,240,246,.45);';
-
   tabs.forEach(t => {
     const panel = document.getElementById(`llm-panel-${t}`);
     const btn   = document.getElementById(`llm-btn-${t}`);
     const isActive = t === tab;
     if (panel) panel.style.display = isActive ? 'block' : 'none';
-    if (btn)   btn.style.cssText   = isActive ? active : inactive;
+    if (btn)   btn.classList.toggle('active', isActive);
   });
-
-  // Renderiza gráficos ao entrar no Dashboard
   if (tab === 'dashboard' && typeof window.llRenderCharts === 'function') {
     setTimeout(window.llRenderCharts, 80);
   }
