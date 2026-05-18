@@ -26,9 +26,31 @@ const COL_CAIXAS   = 'controle_caixas';
 let _drivers = [];
 let _clients = [];
 let _events  = [];
+let _registros = [];                      // registros do controle_caixas
+let _weekOffset = 0;                      // 0 = semana atual, -1 = anterior, +1 = próxima
 let _unsubDrivers = null;
 let _unsubClients = null;
 let _unsubEvents  = null;
+let _unsubRegistros = null;
+
+// ── Helpers de semana (segunda → domingo) ───────────────────────
+function getWeekRange(offset = 0) {
+  const now = new Date();
+  const dow = now.getDay();              // 0=Dom, 1=Seg, ..., 6=Sáb
+  const diffToMonday = (dow === 0) ? -6 : (1 - dow);
+  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + diffToMonday + offset * 7);
+  const sunday = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 6, 23, 59, 59, 999);
+  monday.setHours(0,0,0,0);
+  return { from: monday, to: sunday };
+}
+function fmtDate(d) {
+  const dd = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  return `${dd}/${mm}`;
+}
+function ymd(d) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
 
 // ── Helpers ─────────────────────────────────────────────────────
 const $   = id => document.getElementById(id);
@@ -271,6 +293,122 @@ window.llmZerarClientes = async function() {
   });
   await batch.commit();
   toast('✓ Saldos dos clientes zerados.');
+};
+
+// ═══════════════════════════════════════════════════════════════
+// RESUMO DA SEMANA (segunda → domingo)
+// ═══════════════════════════════════════════════════════════════
+function renderWeekSummary() {
+  const el = $('llm-week-list');
+  if (!el) return;
+
+  const { from, to } = getWeekRange(_weekOffset);
+  const fromYmd = ymd(from);
+  const toYmd   = ymd(to);
+
+  // Atualiza label
+  const lbl = $('llm-week-range');
+  if (lbl) lbl.textContent = `${fmtDate(from)} — ${fmtDate(to)}`;
+  const head = $('llm-week-label')?.querySelector('span:first-child');
+  if (head) {
+    head.textContent = _weekOffset === 0 ? 'Semana atual' :
+                       _weekOffset === -1 ? 'Semana passada' :
+                       _weekOffset > 0 ? `${_weekOffset} semana(s) à frente` :
+                                          `${Math.abs(_weekOffset)} semanas atrás`;
+  }
+
+  // Filtra registros desta semana (campo 'data' = YYYY-MM-DD)
+  const wkRegs = _registros.filter(r => {
+    const d = r.data || '';
+    return d >= fromYmd && d <= toYmd;
+  });
+
+  // Lista de motoristas com pelo menos cadastro (ou que aparecem nos registros)
+  const driverNames = new Set(_drivers.map(d => d.name));
+  wkRegs.forEach(r => { if (r.motorista) driverNames.add(r.motorista.trim()); });
+
+  if (!driverNames.size) {
+    el.innerHTML = '<p style="color:var(--muted);font-size:13px;padding:16px 0;text-align:center;letter-spacing:-.005em;">Sem motoristas cadastrados.</p>';
+    return;
+  }
+
+  const sumByDriver = {};
+  driverNames.forEach(name => {
+    sumByDriver[name] = { entradas:0, saidas:0, pretas:0, brancas:0, valor:0, count:0, dias:new Set(), clientes:new Set() };
+  });
+  wkRegs.forEach(r => {
+    const name = (r.motorista || '').trim();
+    if (!name || !sumByDriver[name]) return;
+    const cx = Number(r.quantidadeCx || 0);
+    const tipo = r.tipo || '';
+    const cor = (r.cor || '').toLowerCase();
+    const bucket = sumByDriver[name];
+    if (tipo === 'ENTRADA') bucket.entradas += cx;
+    if (tipo === 'SAÍDA')   bucket.saidas   += cx;
+    if (cor.includes('pret'))  bucket.pretas  += cx;
+    if (cor.includes('branc')) bucket.brancas += cx;
+    bucket.valor += Number(r.valorTotal || 0);
+    bucket.count++;
+    if (r.data) bucket.dias.add(r.data);
+    if (r.cliente) bucket.clientes.add(r.cliente);
+  });
+
+  // Ordena por volume total movido na semana (mais ativo primeiro)
+  const sorted = Array.from(driverNames).sort((a, b) => {
+    const A = sumByDriver[a], B = sumByDriver[b];
+    const totalA = A.entradas + A.saidas;
+    const totalB = B.entradas + B.saidas;
+    return totalB - totalA;
+  });
+
+  el.innerHTML = sorted.map(name => {
+    const s = sumByDriver[name];
+    const total = s.entradas + s.saidas;
+    const fmt = v => Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+    return `
+      <div class="llm-week-row">
+        <div class="llm-week-row-head">
+          <span class="llm-week-row-name">${esc(name)}</span>
+          <span class="llm-week-row-total">
+            ${total > 0 ? `<span class="accent">${total}</span> caixas` : '<span style="color:var(--muted);">sem movimentação</span>'}
+          </span>
+        </div>
+        <div class="llm-week-stats">
+          <div>Entradas <span class="llm-week-stat-val pos">${s.entradas}</span></div>
+          <div>Saídas <span class="llm-week-stat-val neg">${s.saidas}</span></div>
+          <div>Pretas <span class="llm-week-stat-val">${s.pretas}</span></div>
+          <div>Brancas <span class="llm-week-stat-val">${s.brancas}</span></div>
+          <div>Clientes <span class="llm-week-stat-val">${s.clientes.size}</span></div>
+          <div>Dias ativos <span class="llm-week-stat-val">${s.dias.size}</span></div>
+          <div>Valor <span class="llm-week-stat-val">${fmt(s.valor)}</span></div>
+          <div>Registros <span class="llm-week-stat-val">${s.count}</span></div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+window.llmEncerrarSemana = async function() {
+  const { from, to } = getWeekRange(_weekOffset);
+  if (!confirm(`Encerrar a semana de ${fmtDate(from)} a ${fmtDate(to)}?\n\nIsto vai ZERAR os caixas em rota dos motoristas. Os registros da semana ficam preservados em "Registros".`)) return;
+
+  const batch = writeBatch(db);
+  _drivers.forEach(d => {
+    if ((d.truckBlack || 0) + (d.truckWhite || 0) === 0) return;
+    batch.update(doc(db, COL_DRIVERS, d.id), {
+      truckBlack: 0, truckWhite: 0,
+      lastReset: serverTimestamp(),
+      lastWeekClose: ymd(to)
+    });
+    batch.set(doc(collection(db, COL_EVENTS)), {
+      type: 'week_close',
+      driverName: d.name,
+      weekFrom: ymd(from),
+      weekTo: ymd(to),
+      timestamp: serverTimestamp()
+    });
+  });
+  await batch.commit();
+  toast('✓ Semana encerrada. Caixas em rota zerados.');
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -529,9 +667,31 @@ function startListeners() {
     snap => {
       _drivers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       renderDrivers();
+      renderWeekSummary();
     },
     err => console.error('[LLM-Motoristas] Drivers:', err)
   );
+
+  // Registros do controle_caixas (pra calcular performance semanal)
+  _unsubRegistros = onSnapshot(
+    collection(db, COL_CAIXAS),
+    snap => {
+      _registros = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderWeekSummary();
+    },
+    err => console.error('[LLM-Motoristas] Caixas:', err)
+  );
+
+  // Bind dos botões de navegação de semana (uma vez só)
+  if (!window._llmWeekBound) {
+    window._llmWeekBound = true;
+    document.addEventListener('click', e => {
+      if (e.target.closest('#llm-week-prev')) { _weekOffset--; renderWeekSummary(); }
+      else if (e.target.closest('#llm-week-next')) { _weekOffset++; renderWeekSummary(); }
+      else if (e.target.closest('#llm-week-today')) { _weekOffset = 0; renderWeekSummary(); }
+      else if (e.target.closest('#llm-encerrar-semana')) { window.llmEncerrarSemana(); }
+    });
+  }
 
   _unsubClients = onSnapshot(
     collection(db, COL_CLIENTS),

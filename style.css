@@ -1617,6 +1617,48 @@ tr:hover td { background: rgba(255,255,255,.025); }
   border-color: rgba(255,255,255,.16);
 }
 
+/* Linha de motorista no Resumo da Semana */
+.llm-week-row {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.llm-week-row:last-child { border-bottom: none; }
+.llm-week-row-head {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 10px;
+}
+.llm-week-row-name {
+  flex: 1; min-width: 0;
+  font-size: 14px; font-weight: 600;
+  color: var(--text); letter-spacing: -.015em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.llm-week-row-total {
+  font-size: 13px; font-weight: 500;
+  color: var(--text); letter-spacing: -.005em;
+  font-variant-numeric: tabular-nums;
+}
+.llm-week-row-total .accent {
+  color: var(--accent); margin-right: 4px;
+}
+.llm-week-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+  gap: 10px 16px;
+  font-size: 12px; color: var(--muted);
+  letter-spacing: -.005em;
+}
+.llm-week-stat-val {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+.llm-week-stat-val.pos { color: var(--success); }
+.llm-week-stat-val.neg { color: var(--alert); }
+
 /* Sub-tabs do Controle Hetros — estilo "browser tabs" minimalista */
 .llm-subtab {
   display: inline-flex; align-items: center; gap: 7px;
