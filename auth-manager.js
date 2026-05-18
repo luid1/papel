@@ -135,11 +135,20 @@ async function _secureRoute(user) {
 
   if (user.role === MASTER_ROLE) {
     // Rota exclusiva: Admin Master
+    document.body.removeAttribute('data-hetros-only');
     showLayer("admin-panel");
-    // Dispara evento para o módulo Admin carregar os dados
     window.dispatchEvent(new CustomEvent("lumin:admin-ready", { detail: { user } }));
+  } else if (user.role === "hetros" && user.active === true) {
+    // Rota: Operador Hetros — admin panel limitado ao Controle Hetros
+    document.body.setAttribute('data-hetros-only', '1');
+    showLayer("admin-panel");
+    window.dispatchEvent(new CustomEvent("lumin:admin-ready", { detail: { user } }));
+    // Força ir direto pra aba Lumin Log (Controle Hetros)
+    setTimeout(() => {
+      document.querySelector('[data-adm-tab="tab-luminlog"]')?.click();
+    }, 200);
   } else if ((user.role === "tenant" || user.role === "personal") && user.active === true) {
-    // Rota de cliente — empresa OU usuário pessoal
+    document.body.removeAttribute('data-hetros-only');
     showLayer("app-shell-wrapper");
     window.dispatchEvent(new CustomEvent("lumin:tenant-ready", { detail: { user } }));
   } else if (user.active === false) {
@@ -216,8 +225,8 @@ async function _doLogin(email, password) {
 
     const userData = { uid, ...userSnap.data() };
 
-    // Verificação extra: role válida? (master, tenant ou personal)
-    if (userData.role !== MASTER_ROLE && userData.role !== "tenant" && userData.role !== "personal") {
+    // Verificação extra: role válida? (master, tenant, personal ou hetros)
+    if (userData.role !== MASTER_ROLE && userData.role !== "tenant" && userData.role !== "personal" && userData.role !== "hetros") {
       await signOut(auth);
       throw new Error(`Role inválida: ${userData.role}`);
     }

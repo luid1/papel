@@ -1876,9 +1876,9 @@ function bindEvents() {
 }
 
 // ─── INICIALIZAÇÃO ─────────────────────────────────────────────
-window.addEventListener('lumin:admin-ready', async () => {
-  const ok = await window.LuminAuth?.requireRole('master');
-  if (!ok) return;
+window.addEventListener('lumin:admin-ready', async (e) => {
+  const user = e.detail?.user;
+  if (!user || (user.role !== 'master' && user.role !== 'hetros')) return;
   bindEvents();
   initFiltrosColapsaveis();  // filtros colapsáveis
   carregarFrequentes();      // carrega motoristas/clientes salvos

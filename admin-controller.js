@@ -144,9 +144,10 @@ function renderUsersTable(users) {
 
   tbody.innerHTML = users.map(u => {
     const company   = u.companyId ? (_allCompanies[u.companyId]?.name || u.companyId) : "—";
-    const roleLabel = { master: "Master", tenant: "Empresa", personal: "Pessoal" }[u.role] || u.role;
+    const roleLabel = { master: "Master", tenant: "Empresa", personal: "Pessoal", hetros: "Hetros" }[u.role] || u.role;
     const roleColor = u.role === "master" ? "var(--accent)"
                      : u.role === "personal" ? "var(--purple)"
+                     : u.role === "hetros" ? "var(--accent)"
                      : "var(--purple)";
 
     return `
@@ -312,6 +313,51 @@ async function createPersonalUser() {
       : `Erro: ${err.message}`, false);
   } finally {
     btn("btn-adm-pers-save", false);
+  }
+}
+
+// ─── CRIAR OPERADOR HETROS (acesso só ao Controle Hetros) ────
+async function createHetrosOperator() {
+  const name     = el("adm-hetros-name")?.value.trim();
+  const username = el("adm-hetros-login")?.value.trim().toLowerCase();
+  const password = el("adm-hetros-pass")?.value.trim();
+
+  if (!name || !username || !password) {
+    setMsg("adm-hetros-msg", "Preencha Nome, Login e Senha.", false);
+    return;
+  }
+  if (password.length < 6) {
+    setMsg("adm-hetros-msg", "A senha deve ter no mínimo 6 caracteres.", false);
+    return;
+  }
+
+  btn("btn-adm-hetros-save", true);
+  setMsg("adm-hetros-msg", "");
+
+  try {
+    const email      = `${username}@lumin.com`;
+    const credential = await createUserWithEmailAndPassword(auth, email, password);
+    const uid        = credential.user.uid;
+
+    await setDoc(doc(db, "users", uid), {
+      username, displayName: name, email,
+      role: "hetros",
+      active: true,
+      createdAt: serverTimestamp()
+    });
+
+    setMsg("adm-hetros-msg", `✓ Operador "${name}" criado com login "@${username}"!`, true);
+    ["adm-hetros-name","adm-hetros-login","adm-hetros-pass"].forEach(id => { if (el(id)) el(id).value = ""; });
+    await loadUsers();
+    toast(`Operador "${name}" criado!`);
+
+  } catch (err) {
+    console.error("[Admin] Erro ao criar operador Hetros:", err);
+    setMsg("adm-hetros-msg", err.code === "auth/email-already-in-use"
+      ? `O login "@${username}" já está em uso.`
+      : `Erro: ${err.message}`, false);
+  } finally {
+    btn("btn-adm-hetros-save", false);
   }
 }
 
@@ -520,6 +566,7 @@ async function deleteCompany(companyId) {
 function bindEvents() {
   el("btn-adm-save")?.addEventListener("click", createCompanyAndUser);
   el("btn-adm-pers-save")?.addEventListener("click", createPersonalUser);
+  el("btn-adm-hetros-save")?.addEventListener("click", createHetrosOperator);
   el("btn-adm-add-user-save")?.addEventListener("click", createUserForCompany);
 
   el("adm-color")?.addEventListener("input", (e) => {
@@ -584,9 +631,10 @@ function bindEvents() {
 }
 
 // ─── INICIALIZAÇÃO ────────────────────────────────────────────
-window.addEventListener("lumin:admin-ready", async () => {
-  const ok = await window.LuminAuth?.requireRole("master");
-  if (!ok) return;
+window.addEventListener("lumin:admin-ready", async (e) => {
+  const user = e.detail?.user;
+  // Permitir tanto master quanto hetros (hetros vê apenas Controle Hetros — restrito via CSS)
+  if (!user || (user.role !== "master" && user.role !== "hetros")) return;
 
   await loadCompanies();
   await loadUsers();

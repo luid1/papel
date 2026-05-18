@@ -253,6 +253,31 @@
         <div id="adm-pers-msg" style="display:none;margin-top:14px;padding:12px 16px;border-radius:10px;font-size:13px;font-weight:600;"></div>
       </div>
 
+      <!-- Cadastrar operador Hetros -->
+      <div class="admin-card">
+        <h3>Cadastrar operador Hetros <span style="font-size:10px;font-weight:500;padding:2px 8px;border-radius:6px;background:rgba(0,212,255,.15);color:var(--accent);letter-spacing:.02em;">Operador</span></h3>
+        <p>Conta com acesso somente ao painel "Controle Hetros" — motoristas, roteiros, mapa, semana. Sem acesso a empresas/usuários.</p>
+
+        <div class="admin-form-grid">
+          <div>
+            <label class="form-label">Nome completo</label>
+            <input type="text" id="adm-hetros-name" class="input-field" placeholder="Ex: Carlos Logística">
+          </div>
+          <div>
+            <label class="form-label">Login de acesso</label>
+            <input type="text" id="adm-hetros-login" class="input-field" placeholder="Ex: carlos.log" autocomplete="off" spellcheck="false">
+          </div>
+          <div>
+            <label class="form-label">Senha de acesso</label>
+            <input type="password" id="adm-hetros-pass" class="input-field" placeholder="Mínimo 6 caracteres" autocomplete="new-password">
+          </div>
+          <div style="display:flex;align-items:flex-end;">
+            <button id="btn-adm-hetros-save" class="btn-primary" style="width:100%;">Cadastrar operador</button>
+          </div>
+        </div>
+        <div id="adm-hetros-msg" style="display:none;margin-top:14px;padding:12px 16px;border-radius:10px;font-size:13px;font-weight:600;"></div>
+      </div>
+
       <!-- Adicionar utilizador a empresa existente -->
       <div class="admin-card">
         <h3>Adicionar usuário a empresa existente</h3>

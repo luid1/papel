@@ -1617,6 +1617,23 @@ tr:hover td { background: rgba(255,255,255,.025); }
   border-color: rgba(255,255,255,.16);
 }
 
+/* Operador Hetros: esconde abas não permitidas */
+body[data-hetros-only] #adm-sidebar .adm-sb-section-label:first-of-type,
+body[data-hetros-only] .adm-nav-item:not([data-adm-tab="tab-luminlog"]) {
+  display: none !important;
+}
+body[data-hetros-only] .admin-tab-panel:not(#tab-luminlog) {
+  display: none !important;
+}
+body[data-hetros-only] #tab-luminlog {
+  display: block !important;       /* força mostrar mesmo sem .active */
+}
+/* Avatar no rodapé da sidebar mostra "H" pra hetros */
+body[data-hetros-only] #adm-sb-footer > div > div:first-child {
+  background: rgba(0,212,255,.15);
+  color: var(--accent);
+}
+
 /* <details> dentro de admin-card */
 details.admin-card summary { user-select: none; }
 details.admin-card summary::-webkit-details-marker { display: none; }
