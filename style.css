@@ -1617,6 +1617,11 @@ tr:hover td { background: rgba(255,255,255,.025); }
   border-color: rgba(255,255,255,.16);
 }
 
+@keyframes pulseGreen {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(74,222,128,.6); }
+  50%      { box-shadow: 0 0 0 4px rgba(74,222,128,0); }
+}
+
 /* Linha de motorista no Resumo da Semana */
 .llm-week-row {
   padding: 14px 0;

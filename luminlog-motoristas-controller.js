@@ -454,23 +454,42 @@ function renderDrivers() {
         `).join('')}
       </div>` : '';
 
+    // ── Live location pin
+    let liveHtml = '';
+    if (d.currentLocation?.lat) {
+      const ts = d.currentLocation.ts?.toDate?.() || (d.currentLocation.ts ? new Date(d.currentLocation.ts) : null);
+      const ageMin = ts ? Math.round((Date.now() - ts.getTime()) / 60000) : null;
+      const isLive = ageMin !== null && ageMin <= 5;
+      const ageTxt = ageMin === null ? 'desconhecido' :
+                     ageMin < 1 ? 'agora' :
+                     ageMin === 1 ? 'há 1 min' :
+                     ageMin < 60 ? `há ${ageMin} min` :
+                     `há ${Math.floor(ageMin/60)}h`;
+      const lat = d.currentLocation.lat.toFixed(5);
+      const lng = d.currentLocation.lng.toFixed(5);
+      const mapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+      liveHtml = `
+        <a href="${mapsUrl}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:6px;background:${isLive?'rgba(74,222,128,.10)':'rgba(255,255,255,.04)'};border:1px solid ${isLive?'rgba(74,222,128,.25)':'var(--border)'};text-decoration:none;font-size:11.5px;font-weight:500;color:${isLive?'#4ade80':'var(--muted)'};letter-spacing:-.005em;">
+          <span style="width:6px;height:6px;border-radius:50%;background:${isLive?'#4ade80':'var(--muted)'};${isLive?'animation:pulseGreen 2s infinite;':''}"></span>
+          ${isLive?'Ao vivo':'Última posição'} · ${ageTxt}
+        </a>`;
+    }
+
     return `
-      <div style="padding:16px 0;border-bottom:1px solid rgba(255,255,255,.08);" class="llm-driver-row">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+      <div style="padding:14px 0;border-bottom:1px solid var(--border);" class="llm-driver-row">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
 
           <div style="min-width:0;flex:1;">
-            <div style="font-size:15px;font-weight:700;margin-bottom:6px;">${esc(d.name)}</div>
-            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
-              <span style="font-size:13px;color:rgba(228,240,246,.5);">
-                Pretas: <strong style="color:var(--text);">${b}</strong>
-              </span>
-              <span style="font-size:13px;color:rgba(228,240,246,.5);">
-                Brancas: <strong style="color:var(--text);">${w}</strong>
-              </span>
+            <div style="font-size:14px;font-weight:600;letter-spacing:-.015em;margin-bottom:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+              ${esc(d.name)}
+              ${liveHtml}
+            </div>
+            <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:12.5px;letter-spacing:-.005em;">
+              <span style="color:var(--muted);">Pretas <strong style="color:var(--text);font-weight:500;margin-left:3px;">${b}</strong></span>
+              <span style="color:var(--muted);">Brancas <strong style="color:var(--text);font-weight:500;margin-left:3px;">${w}</strong></span>
               ${total > 0
-                ? `<span style="font-size:11px;font-weight:800;color:var(--accent);background:rgba(0,212,255,.1);
-                    padding:2px 10px;border-radius:20px;border:1px solid rgba(0,212,255,.2);">${total} total</span>`
-                : `<span style="font-size:11px;color:rgba(228,240,246,.35);">caminhão vazio</span>`}
+                ? `<span style="font-size:11px;font-weight:500;color:var(--accent);background:rgba(255,255,255,.04);border:1px solid var(--border);padding:1px 8px;border-radius:5px;letter-spacing:-.005em;">${total} em rota</span>`
+                : `<span style="font-size:11px;color:var(--muted);letter-spacing:-.005em;">caminhão vazio</span>`}
             </div>
             ${fotosHtml}
           </div>
@@ -691,6 +710,12 @@ function startListeners() {
       else if (e.target.closest('#llm-week-today')) { _weekOffset = 0; renderWeekSummary(); }
       else if (e.target.closest('#llm-encerrar-semana')) { window.llmEncerrarSemana(); }
     });
+
+    // Refresh periódico pra atualizar "há X min" das localizações ao vivo
+    setInterval(() => {
+      const panel = document.getElementById('llm-panel-motoristas');
+      if (panel && panel.style.display !== 'none') renderDrivers();
+    }, 30000);
   }
 
   _unsubClients = onSnapshot(

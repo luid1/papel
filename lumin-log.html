@@ -360,12 +360,25 @@ function initDriver(name) {
   };
   window._S=S;
 
-  Promise.all([
-    db.collection('ll_drivers').doc(name).get().then(doc=>{
-      if(doc.exists){ S.truckBlack=nn(doc.data().truckBlack); S.truckWhite=nn(doc.data().truckWhite); }
-    }).catch(()=>{}),
-    _loadClients()
-  ]).then(()=>render()).catch(()=>render());
+  // Listener em tempo real: admin zera → driver atualiza imediatamente
+  let _firstLoad = true;
+  db.collection('ll_drivers').doc(name).onSnapshot(doc => {
+    if (!doc.exists) return;
+    const d = doc.data();
+    const oldB = S.truckBlack, oldW = S.truckWhite;
+    S.truckBlack = nn(d.truckBlack);
+    S.truckWhite = nn(d.truckWhite);
+    if (_firstLoad) {
+      _firstLoad = false;
+      _loadClients().then(render).catch(render);
+    } else {
+      // Mudou via admin (não foi este device): re-renderiza a tela atual
+      if ((oldB !== S.truckBlack || oldW !== S.truckWhite) && !S.saving) {
+        if (oldB > S.truckBlack || oldW > S.truckWhite) toast('🔄 Caixas zeradas pelo admin');
+        render();
+      }
+    }
+  }, () => { _loadClients().then(render).catch(render); });
 
   function render() {
     ({choose:vChoose,departure:vDeparture,client:vClient,cd_return:vCdReturn,summary:vSummary,done:vDone}[S.step]||vChoose)();
@@ -384,6 +397,51 @@ function initDriver(name) {
       {timeout:12000,maximumAge:60000,enableHighAccuracy:true}
     );
   }
+
+  /* ── Live tracking: envia posição ao admin enquanto app aberto ── */
+  let _liveWatchId = null;
+  let _lastLiveSend = 0;
+  function _startLiveTracking() {
+    if (_liveWatchId !== null || !navigator.geolocation) return;
+    _liveWatchId = navigator.geolocation.watchPosition(
+      async pos => {
+        const now = Date.now();
+        // Throttle: envia no máximo a cada 30s
+        if (now - _lastLiveSend < 30000) return;
+        _lastLiveSend = now;
+        const coords = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          acc: Math.round(pos.coords.accuracy || 0)
+        };
+        try {
+          await db.collection('ll_drivers').doc(name).set({
+            currentLocation: {
+              ...coords,
+              ts: firebase.firestore.FieldValue.serverTimestamp(),
+              ua: navigator.userAgent.includes('Mobi') ? 'mobile' : 'desktop'
+            }
+          }, { merge: true });
+        } catch (_) {}
+      },
+      err => console.warn('[Geo]', err.message),
+      { enableHighAccuracy: true, maximumAge: 25000, timeout: 25000 }
+    );
+  }
+  // Pede permissão de uma vez quando o motorista entra
+  navigator.permissions?.query?.({ name: 'geolocation' }).then(p => {
+    if (p.state !== 'denied') _startLiveTracking();
+  }).catch(() => _startLiveTracking());
+
+  // Para o tracking quando aba fica em background pra economizar bateria
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && _liveWatchId !== null) {
+      navigator.geolocation.clearWatch(_liveWatchId);
+      _liveWatchId = null;
+    } else if (!document.hidden && _liveWatchId === null) {
+      _startLiveTracking();
+    }
+  });
 
   /* ── Carregar histórico + dados do cliente selecionado ── */
   window._selecionarCliente = async function(nome) {
