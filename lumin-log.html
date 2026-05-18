@@ -401,44 +401,78 @@ function initDriver(name) {
   /* ── Live tracking: envia posição ao admin enquanto app aberto ── */
   let _liveWatchId = null;
   let _lastLiveSend = 0;
+  let _geoEnabled = false;
+
+  window._llRequestGeo = function() {
+    if (!navigator.geolocation) {
+      toast('Seu dispositivo não tem GPS', 3000);
+      return;
+    }
+    // getCurrentPosition força o navegador a pedir permissão
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        _geoEnabled = true;
+        _sendLocation(pos);
+        _startLiveTracking();
+        toast('📍 Localização ativada — admin pode ver sua posição', 2500);
+        const btn = $('geo-request-btn'); if (btn) btn.style.display = 'none';
+      },
+      err => {
+        console.warn('[Geo] permission:', err.message);
+        toast(err.code === err.PERMISSION_DENIED
+          ? 'Localização negada. Vá em ⚙ Configurações do app/navegador e permita.'
+          : 'Não foi possível pegar sua localização', 4000);
+      },
+      { enableHighAccuracy: true, timeout: 12000 }
+    );
+  };
+
+  async function _sendLocation(pos) {
+    const now = Date.now();
+    if (now - _lastLiveSend < 25000) return;     // throttle 25s
+    _lastLiveSend = now;
+    const coords = {
+      lat: pos.coords.latitude,
+      lng: pos.coords.longitude,
+      acc: Math.round(pos.coords.accuracy || 0)
+    };
+    try {
+      await db.collection('ll_drivers').doc(name).set({
+        currentLocation: {
+          ...coords,
+          ts: firebase.firestore.FieldValue.serverTimestamp(),
+          ua: navigator.userAgent.includes('Mobi') ? 'mobile' : 'desktop'
+        }
+      }, { merge: true });
+    } catch (e) { console.warn('[Geo send]', e.message); }
+  }
+
   function _startLiveTracking() {
     if (_liveWatchId !== null || !navigator.geolocation) return;
     _liveWatchId = navigator.geolocation.watchPosition(
-      async pos => {
-        const now = Date.now();
-        // Throttle: envia no máximo a cada 30s
-        if (now - _lastLiveSend < 30000) return;
-        _lastLiveSend = now;
-        const coords = {
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          acc: Math.round(pos.coords.accuracy || 0)
-        };
-        try {
-          await db.collection('ll_drivers').doc(name).set({
-            currentLocation: {
-              ...coords,
-              ts: firebase.firestore.FieldValue.serverTimestamp(),
-              ua: navigator.userAgent.includes('Mobi') ? 'mobile' : 'desktop'
-            }
-          }, { merge: true });
-        } catch (_) {}
-      },
-      err => console.warn('[Geo]', err.message),
-      { enableHighAccuracy: true, maximumAge: 25000, timeout: 25000 }
+      pos => _sendLocation(pos),
+      err => console.warn('[Geo watch]', err.message),
+      { enableHighAccuracy: true, maximumAge: 20000, timeout: 30000 }
     );
   }
-  // Pede permissão de uma vez quando o motorista entra
-  navigator.permissions?.query?.({ name: 'geolocation' }).then(p => {
-    if (p.state !== 'denied') _startLiveTracking();
-  }).catch(() => _startLiveTracking());
+
+  // Tenta começar automaticamente (se já permitido)
+  if (navigator.permissions?.query) {
+    navigator.permissions.query({ name: 'geolocation' }).then(p => {
+      if (p.state === 'granted') { _geoEnabled = true; _startLiveTracking(); }
+      // Se 'prompt' ou 'denied', mostra botão pra pedir manualmente
+    }).catch(() => {});
+  } else {
+    // Browsers sem permissions API (iOS Safari antigo): tenta direto
+    _startLiveTracking();
+  }
 
   // Para o tracking quando aba fica em background pra economizar bateria
   document.addEventListener('visibilitychange', () => {
     if (document.hidden && _liveWatchId !== null) {
       navigator.geolocation.clearWatch(_liveWatchId);
       _liveWatchId = null;
-    } else if (!document.hidden && _liveWatchId === null) {
+    } else if (!document.hidden && _geoEnabled && _liveWatchId === null) {
       _startLiveTracking();
     }
   });
@@ -553,6 +587,7 @@ function initDriver(name) {
 
   /* ════ TELA INICIAL ════ */
   function vChoose() {
+    const showGeoBtn = !_geoEnabled;
     $('app').innerHTML=`<div id="driver-wrap" class="fade-in">
       <div style="text-align:center;padding:16px 0 22px;">
         <span class="wordmark" style="font-size:1.8rem;">Controle Hetros</span>
@@ -562,6 +597,12 @@ function initDriver(name) {
           <span class="truck-badge">⬜ <b>${S.truckWhite}</b> brancas</span>
           <span class="offline-pill">📵 Offline</span>
         </div>
+        ${showGeoBtn ? `
+          <button id="geo-request-btn" onclick="window._llRequestGeo()" style="margin-top:12px;padding:8px 16px;border-radius:10px;background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.3);color:#4ade80;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:7px;">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+            Permitir localização
+          </button>
+        ` : ''}
       </div>
       <div style="font-family:'Montserrat',sans-serif;font-size:1.1rem;font-weight:900;
         text-align:center;margin-bottom:13px;">O que você vai fazer?</div>

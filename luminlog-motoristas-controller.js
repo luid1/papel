@@ -361,21 +361,23 @@ function renderWeekSummary() {
     return totalB - totalA;
   });
 
+  const fmt = v => Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
   el.innerHTML = sorted.map(name => {
     const s = sumByDriver[name];
     const total = s.entradas + s.saidas;
-    const fmt = v => Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+    const drvId = `wk-${name.replace(/[^a-z0-9]/gi,'_')}`;
     return `
-      <div class="llm-week-row">
-        <div class="llm-week-row-head">
-          <span class="llm-week-row-name">${esc(name)}</span>
-          <span class="llm-week-row-total">
-            ${total > 0 ? `<span class="accent">${total}</span> caixas` : '<span style="color:var(--muted);">sem movimentação</span>'}
-          </span>
-        </div>
+      <div class="llm-week-compact" data-drv-id="${drvId}">
+        <span class="llm-week-compact-name">${esc(name)}</span>
+        <span class="llm-week-compact-meta">
+          ${total > 0
+            ? `<strong style="color:var(--success);">${s.entradas}↑</strong> · <strong style="color:var(--alert);">${s.saidas}↓</strong> · <strong>${total}</strong> total`
+            : '<span style="color:var(--muted);">sem movimentação</span>'}
+        </span>
+        <svg class="llm-week-compact-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="llm-week-expand" data-drv-detail="${drvId}" style="display:none;">
         <div class="llm-week-stats">
-          <div>Entradas <span class="llm-week-stat-val pos">${s.entradas}</span></div>
-          <div>Saídas <span class="llm-week-stat-val neg">${s.saidas}</span></div>
           <div>Pretas <span class="llm-week-stat-val">${s.pretas}</span></div>
           <div>Brancas <span class="llm-week-stat-val">${s.brancas}</span></div>
           <div>Clientes <span class="llm-week-stat-val">${s.clientes.size}</span></div>
@@ -385,21 +387,47 @@ function renderWeekSummary() {
         </div>
       </div>`;
   }).join('');
+
+  // Toggle de expansão por clique
+  el.querySelectorAll('.llm-week-compact').forEach(row => {
+    row.addEventListener('click', () => {
+      const id = row.dataset.drvId;
+      const detail = el.querySelector(`[data-drv-detail="${id}"]`);
+      if (!detail) return;
+      const open = detail.style.display !== 'none';
+      detail.style.display = open ? 'none' : 'block';
+      row.classList.toggle('open', !open);
+    });
+  });
 }
 
 window.llmEncerrarSemana = async function() {
   const { from, to } = getWeekRange(_weekOffset);
-  if (!confirm(`Encerrar a semana de ${fmtDate(from)} a ${fmtDate(to)}?\n\n• Vai baixar o relatório Excel da semana\n• Vai ZERAR os caixas em rota dos motoristas\n• Os registros ficam preservados em "Registros"`)) return;
+  const tambemClientes = confirm(
+    `Encerrar a semana de ${fmtDate(from)} a ${fmtDate(to)}?\n\n` +
+    `• Vai baixar o relatório Excel da semana\n` +
+    `• Vai ZERAR os caixas em rota de TODOS os motoristas\n` +
+    `• Os registros ficam preservados em "Registros"\n\n` +
+    `OK = encerrar | Cancelar = abortar`
+  );
+  if (!tambemClientes) return;
 
-  toast('Gerando relatório da semana...');
+  // Pergunta separada se quer zerar saldos dos clientes também
+  const zerarClientes = confirm(
+    `Também zerar SALDOS DEVEDORES dos clientes?\n\n` +
+    `OK = zerar tudo (clientes + motoristas) — recomeço total\n` +
+    `Cancelar = só zerar motoristas (mantém saldo dos clientes)`
+  );
 
-  // 1. Exporta Excel ANTES de zerar (assim o relatório reflete o que aconteceu)
-  await exportWeekExcel(from, to);
+  toast('Gerando relatório...');
 
-  // 2. Zera caixas em rota
+  // 1. Exporta Excel ANTES de zerar
+  try { await exportWeekExcel(from, to); }
+  catch (e) { console.error('[Excel]', e); toast('⚠ Falha ao gerar Excel — continuando reset', true); }
+
+  // 2. Zera caixas em rota + opcionalmente saldos de clientes
   const batch = writeBatch(db);
   _drivers.forEach(d => {
-    if ((d.truckBlack || 0) + (d.truckWhite || 0) === 0) return;
     batch.update(doc(db, COL_DRIVERS, d.id), {
       truckBlack: 0, truckWhite: 0,
       lastReset: serverTimestamp(),
@@ -413,8 +441,18 @@ window.llmEncerrarSemana = async function() {
       timestamp: serverTimestamp()
     });
   });
+  if (zerarClientes) {
+    _clients.forEach(c => {
+      if ((c.balanceBlack || 0) + (c.balanceWhite || 0) === 0) return;
+      batch.update(doc(db, COL_CLIENTS, c.id), {
+        balanceBlack: 0, balanceWhite: 0,
+        zeradoEm: serverTimestamp(),
+        zeradoBy: 'week_close'
+      });
+    });
+  }
   await batch.commit();
-  toast('✓ Semana encerrada. Excel baixado e caixas zerados.');
+  toast(zerarClientes ? '✓ Semana encerrada. Tudo zerado (motoristas + clientes).' : '✓ Semana encerrada. Motoristas zerados.');
 };
 
 // ─── Export Excel da semana (relatório com 2 abas: Resumo + Detalhes) ────

@@ -771,7 +771,7 @@
           <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px;">
             <div>
               <h3 style="margin:0 0 2px;">Resumo da semana</h3>
-              <p style="margin:0;">Performance de cada motorista entre segunda e domingo.</p>
+              <p style="margin:0;">Clique no motorista para ver detalhes.</p>
             </div>
             <button id="llm-encerrar-semana" class="llm-action-btn" style="color:var(--alert);">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
@@ -794,31 +794,36 @@
             <button id="llm-week-today" class="llm-action-btn" style="height:30px;padding:0 10px;font-size:11.5px;">Hoje</button>
           </div>
 
-          <!-- Lista de motoristas com resumo da semana -->
+          <!-- Lista compacta — 1 linha por motorista, clica para ver detalhes -->
           <div id="llm-week-list">
             <p style="color:var(--muted);font-size:13px;padding:16px 0;text-align:center;letter-spacing:-.005em;">Carregando...</p>
           </div>
         </div>
 
-        <!-- Caminhões em rota AGORA (estado atual, não da semana) -->
-        <div class="admin-card">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:12px;flex-wrap:wrap;">
+        <!-- Caminhões em rota AGORA (recolhido por padrão) -->
+        <details class="admin-card" style="padding:0;">
+          <summary style="cursor:pointer;list-style:none;padding:18px 22px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
             <div>
               <h3 style="margin:0 0 2px;display:inline-flex;align-items:center;gap:8px;">
                 Caminhões em rota agora
                 <span id="llm-driver-count" style="font-size:11px;font-weight:500;color:var(--muted);background:rgba(255,255,255,.05);padding:1px 8px;border-radius:5px;letter-spacing:-.005em;">0</span>
               </h3>
-              <p style="margin:0;">Saldo de caixas em carga no momento — não reseta com a semana.</p>
+              <p style="margin:0;">Saldo atual nos caminhões — não muda com a semana.</p>
             </div>
-            <button onclick="llmZerarTudo()" class="llm-action-btn" style="color:var(--alert);">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-              Zerar todos
-            </button>
+            <svg class="details-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="color:var(--muted);transition:transform .2s;"><polyline points="6 9 12 15 18 9"/></svg>
+          </summary>
+          <div style="padding:0 22px 18px;">
+            <div style="display:flex;justify-content:flex-end;margin-bottom:10px;">
+              <button onclick="llmZerarTudo()" class="llm-action-btn" style="color:var(--alert);">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                Zerar todos
+              </button>
+            </div>
+            <div id="llm-drivers-list">
+              <p style="color:var(--muted);font-size:13px;padding:16px 0;text-align:center;letter-spacing:-.005em;">Nenhum motorista cadastrado ainda.</p>
+            </div>
           </div>
-          <div id="llm-drivers-list">
-            <p style="color:var(--muted);font-size:13px;padding:16px 0;text-align:center;letter-spacing:-.005em;">Nenhum motorista cadastrado ainda.</p>
-          </div>
-        </div>
+        </details>
 
       </div><!-- /llm-panel-motoristas -->
 
