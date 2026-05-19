@@ -268,12 +268,15 @@ async function _loadClients() {
 }
 
 window._buscarClientes = function(query) {
-  if(!query || query.length < 1) return _recentClientes.length ? _recentClientes : _clientesList.slice(0,8);
+  // Usa só clientes da rota do dia se existir
+  const rotaClientes = (window._S?.dailyRoute?.clients || []).map(c => c.toUpperCase());
+  const lista = rotaClientes.length ? rotaClientes : [];
+  if(!query || query.length < 1) return lista.slice(0, 8);
   const words = _normStr(query).split(/\s+/).filter(Boolean);
-  return _clientesList.filter(nome => {
+  return lista.filter(nome => {
     const n = _normStr(nome);
     return words.every(w => n.includes(w));
-  }).slice(0,8);
+  }).slice(0, 8);
 };
 
 function _fecharSugg() {
@@ -460,14 +463,20 @@ function initDriver(name) {
     );
   }
 
-  // Tenta começar automaticamente (se já permitido)
+  // Pede localização logo no início — motoristas idosos precisam dessa orientação clara
   if (navigator.permissions?.query) {
     navigator.permissions.query({ name: 'geolocation' }).then(p => {
-      if (p.state === 'granted') { _geoEnabled = true; _startLiveTracking(); }
-      // Se 'prompt' ou 'denied', mostra botão pra pedir manualmente
-    }).catch(() => {});
+      if (p.state === 'granted') {
+        _geoEnabled = true;
+        _startLiveTracking();
+      } else if (p.state === 'prompt') {
+        // Dispara prompt automaticamente após 800ms (UX: usuário vê a tela antes)
+        setTimeout(() => window._llRequestGeo && window._llRequestGeo(), 800);
+      }
+    }).catch(() => {
+      setTimeout(() => window._llRequestGeo && window._llRequestGeo(), 800);
+    });
   } else {
-    // Browsers sem permissions API (iOS Safari antigo): tenta direto
     _startLiveTracking();
   }
 
@@ -750,7 +759,8 @@ function initDriver(name) {
     // Inicia captura de GPS em background
     _capturaGeo();
 
-    const chipList=(_recentClientes.length?_recentClientes:_clientesList.slice(0,8));
+    const rotaClientes = (S.dailyRoute?.clients || []).map(c=>c.toUpperCase());
+    const chipList = rotaClientes.length ? rotaClientes : [];
     const chipsHtml=chipList.map(c=>
       `<button class="r-chip" onmousedown="event.preventDefault();window._selecionarCliente('${c.replace(/'/g,"\\'")}');">${c}</button>`
     ).join('');

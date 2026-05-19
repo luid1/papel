@@ -496,7 +496,7 @@ function renderTabela() {
           <div class="ll-r2">${r2Parts.join('')}</div>
         </div>
         <div class="ll-card-footer">
-          <span class="ll-valor" style="color:${tipoColor};">${fmt(r.valorTotal)}</span>
+          <span class="ll-valor" style="color:${tipoColor};display:none;">${fmt(r.valorTotal)}</span>
           <div class="ll-btns">
             <button data-ll-action="edit" data-ll-id="${r.id}"
               style="background:rgba(0,212,255,.08);border-color:rgba(0,212,255,.2);color:var(--accent);">✎ Editar</button>
