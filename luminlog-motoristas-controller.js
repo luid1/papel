@@ -1047,26 +1047,42 @@ function renderClients() {
     return;
   }
 
-  el.innerHTML = comSaldo.map((c, idx) => {
-    const b = nn(c.balanceBlack), w = nn(c.balanceWhite), total = b + w;
-    const isLast = idx === comSaldo.length - 1;
-    return `
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;
-        padding:14px 0;${isLast ? '' : 'border-bottom:1px solid rgba(255,255,255,.08);'}">
-        <div style="min-width:0;flex:1;">
-          <div style="font-size:15px;font-weight:700;margin-bottom:4px;">${esc(c.name)}</div>
-          <div style="font-size:13px;color:rgba(228,240,246,.5);">
-            Pretas: ${b} &nbsp;·&nbsp; Brancas: ${w}
-          </div>
-        </div>
-        <div style="text-align:right;flex-shrink:0;">
-          <div style="font-family:'DM Mono',monospace;font-size:28px;font-weight:700;
-            color:var(--warning);line-height:1;">${total}</div>
-          <div style="font-size:11px;color:rgba(228,240,246,.4);margin-top:3px;">caixas</div>
-        </div>
+  // Total geral
+  const totalGeral = comSaldo.reduce((a, c) => a + nn(c.balanceBlack) + nn(c.balanceWhite), 0);
+  const totGeralPt = comSaldo.reduce((a, c) => a + nn(c.balanceBlack), 0);
+  const totGeralBr = comSaldo.reduce((a, c) => a + nn(c.balanceWhite), 0);
+
+  el.innerHTML = `
+    <div style="display:flex;gap:14px;padding:10px 0 14px;border-bottom:1px solid var(--border);margin-bottom:6px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:90px;">
+        <div style="font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;">Total devido</div>
+        <div style="font-family:'DM Mono',monospace;font-size:18px;font-weight:600;color:var(--warning);">${totalGeral} cx</div>
       </div>
-    `;
-  }).join('');
+      <div style="flex:1;min-width:90px;">
+        <div style="font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;">Pretas</div>
+        <div style="font-family:'DM Mono',monospace;font-size:18px;font-weight:600;color:var(--text);">${totGeralPt}</div>
+      </div>
+      <div style="flex:1;min-width:90px;">
+        <div style="font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;">Brancas</div>
+        <div style="font-family:'DM Mono',monospace;font-size:18px;font-weight:600;color:var(--text);">${totGeralBr}</div>
+      </div>
+    </div>
+    ${comSaldo.map((c, idx) => {
+      const b = nn(c.balanceBlack), w = nn(c.balanceWhite), total = b + w;
+      const isLast = idx === comSaldo.length - 1;
+      return `
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;${isLast ? '' : 'border-bottom:1px solid var(--border);'}">
+          <div style="min-width:0;flex:1;">
+            <div style="font-size:13px;font-weight:600;color:var(--text);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(c.name)}</div>
+            <div style="font-size:11.5px;color:var(--muted);letter-spacing:-.005em;margin-top:2px;">
+              ${b} pretas · ${w} brancas
+            </div>
+          </div>
+          <div style="font-family:'DM Mono',monospace;font-size:15px;font-weight:600;color:var(--warning);flex-shrink:0;">
+            ${total}
+          </div>
+        </div>`;
+    }).join('')}`;
 }
 
 // ═══════════════════════════════════════════════════════════════

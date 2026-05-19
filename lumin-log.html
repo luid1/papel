@@ -909,18 +909,30 @@ function initDriver(name) {
 
   /* ════ RESUMO ════ */
   function vSummary() {
-    const txHtml=S.transactions.length?S.transactions.map(tx=>`
-      <div class="tx-item">
-        <div class="tx-client">${tx.clientName}${tx.geo?` <span style="font-size:.65rem;color:rgba(0,229,160,.5);">📍</span>`:''}</div>
-        <div class="tx-chips">
-          ${tx.delBlack?`<span class="tx-chip del">⬛ ${tx.delBlack} entreg.</span>`:''}
-          ${tx.delWhite?`<span class="tx-chip del">⬜ ${tx.delWhite} entreg.</span>`:''}
-          ${tx.colBlack?`<span class="tx-chip col">⬛ ${tx.colBlack} colet.</span>`:''}
-          ${tx.colWhite?`<span class="tx-chip col">⬜ ${tx.colWhite} colet.</span>`:''}
-          ${(tx.cxOcupBlack||tx.cxOcupWhite)?`<span class="tx-chip ocp">📦 ${(tx.cxOcupBlack||0)+(tx.cxOcupWhite||0)} ocup.</span>`:''}
-          ${tx.temFoto?`<span class="tx-chip" style="border-color:rgba(255,179,71,.3);color:var(--warning);">📷</span>`:''}
-        </div>
-      </div>`).join(''):'<p class="empty">Nenhum cliente lançado ainda.</p>';
+    // Narrativa por cliente: "Deixou 10pt e pegou 8pt"
+    const txHtml=S.transactions.length?S.transactions.map(tx=>{
+      const partes = [];
+      if (tx.delBlack || tx.delWhite) {
+        const det = [];
+        if (tx.delBlack) det.push(`<b>${tx.delBlack}</b> pretas`);
+        if (tx.delWhite) det.push(`<b>${tx.delWhite}</b> brancas`);
+        partes.push(`<span style="color:var(--alert);">↓ Deixou ${det.join(' e ')}</span>`);
+      }
+      if (tx.colBlack || tx.colWhite) {
+        const det = [];
+        if (tx.colBlack) det.push(`<b>${tx.colBlack}</b> pretas`);
+        if (tx.colWhite) det.push(`<b>${tx.colWhite}</b> brancas`);
+        partes.push(`<span style="color:var(--success);">↑ Pegou ${det.join(' e ')}</span>`);
+      }
+      const linha = partes.join(' · ') || '<span style="color:rgba(228,240,246,.4);">sem caixas</span>';
+      return `
+        <div style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,.06);">
+          <div style="font-size:.95rem;font-weight:800;margin-bottom:4px;display:flex;align-items:center;gap:6px;">
+            ${tx.clientName}${tx.geo?`<span style="font-size:.62rem;color:rgba(0,229,160,.6);">📍</span>`:''}${tx.temFoto?`<span style="font-size:.62rem;color:rgba(255,179,71,.7);">📷</span>`:''}
+          </div>
+          <div style="font-size:.82rem;letter-spacing:-.005em;">${linha}</div>
+        </div>`;
+    }).join(''):'<p class="empty">Nenhum cliente lançado ainda.</p>';
 
     $('app').innerHTML=`<div id="driver-wrap" class="fade-in">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">

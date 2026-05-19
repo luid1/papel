@@ -548,25 +548,28 @@ function renderTabela() {
     if (isRevisar) r2Parts.push(`<span class="ll-chip-sep"></span><span class="ll-chip" style="color:var(--warning);">⚠ Revisar</span>`);
     r2Parts.push(extraCxHtml);
 
+    // Layout linha única — visual limpo, similar ao tenant
     return `
-      <div class="ll-card ${isEntrada ? 'is-entrada' : 'is-saida'} ${isRevisar ? 'is-revisar' : ''}" data-ll-id="${r.id}">
-        <div class="ll-card-stripe"></div>
-        <div class="ll-card-body">
-          <div class="ll-r1">
-            <span class="ll-tipo-badge" style="background:${tipoBg};border:1px solid ${tipoBorder};color:${tipoColor};">${tipoIcon} ${esc(r.tipo)}</span>
-            <span class="ll-nome" title="${esc(nomePrincipal)}">${esc(nomePrincipal)}</span>
-            <span class="ll-data">${fmtDt(r.data)}</span>
-          </div>
-          <div class="ll-r2">${r2Parts.join('')}</div>
+      <div class="ll-row ${isEntrada ? 'is-entrada' : 'is-saida'} ${isRevisar ? 'is-revisar' : ''}" data-ll-id="${r.id}"
+        style="display:flex;align-items:center;gap:12px;padding:11px 12px;border-bottom:1px solid var(--border);border-left:3px solid ${tipoColor};background:rgba(255,255,255,.02);transition:background .15s;">
+        <div style="display:flex;flex-direction:column;min-width:64px;flex-shrink:0;">
+          <span style="font-size:9.5px;font-weight:700;letter-spacing:.4px;color:${tipoColor};text-transform:uppercase;">${tipoIcon} ${esc(r.tipo)}</span>
+          <span style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);margin-top:2px;">${fmtDt(r.data)}</span>
         </div>
-        <div class="ll-card-footer">
-          <span class="ll-valor" style="color:${tipoColor};display:none;">${fmt(r.valorTotal)}</span>
-          <div class="ll-btns">
-            <button data-ll-action="edit" data-ll-id="${r.id}"
-              style="background:rgba(0,212,255,.08);border-color:rgba(0,212,255,.2);color:var(--accent);">✎ Editar</button>
-            <button data-ll-action="del" data-ll-id="${r.id}"
-              style="background:rgba(255,91,112,.06);border-color:rgba(255,91,112,.18);color:var(--alert);">🗑</button>
+        <div style="min-width:0;flex:1;">
+          <div style="font-size:13.5px;font-weight:600;color:var(--text);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(nomePrincipal)}</div>
+          <div style="font-size:11.5px;color:var(--muted);letter-spacing:-.005em;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            ${r.motorista ? esc(r.motorista) + ' · ' : ''}${corIcon} ${esc(r.cor||'—')}${isRevisar ? ' · <span style="color:var(--warning);">⚠ Revisar</span>' : ''}
           </div>
+        </div>
+        <div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:600;color:${tipoColor};flex-shrink:0;min-width:50px;text-align:right;">
+          ${r.quantidadeCx ?? '—'}<span style="font-size:10px;color:var(--muted);margin-left:2px;">cx</span>
+        </div>
+        <div style="display:flex;gap:4px;flex-shrink:0;">
+          <button data-ll-action="edit" data-ll-id="${r.id}" title="Editar"
+            style="width:28px;height:28px;border-radius:7px;background:transparent;border:1px solid var(--border);color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:12px;">✎</button>
+          <button data-ll-action="del" data-ll-id="${r.id}" title="Excluir"
+            style="width:28px;height:28px;border-radius:7px;background:transparent;border:1px solid var(--border);color:var(--muted);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-size:12px;">🗑</button>
         </div>
       </div>`;
   }).join('');
