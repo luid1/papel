@@ -256,8 +256,11 @@ function calcCaixasNoCaminhao() {
     return /\b(CD|DEPOSITO|DEPÓSITO|RETIRADA|DEVOLU[CÇ][AÃ]O|RETORNO|HETROS)\b/.test(n) || n === '—';
   };
 
+  // Só considera lançamentos de HOJE
+  const hojeYmd = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD local
+
   const saldo = {};
-  _registros.forEach(r => {
+  _registros.filter(r => (r.data || '') === hojeYmd).forEach(r => {
     if (!r.motorista) return;
     const mot = r.motorista.trim().toUpperCase();
     const cli = (r.cliente || '—').trim().toUpperCase();
