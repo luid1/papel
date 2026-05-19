@@ -738,7 +738,20 @@ function initDriver(name) {
           <span style="font-family:'Montserrat',sans-serif;font-weight:900;">Deixar no CD</span>
         </div>
       </div>
-      <div style="margin-bottom:14px;">${truckBadges()}</div>
+      <div style="background:rgba(255,179,71,.06);border:1.5px solid rgba(255,179,71,.2);border-radius:14px;padding:14px 16px;margin-bottom:16px;text-align:center;">
+        <div style="font-size:.78rem;color:rgba(228,240,246,.55);font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin-bottom:6px;">📦 Você tem no caminhão</div>
+        <div style="display:flex;justify-content:center;gap:24px;align-items:baseline;">
+          <div>
+            <span style="font-family:'DM Mono',monospace;font-size:1.9rem;font-weight:900;color:var(--text);">${S.truckBlack}</span>
+            <span style="font-size:.75rem;color:rgba(228,240,246,.55);font-weight:700;margin-left:4px;">⬛ pretas</span>
+          </div>
+          <div>
+            <span style="font-family:'DM Mono',monospace;font-size:1.9rem;font-weight:900;color:var(--text);">${S.truckWhite}</span>
+            <span style="font-size:.75rem;color:rgba(228,240,246,.55);font-weight:700;margin-left:4px;">⬜ brancas</span>
+          </div>
+        </div>
+        <div style="font-size:.75rem;color:rgba(255,179,71,.85);font-weight:600;margin-top:8px;">Quantas você vai deixar no CD?</div>
+      </div>
       <div class="glass-card" style="padding:26px;margin-bottom:20px;">
         ${cBlock('⬛ PRETAS devolvidas','retBlack','c-rB')}
         <div class="sep"></div>
@@ -802,6 +815,20 @@ function initDriver(name) {
         </div>
         <!-- Chips rápidos -->
         <div id="recent-chips">${chipsHtml}</div>
+        <!-- Resumo visual: quanto tem no caminhão agora -->
+        <div style="background:rgba(0,212,255,.06);border:1.5px solid rgba(0,212,255,.2);border-radius:14px;padding:14px 16px;margin:10px 0 6px;text-align:center;">
+          <div style="font-size:.78rem;color:rgba(228,240,246,.55);font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin-bottom:6px;">📦 No seu caminhão agora</div>
+          <div style="display:flex;justify-content:center;gap:24px;align-items:baseline;">
+            <div>
+              <span style="font-family:'DM Mono',monospace;font-size:1.8rem;font-weight:900;color:var(--text);">${S.truckBlack}</span>
+              <span style="font-size:.75rem;color:rgba(228,240,246,.55);font-weight:700;margin-left:4px;">⬛ pretas</span>
+            </div>
+            <div>
+              <span style="font-family:'DM Mono',monospace;font-size:1.8rem;font-weight:900;color:var(--text);">${S.truckWhite}</span>
+              <span style="font-size:.75rem;color:rgba(228,240,246,.55);font-weight:700;margin-left:4px;">⬜ brancas</span>
+            </div>
+          </div>
+        </div>
         <!-- Alerta saldo alto -->
         <div class="alert-banner" id="cs-alert"></div>
         <!-- Foto obrigatória -->

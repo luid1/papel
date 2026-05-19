@@ -259,32 +259,65 @@ function renderKpis() {
   const todayDateEl = $('ll-today-date');
   if (todayDateEl) todayDateEl.textContent = todayD.toLocaleDateString('pt-BR', {weekday:'long',day:'2-digit',month:'long'});
 
-  // Feed dos últimos lançamentos de hoje (até 8, mais recentes primeiro)
+  // Resumo agregado de hoje — sem listar cada lançamento individualmente
   const feed = $('ll-today-feed');
   if (feed) {
     if (!todayRegs.length) {
       feed.innerHTML = '<p style="color:var(--muted);font-size:13px;padding:8px 0;letter-spacing:-.005em;">Nenhum lançamento hoje ainda.</p>';
     } else {
-      const sorted = [...todayRegs].sort((a,b) => {
-        const tA = a.createdAt?.toMillis?.() ?? 0;
-        const tB = b.createdAt?.toMillis?.() ?? 0;
-        return tB - tA;
-      }).slice(0, 8);
-      feed.innerHTML = sorted.map(r => {
-        const ts = r.createdAt?.toDate?.();
-        const hora = ts ? ts.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}) : '';
-        const isIn = r.tipo === 'ENTRADA';
-        const color = isIn ? 'var(--success)' : 'var(--alert)';
-        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;letter-spacing:-.005em;">
-          <span style="width:6px;height:6px;border-radius:50%;background:${color};flex-shrink:0;"></span>
-          <span style="color:var(--text);flex-shrink:0;font-weight:500;min-width:40px;">${hora}</span>
-          <span style="color:${color};font-weight:500;min-width:64px;">${isIn?'+':'−'} ${r.quantidadeCx||0} ${(r.cor||'').toLowerCase().includes('branc')?'br':'pt'}</span>
-          <span style="color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;">${esc(r.cliente||'—')}</span>
-          <span style="color:var(--muted);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:120px;">${esc(r.motorista||'—')}</span>
-        </div>`;
-      }).join('');
+      // Agrupa por motorista
+      const porMotorista = {};
+      todayRegs.forEach(r => {
+        const m = (r.motorista || '— sem motorista —').trim().toUpperCase();
+        if (!porMotorista[m]) porMotorista[m] = { saiu: 0, voltou: 0, clientes: new Set() };
+        const qtd = r.quantidadeCx || 0;
+        if (r.tipo === 'ENTRADA') porMotorista[m].saiu += qtd;
+        else porMotorista[m].voltou += qtd;
+        if (r.cliente) porMotorista[m].clientes.add(r.cliente);
+      });
+
+      const totalSaiu   = todayRegs.filter(r => r.tipo === 'ENTRADA').reduce((a, r) => a + (r.quantidadeCx||0), 0);
+      const totalVoltou = todayRegs.filter(r => r.tipo === 'SAÍDA').reduce((a, r) => a + (r.quantidadeCx||0), 0);
+      const emRota = Math.max(0, totalSaiu - totalVoltou);
+
+      const blocos = Object.entries(porMotorista)
+        .sort(([,a],[,b]) => (b.saiu+b.voltou) - (a.saiu+a.voltou))
+        .map(([m, v]) => {
+          const emRotaM = Math.max(0, v.saiu - v.voltou);
+          return `
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);">
+              <div style="min-width:0;flex:1;">
+                <div style="font-size:13px;font-weight:600;color:var(--text);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(m)}</div>
+                <div style="font-size:11.5px;color:var(--muted);letter-spacing:-.005em;margin-top:2px;">
+                  ${v.clientes.size} cliente${v.clientes.size!==1?'s':''} visitado${v.clientes.size!==1?'s':''}
+                </div>
+              </div>
+              <div style="display:flex;gap:14px;flex-shrink:0;font-size:12px;font-family:'DM Mono',monospace;">
+                <span style="color:var(--success);">↑${v.saiu}</span>
+                <span style="color:var(--alert);">↓${v.voltou}</span>
+                <span style="color:${emRotaM>0?'var(--warning)':'var(--muted)'};min-width:36px;text-align:right;">${emRotaM} rota</span>
+              </div>
+            </div>`;
+        }).join('');
+
+      feed.innerHTML = `
+        <div style="display:flex;gap:12px;flex-wrap:wrap;padding:8px 0 14px;border-bottom:1px solid var(--border);margin-bottom:6px;">
+          <div style="flex:1;min-width:90px;">
+            <div style="font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;">Saíram</div>
+            <div style="font-family:'DM Mono',monospace;font-size:18px;font-weight:600;color:var(--success);">${totalSaiu} cx</div>
+          </div>
+          <div style="flex:1;min-width:90px;">
+            <div style="font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;">Voltaram</div>
+            <div style="font-family:'DM Mono',monospace;font-size:18px;font-weight:600;color:var(--alert);">${totalVoltou} cx</div>
+          </div>
+          <div style="flex:1;min-width:90px;">
+            <div style="font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;">Em rota</div>
+            <div style="font-family:'DM Mono',monospace;font-size:18px;font-weight:600;color:${emRota>0?'var(--warning)':'var(--muted)'};">${emRota} cx</div>
+          </div>
+        </div>
+        ${blocos}`;
       const lastChild = feed.lastElementChild;
-      if (lastChild) lastChild.style.borderBottom = 'none';
+      if (lastChild && lastChild.style) lastChild.style.borderBottom = 'none';
     }
   }
 
@@ -622,56 +655,26 @@ function _renderRadar() {
     if (s.taxa < 60 && s.carregou >= 15) alertas.push(`📉 Entrega menos do que carrega (${s.taxa}%)`);
     if (s.taxaFoto != null && s.taxaFoto < 30 && s.saidasTotal >= 3) alertas.push(`📷 Raramente tira foto nas entregas`);
 
+    // Linha compacta — sem dashboards visuais redundantes
+    const alertaTxt = alertas.length
+      ? alertas.join(' · ')
+      : `${s.taxa}% entrega · ${s.taxaFoto != null ? s.taxaFoto + '% fotos' : 'sem fotos'}`;
+
     return `
-      <div style="background:${bg};border:1px solid ${bdr};border-radius:12px;padding:13px 15px;margin-bottom:8px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:11px;flex-wrap:wrap;">
-          <div style="display:flex;align-items:center;gap:8px;">
-            <span style="font-size:17px;line-height:1;">${icon}</span>
-            <span style="font-size:14px;font-weight:800;letter-spacing:.2px;">${esc(s.nome)}</span>
-          </div>
-          <span style="font-size:9px;font-weight:900;padding:3px 12px;border-radius:20px;letter-spacing:.6px;
-            color:${cor};background:${bg};border:1px solid ${bdr};">${label}</span>
-        </div>
-
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-bottom:11px;text-align:center;">
-          <div style="background:rgba(255,255,255,.04);border-radius:9px;padding:8px 4px;">
-            <div style="font-size:8px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px;">Em Rota</div>
-            <div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:900;color:${cor};">${s.saldo}<span style="font-size:9px;color:var(--muted);"> cx</span></div>
-          </div>
-          <div style="background:rgba(255,255,255,.04);border-radius:9px;padding:8px 4px;">
-            <div style="font-size:8px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px;">Carregou</div>
-            <div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:900;">${s.carregou}<span style="font-size:9px;color:var(--muted);"> cx</span></div>
-          </div>
-          <div style="background:rgba(255,255,255,.04);border-radius:9px;padding:8px 4px;">
-            <div style="font-size:8px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px;">Entregou</div>
-            <div style="font-family:'DM Mono',monospace;font-size:16px;font-weight:900;">${s.entregou}<span style="font-size:9px;color:var(--muted);"> cx</span></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border);">
+        <div style="display:flex;align-items:center;gap:10px;min-width:0;flex:1;">
+          <span style="font-size:13px;line-height:1;flex-shrink:0;">${icon}</span>
+          <div style="min-width:0;flex:1;">
+            <div style="font-size:13px;font-weight:600;color:var(--text);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(s.nome)}</div>
+            <div style="font-size:11px;color:${alertas.length ? cor : 'var(--muted)'};letter-spacing:-.005em;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${alertaTxt}</div>
           </div>
         </div>
-
-        <div style="margin-bottom:7px;">
-          <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-            <span style="font-size:9px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">Taxa de Entrega</span>
-            <span style="font-size:10px;font-weight:900;color:${taxaCor};">${s.taxa}%</span>
-          </div>
-          <div style="height:5px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden;">
-            <div style="height:100%;width:${taxaBarW}%;background:${taxaCor};border-radius:3px;transition:width .5s ease;"></div>
+        <div style="display:flex;align-items:center;gap:12px;flex-shrink:0;">
+          <div style="text-align:right;">
+            <div style="font-size:11px;color:var(--muted);letter-spacing:-.005em;">em rota</div>
+            <div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:600;color:${cor};">${s.saldo}</div>
           </div>
         </div>
-
-        <div style="margin-bottom:${alertas.length ? '9px' : '0'};">
-          <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
-            <span style="font-size:9px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;">📷 Fotos nas Entregas</span>
-            <span style="font-size:10px;font-weight:700;color:${fotoCor};">${fotoLabel}</span>
-          </div>
-          <div style="height:5px;background:rgba(255,255,255,.07);border-radius:3px;overflow:hidden;">
-            <div style="height:100%;width:${fotoBarW}%;background:${fotoCor};border-radius:3px;transition:width .5s ease;"></div>
-          </div>
-        </div>
-
-        ${alertas.length ? `
-        <div style="border-top:1px solid rgba(255,255,255,.07);padding-top:8px;display:flex;flex-direction:column;gap:4px;">
-          ${alertas.map(a => `<div style="font-size:10px;color:rgba(255,190,80,.9);font-weight:700;">⚠ ${a}</div>`).join('')}
-        </div>` : ''}
       </div>`;
   }).join('');
 }

@@ -881,13 +881,32 @@ function renderDrivers() {
     // Fotos recentes deste motorista (últimos eventos com foto)
     const driverEvs = _events.filter(ev => ev.driverName === d.name);
     const fotos = [];
+    let temFotoRetiradaHoje = false;
+    let temFotoEntregaHoje = false;
+    const hojeStr = new Date().toISOString().slice(0,10);
     driverEvs.forEach(ev => {
-      if (ev.fotoUrl)      fotos.push({ url: ev.fotoUrl,      label: 'Retirada CD' });
-      if (ev.fotoEntrega)  fotos.push({ url: ev.fotoEntrega,  label: 'Entrega' });
-      if (ev.fotoColeta)   fotos.push({ url: ev.fotoColeta,   label: 'Coleta' });
+      const tsDate = ev.timestamp?.toDate?.()?.toISOString?.()?.slice(0,10);
+      if (ev.fotoUrl) {
+        fotos.push({ url: ev.fotoUrl, label: 'Retirada CD' });
+        if (tsDate === hojeStr) temFotoRetiradaHoje = true;
+      }
+      if (ev.fotoEntrega) {
+        fotos.push({ url: ev.fotoEntrega, label: 'Entrega' });
+        if (tsDate === hojeStr) temFotoEntregaHoje = true;
+      }
+      if (ev.fotoColeta) {
+        fotos.push({ url: ev.fotoColeta, label: 'Coleta' });
+        if (tsDate === hojeStr) temFotoEntregaHoje = true;
+      }
     });
-    // Máximo 4 fotos mais recentes
     const fotosRecentes = fotos.slice(0, 4);
+    const verificado = temFotoRetiradaHoje || temFotoEntregaHoje;
+    const verificadoHtml = verificado
+      ? `<span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:6px;background:rgba(74,222,128,.10);border:1px solid rgba(74,222,128,.25);color:#4ade80;font-size:11px;font-weight:600;letter-spacing:-.005em;">
+           <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+           Verificado
+         </span>`
+      : '';
 
     const fotosHtml = fotosRecentes.length ? `
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
@@ -931,14 +950,12 @@ function renderDrivers() {
           <div style="min-width:0;flex:1;">
             <div style="font-size:14px;font-weight:600;letter-spacing:-.015em;margin-bottom:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
               ${esc(d.name)}
+              ${verificadoHtml}
               ${liveHtml}
             </div>
             <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:12.5px;letter-spacing:-.005em;">
               <span style="color:var(--muted);">Pretas <strong style="color:var(--text);font-weight:500;margin-left:3px;">${b}</strong></span>
               <span style="color:var(--muted);">Brancas <strong style="color:var(--text);font-weight:500;margin-left:3px;">${w}</strong></span>
-              ${total > 0
-                ? `<span style="font-size:11px;font-weight:500;color:var(--accent);background:rgba(255,255,255,.04);border:1px solid var(--border);padding:1px 8px;border-radius:5px;letter-spacing:-.005em;">${total} em rota</span>`
-                : `<span style="font-size:11px;color:var(--muted);letter-spacing:-.005em;">caminhão vazio</span>`}
             </div>
             ${fotosHtml}
           </div>
@@ -1038,51 +1055,70 @@ function renderPhotos() {
   const card  = $('llm-photos-card');
   if (!el) return;
 
-  // Monta lista: cada foto é um objeto {url, label, driver, ts}
-  const fotos = [];
+  // Agrupa fotos por cliente / CD
+  // Estrutura: { "CLIENTE_X": [{ url, tipo, driver, ts }, ...] }
+  const grupos = {};
+  const addFoto = (chave, url, tipo, driver, ts) => {
+    if (!grupos[chave]) grupos[chave] = [];
+    grupos[chave].push({ url, tipo, driver, ts });
+  };
+
   _events.forEach(ev => {
     const ts = ev.timestamp?.toDate ? ev.timestamp.toDate() : new Date(ev.timestamp || 0);
     const driver = ev.driverName || '?';
-    if (ev.fotoUrl)     fotos.push({ url: ev.fotoUrl,     label: 'Retirada CD', driver, ts });
-    if (ev.fotoEntrega) fotos.push({ url: ev.fotoEntrega, label: 'Entrega → ' + (ev.clientName || ''), driver, ts });
-    if (ev.fotoColeta)  fotos.push({ url: ev.fotoColeta,  label: 'Coleta ← '  + (ev.clientName || ''), driver, ts });
+    const cliente = (ev.clientName || '').trim().toUpperCase();
+    if (ev.fotoUrl)     addFoto('🏭 CD (Retirada)', ev.fotoUrl, 'Retirada CD', driver, ts);
+    if (ev.fotoEntrega) addFoto(cliente || '— sem cliente —', ev.fotoEntrega, 'Entrega', driver, ts);
+    if (ev.fotoColeta)  addFoto(cliente || '— sem cliente —', ev.fotoColeta,  'Coleta',  driver, ts);
   });
 
-  // Ordenar mais recentes primeiro
-  fotos.sort((a, b) => b.ts - a.ts);
+  const totalFotos = Object.values(grupos).reduce((s, arr) => s + arr.length, 0);
+  if (cnt) cnt.textContent = totalFotos;
+  if (card) card.style.display = totalFotos ? 'block' : 'none';
 
-  if (cnt) cnt.textContent = fotos.length;
-  if (card) card.style.display = fotos.length ? 'block' : 'none';
-
-  if (!fotos.length) {
+  if (!totalFotos) {
     el.innerHTML = '<p style="color:rgba(228,240,246,.4);font-size:13px;padding:6px 0;">Nenhuma foto enviada ainda.</p>';
     return;
   }
 
-  el.innerHTML = `
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;">
-      ${fotos.map((f, i) => {
-        const hora = f.ts.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-        const dia  = f.ts.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-        return `
-          <div style="cursor:pointer;border-radius:14px;overflow:hidden;
-            border:1.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.03);
-            transition:transform .15s,border-color .15s;"
-            onmouseover="this.style.transform='scale(1.03)';this.style.borderColor='rgba(0,212,255,.4)'"
-            onmouseout="this.style.transform='';this.style.borderColor='rgba(255,255,255,.1)'"
-            onclick="llmVerFoto('${encodeURIComponent(f.url)}','${esc(f.label)}','${esc(f.driver)}')">
-            <img src="${f.url}" alt="${esc(f.label)}"
-              style="width:100%;aspect-ratio:1/1;object-fit:cover;display:block;"/>
-            <div style="padding:8px 10px;">
-              <div style="font-size:11px;font-weight:700;color:var(--text);
-                white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(f.driver)}</div>
-              <div style="font-size:10px;color:rgba(0,212,255,.8);font-weight:600;
-                white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;">${esc(f.label)}</div>
-              <div style="font-size:10px;color:rgba(228,240,246,.4);margin-top:2px;">${dia} ${hora}</div>
-            </div>
-          </div>`;
-      }).join('')}
-    </div>`;
+  // Ordenar grupos por foto mais recente
+  const chavesOrdenadas = Object.keys(grupos).sort((a, b) => {
+    const maxA = Math.max(...grupos[a].map(f => f.ts.getTime()));
+    const maxB = Math.max(...grupos[b].map(f => f.ts.getTime()));
+    return maxB - maxA;
+  });
+
+  el.innerHTML = chavesOrdenadas.map(chave => {
+    const fotos = grupos[chave].sort((a, b) => b.ts - a.ts);
+    return `
+      <div style="margin-bottom:20px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border);">
+          <span style="font-size:13px;font-weight:600;color:var(--text);letter-spacing:-.01em;">${esc(chave)}</span>
+          <span style="font-size:11px;color:var(--muted);">${fotos.length} foto${fotos.length>1?'s':''}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;">
+          ${fotos.map(f => {
+            const hora = f.ts.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            const dia  = f.ts.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+            return `
+              <div style="cursor:pointer;border-radius:10px;overflow:hidden;
+                border:1px solid var(--border);background:rgba(255,255,255,.02);
+                transition:transform .15s,border-color .15s;"
+                onmouseover="this.style.transform='scale(1.03)';this.style.borderColor='rgba(0,212,255,.4)'"
+                onmouseout="this.style.transform='';this.style.borderColor='var(--border)'"
+                onclick="llmVerFoto('${encodeURIComponent(f.url)}','${esc(f.tipo)} · ${esc(chave)}','${esc(f.driver)}')">
+                <img src="${f.url}" alt="${esc(f.tipo)}"
+                  style="width:100%;aspect-ratio:1/1;object-fit:cover;display:block;"/>
+                <div style="padding:6px 8px;">
+                  <div style="font-size:10.5px;font-weight:600;color:var(--text);
+                    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(f.driver)}</div>
+                  <div style="font-size:9.5px;color:var(--muted);margin-top:1px;">${esc(f.tipo)} · ${dia} ${hora}</div>
+                </div>
+              </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+  }).join('');
 }
 
 // ═══════════════════════════════════════════════════════════════

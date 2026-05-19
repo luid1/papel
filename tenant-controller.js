@@ -291,7 +291,8 @@ function bindSmartSearch(){
 // ─── CATEGORIAS ACTIVAS (respeita feature flags) ──────────────
 function activeCats() {
   const hasFuncionario = s.features?.funcionario === true;
-  const hasComida      = s.features?.comida === true;
+  // Comida: ativa por padrão. Só fica escondida se for explicitamente desativada.
+  const hasComida      = s.features?.comida !== false;
   return Object.fromEntries(
     Object.entries(CATS).filter(([k]) => {
       if (k === 'funcionario') return hasFuncionario;
@@ -312,7 +313,10 @@ function applyFeatures() {
   // adicionamos a classe em vez de usar style.display (que seria sobrescrito).
   document.querySelectorAll('[data-feature]').forEach(el => {
     const feat = el.dataset.feature;
-    const active = features[feat] === true;
+    // "comida" é ativa por padrão; outras features são opt-in
+    const active = feat === 'comida'
+      ? features[feat] !== false
+      : features[feat] === true;
     if (active) {
       el.classList.remove('feat-hidden');
     } else {
@@ -341,8 +345,8 @@ function applyFeatures() {
       optExistente.remove();
     }
 
-    // Opção "Comida" — mesma lógica (insere/remove conforme feature)
-    const hasComida    = features.comida === true;
+    // Opção "Comida" — ativa por padrão (só some se admin desativar explicitamente)
+    const hasComida    = features.comida !== false;
     const optComida    = sel.querySelector('option[value="comida"]');
 
     if (hasComida && !optComida) {
@@ -362,7 +366,8 @@ function applyFeatures() {
 // Verifica se uma categoria está activa para o tenant actual
 function _catActive(cat) {
   if (cat === 'funcionario') return s.features?.funcionario === true;
-  if (cat === 'comida')      return s.features?.comida === true;
+  // Comida: ativa por padrão — só desativada se admin marcar explicitamente
+  if (cat === 'comida')      return s.features?.comida !== false;
   return true;
 }
 
