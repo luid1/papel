@@ -285,7 +285,7 @@ function renderKpis() {
   $('ll-today-entrada') && ($('ll-today-entrada').textContent = `${tEnt} cx`);
   $('ll-today-saida')   && ($('ll-today-saida').textContent   = `${tSai} cx`);
   $('ll-today-drivers') && ($('ll-today-drivers').textContent = tDrivers);
-  $('ll-today-count')   && ($('ll-today-count').textContent   = todayRegs.length);
+  $('ll-today-count')   && ($('ll-today-count').textContent   = `${Math.max(0, tEnt - tSai)} cx`);
   const todayDateEl = $('ll-today-date');
   if (todayDateEl) todayDateEl.textContent = todayD.toLocaleDateString('pt-BR', {weekday:'long',day:'2-digit',month:'long'});
 
@@ -360,7 +360,7 @@ function renderKpis() {
 
   $('ll-total-entrada') && ($('ll-total-entrada').textContent = `${totEntrada} cx`);
   $('ll-total-saida')   && ($('ll-total-saida').textContent   = `${totSaida} cx`);
-  $('ll-total-valor')   && ($('ll-total-valor').textContent   = fmt(totValor));
+  $('ll-total-valor')   && ($('ll-total-valor').textContent   = `${Math.max(0, totEntrada - totSaida)} cx`);
   $('ll-total-count')   && ($('ll-total-count').textContent   = totCount);
   const wkLbl = $('ll-week-date');
   if (wkLbl) {
@@ -426,7 +426,7 @@ function renderTabela() {
   const filtValor   = dados.reduce((a, r) => a + (r.valorTotal || 0), 0);
   const el_fe = $('ll-filt-entrada'); if (el_fe) el_fe.textContent = `${filtEntrada} cx`;
   const el_fs = $('ll-filt-saida');   if (el_fs) el_fs.textContent = `${filtSaida} cx`;
-  const el_fv = $('ll-filt-valor');   if (el_fv) el_fv.textContent = fmt(filtValor);
+  const el_fv = $('ll-filt-valor');   if (el_fv) el_fv.textContent = `${Math.max(0, filtEntrada - filtSaida)} cx`;
   const el_fc = $('ll-filt-count');   if (el_fc) el_fc.textContent = `${dados.length} reg.`;
 
   const filtrosAtivos = $('ll-filt-row');
@@ -513,7 +513,49 @@ function renderTabela() {
     document.head.appendChild(style);
   }
 
-  // ── Renderiza cada registro como card ─────────────────────────
+  // ── Se NENHUM motorista filtrado: mostra RESUMO agrupado por motorista
+  // (estilo "Atividade de hoje"). Se um motorista estiver filtrado,
+  // mostra lista detalhada dos lançamentos desse motorista.
+  if (!(_filtros.motorista || '').trim()) {
+    const porMotorista = {};
+    dados.forEach(r => {
+      const m = (r.motorista || '— sem motorista —').trim().toUpperCase();
+      if (!porMotorista[m]) porMotorista[m] = { saiu: 0, voltou: 0, clientes: new Set(), count: 0, datas: new Set() };
+      const qtd = r.quantidadeCx || 0;
+      if (r.tipo === 'ENTRADA') porMotorista[m].saiu += qtd;
+      else porMotorista[m].voltou += qtd;
+      if (r.cliente) porMotorista[m].clientes.add(r.cliente);
+      if (r.data) porMotorista[m].datas.add(r.data);
+      porMotorista[m].count++;
+    });
+
+    tbody.innerHTML = Object.entries(porMotorista)
+      .sort(([,a],[,b]) => (b.saiu+b.voltou) - (a.saiu+a.voltou))
+      .map(([m, v]) => {
+        const emRota = Math.max(0, v.saiu - v.voltou);
+        return `
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;"
+            onmouseover="this.style.background='rgba(255,255,255,.02)'"
+            onmouseout="this.style.background=''"
+            onclick="(function(btn){btn.click();})(document.querySelector('[data-mot-chip=&quot;${esc(m)}&quot;]'))">
+            <div style="min-width:0;flex:1;">
+              <div style="font-size:13.5px;font-weight:600;color:var(--text);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(m)}</div>
+              <div style="font-size:11.5px;color:var(--muted);letter-spacing:-.005em;margin-top:3px;">
+                ${v.clientes.size} cliente${v.clientes.size!==1?'s':''} · ${v.count} lançamento${v.count!==1?'s':''} · ${v.datas.size} dia${v.datas.size!==1?'s':''}
+              </div>
+            </div>
+            <div style="display:flex;gap:14px;flex-shrink:0;font-family:'DM Mono',monospace;font-size:13px;align-items:center;">
+              <span style="color:var(--success);">↑${v.saiu}</span>
+              <span style="color:var(--alert);">↓${v.voltou}</span>
+              <span style="color:${emRota>0?'var(--warning)':'var(--muted)'};min-width:42px;text-align:right;font-weight:600;">${emRota} rota</span>
+              <span style="color:var(--muted);">›</span>
+            </div>
+          </div>`;
+      }).join('');
+    return;
+  }
+
+  // ── Lista detalhada (motorista específico filtrado) ─────────────
   // Para ENTRADA: mostra fornecedor (de onde veio) + motorista
   // Para SAÍDA: mostra CLIENTE (para quem foi entregue) + caixas ainda
   //             com esse motorista no caminhão

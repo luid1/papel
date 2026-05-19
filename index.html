@@ -547,11 +547,11 @@
 
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:18px;">
           <div class="llm-kpi">
-            <p class="llm-kpi-label">Entradas</p>
+            <p class="llm-kpi-label">Saíram</p>
             <div class="llm-kpi-val num" id="ll-today-entrada" style="color:var(--success);">0 cx</div>
           </div>
           <div class="llm-kpi">
-            <p class="llm-kpi-label">Saídas</p>
+            <p class="llm-kpi-label">Voltaram</p>
             <div class="llm-kpi-val num" id="ll-today-saida" style="color:var(--alert);">0 cx</div>
           </div>
           <div class="llm-kpi">
@@ -559,8 +559,8 @@
             <div class="llm-kpi-val num" id="ll-today-drivers" style="color:var(--text);">0</div>
           </div>
           <div class="llm-kpi">
-            <p class="llm-kpi-label">Lançamentos</p>
-            <div class="llm-kpi-val num" id="ll-today-count" style="color:var(--text);">0</div>
+            <p class="llm-kpi-label">Em rota</p>
+            <div class="llm-kpi-val num" id="ll-today-count" style="color:var(--warning);">0 cx</div>
           </div>
         </div>
 
@@ -605,16 +605,16 @@
 
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:18px;">
           <div class="llm-kpi">
-            <p class="llm-kpi-label">Entradas</p>
+            <p class="llm-kpi-label">Saíram</p>
             <div class="llm-kpi-val num" id="ll-total-entrada" style="color:var(--success);">0 cx</div>
           </div>
           <div class="llm-kpi">
-            <p class="llm-kpi-label">Saídas</p>
+            <p class="llm-kpi-label">Voltaram</p>
             <div class="llm-kpi-val num" id="ll-total-saida" style="color:var(--alert);">0 cx</div>
           </div>
           <div class="llm-kpi">
-            <p class="llm-kpi-label">Valor total</p>
-            <div class="llm-kpi-val num" id="ll-total-valor" style="color:var(--text);">R$ 0,00</div>
+            <p class="llm-kpi-label">Em rota</p>
+            <div class="llm-kpi-val num" id="ll-total-valor" style="color:var(--warning);">0 cx</div>
           </div>
           <div class="llm-kpi">
             <p class="llm-kpi-label">Lançamentos</p>
@@ -764,16 +764,16 @@
         <!-- Resumo filtro ativo -->
         <div id="ll-filt-row" style="display:none;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;padding:10px 14px;border-radius:11px;background:rgba(0,212,255,.04);border:1px solid rgba(0,212,255,.1);">
           <div>
-            <p style="font-size:9px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;">Entradas</p>
+            <p style="font-size:9px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;">Saíram</p>
             <div id="ll-filt-entrada" style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:var(--success);">0 cx</div>
           </div>
           <div>
-            <p style="font-size:9px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;">Saídas</p>
+            <p style="font-size:9px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;">Voltaram</p>
             <div id="ll-filt-saida" style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:var(--alert);">0 cx</div>
           </div>
           <div>
-            <p style="font-size:9px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;">Valor</p>
-            <div id="ll-filt-valor" style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:var(--accent);">R$ 0,00</div>
+            <p style="font-size:9px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;">Em rota</p>
+            <div id="ll-filt-valor" style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:var(--warning);">0 cx</div>
           </div>
           <div>
             <p style="font-size:9px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;">Total</p>
