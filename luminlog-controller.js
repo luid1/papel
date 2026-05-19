@@ -242,24 +242,42 @@ function atualizarAutocompleteLists() {
 }
 
 // ─── CAIXAS NO CAMINHÃO POR MOTORISTA ─────────────────────────
-// Calcula quantas caixas cada motorista ainda tem no caminhão:
-// ENTRADA carregou, SAÍDA entregou. Saldo = entradas - saídas.
+// "Em trânsito" = caixas que saíram do CD e ainda NÃO voltaram.
+// Para cada motorista:
+//   retiradoCD = soma ENTRADAs com cliente "CD/depósito/retirada"
+//   devolvidoCD = soma SAÍDAs com cliente "CD/devolução/retorno"
+//   emTransito = max(0, retiradoCD - devolvidoCD)
+// Por cliente (em pendência):
+//   Para cada cliente NÃO-CD, mostra caixas que foram entregues e NÃO foram
+//   coletadas de volta (saídas - entradas para esse cliente).
 function calcCaixasNoCaminhao() {
-  const saldo = {}; // motorista → { total, porCliente: { cliente → cx } }
+  const ehOpCD = (nome) => {
+    const n = (nome || '').toUpperCase();
+    return /\b(CD|DEPOSITO|DEPÓSITO|RETIRADA|DEVOLU[CÇ][AÃ]O|RETORNO)\b/.test(n) || n === '—';
+  };
+
+  const saldo = {};
   _registros.forEach(r => {
     if (!r.motorista) return;
     const mot = r.motorista.trim().toUpperCase();
     const cli = (r.cliente || '—').trim().toUpperCase();
     const cx  = r.quantidadeCx || 0;
-    if (!saldo[mot]) saldo[mot] = { total: 0, porCliente: {} };
-    if (!saldo[mot].porCliente[cli]) saldo[mot].porCliente[cli] = 0;
-    if (r.tipo === 'ENTRADA') {
-      saldo[mot].total += cx;
-      saldo[mot].porCliente[cli] += cx;
+    if (!saldo[mot]) saldo[mot] = { total: 0, retiradoCD: 0, devolvidoCD: 0, porCliente: {} };
+
+    if (ehOpCD(cli)) {
+      if (r.tipo === 'ENTRADA') saldo[mot].retiradoCD  += cx;
+      else                       saldo[mot].devolvidoCD += cx;
     } else {
-      saldo[mot].total -= cx;
-      saldo[mot].porCliente[cli] -= cx;
+      if (!saldo[mot].porCliente[cli]) saldo[mot].porCliente[cli] = 0;
+      // Por cliente: SAÍDA = entregou (cliente ficou devendo) | ENTRADA = coletou
+      if (r.tipo === 'SAÍDA')  saldo[mot].porCliente[cli] += cx;  // entregou
+      else                      saldo[mot].porCliente[cli] -= cx;  // coletou de volta
     }
+  });
+
+  // Total em trânsito = retiradoCD - devolvidoCD
+  Object.values(saldo).forEach(s => {
+    s.total = Math.max(0, s.retiradoCD - s.devolvidoCD);
   });
   return saldo;
 }
@@ -377,27 +395,32 @@ function renderKpis() {
       motPanel.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:12px 0;">Nenhuma caixa em trânsito no momento.</div>`;
     } else {
       motPanel.innerHTML = motoristas.map(([mot, v]) => {
-        // Pula linhas de CD/retirada/devolução — não são clientes reais
-        const isOpCD = (nome) => {
-          const n = (nome || '').toUpperCase();
-          return /\b(CD|DEPOSITO|DEPÓSITO|RETIRADA|DEVOLU[CÇ][AÃ]O|RETORNO)\b/.test(n) || n === '—';
-        };
-        const clientesComSaldo = Object.entries(v.porCliente)
-          .filter(([cli, cx]) => cx > 0 && !isOpCD(cli))
+        // Clientes que receberam caixas e ainda não devolveram (entregou - coletou > 0)
+        const clientesPendentes = Object.entries(v.porCliente)
+          .filter(([, cx]) => cx > 0)
           .sort((a, b) => b[1] - a[1]);
-        const clientesHtml = clientesComSaldo.map(([cli, cx]) =>
+        const totalEmClientes = clientesPendentes.reduce((a, [,cx]) => a + cx, 0);
+        const noCaminhao = Math.max(0, v.total - totalEmClientes);
+
+        const clientesHtml = clientesPendentes.map(([cli, cx]) =>
           `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:13px;">
             <span style="color:var(--muted);">${esc(cli)}</span>
             <span style="font-family:'DM Mono',monospace;font-weight:700;color:var(--text);">${cx} cx</span>
           </div>`
         ).join('');
+
         return `
           <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:16px 20px;min-width:220px;flex:1;">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
               <div style="font-size:14px;font-weight:800;">🚚 ${esc(mot)}</div>
               <div style="font-family:'DM Mono',monospace;font-size:20px;font-weight:900;color:var(--warning);">${v.total} <span style="font-size:12px;font-weight:600;color:var(--muted);">cx</span></div>
             </div>
-            ${clientesHtml || '<div style="font-size:12px;color:var(--muted);">Sem clientes pendentes</div>'}
+            <div style="display:flex;gap:8px;font-size:11px;color:var(--muted);margin-bottom:10px;flex-wrap:wrap;">
+              <span>Retirou CD: <b style="color:var(--text);">${v.retiradoCD}</b></span>
+              <span>Devolveu: <b style="color:var(--text);">${v.devolvidoCD}</b></span>
+              ${noCaminhao > 0 ? `<span>No caminhão: <b style="color:var(--accent);">${noCaminhao}</b></span>` : ''}
+            </div>
+            ${clientesHtml ? `<div style="font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;">Em clientes</div>${clientesHtml}` : '<div style="font-size:12px;color:var(--muted);">Sem pendência em clientes</div>'}
           </div>`;
       }).join('');
     }
