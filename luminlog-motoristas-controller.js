@@ -867,14 +867,36 @@ function renderDrivers() {
   const el  = $('llm-drivers-list');
   const cnt = $('llm-driver-count');
   if (!el) return;
-  if (cnt) cnt.textContent = _drivers.length;
 
-  if (!_drivers.length) {
+  // Inclui motoristas não-cadastrados que aparecem nos registros/eventos
+  const nomesCadastrados = new Set(_drivers.map(d => (d.name || '').trim().toUpperCase()));
+  const motoristasOrfaos = new Map(); // nome → { name }
+
+  (_registros || []).forEach(r => {
+    const nm = (r.motorista || '').trim();
+    if (!nm) return;
+    const up = nm.toUpperCase();
+    if (nomesCadastrados.has(up)) return;
+    if (!motoristasOrfaos.has(up)) motoristasOrfaos.set(up, { name: nm, id: `__orfao_${up}`, _orfao: true, truckBlack: 0, truckWhite: 0 });
+  });
+  (_events || []).forEach(ev => {
+    const nm = (ev.driverName || '').trim();
+    if (!nm) return;
+    const up = nm.toUpperCase();
+    if (nomesCadastrados.has(up)) return;
+    if (!motoristasOrfaos.has(up)) motoristasOrfaos.set(up, { name: nm, id: `__orfao_${up}`, _orfao: true, truckBlack: 0, truckWhite: 0 });
+  });
+
+  const todosMotoristas = [..._drivers, ...motoristasOrfaos.values()];
+
+  if (cnt) cnt.textContent = todosMotoristas.length;
+
+  if (!todosMotoristas.length) {
     el.innerHTML = '<p style="color:rgba(228,240,246,.4);font-size:13px;padding:6px 0;">Nenhum motorista cadastrado.</p>';
     return;
   }
 
-  el.innerHTML = _drivers.map(d => {
+  el.innerHTML = todosMotoristas.map(d => {
     const b = nn(d.truckBlack), w = nn(d.truckWhite), total = b + w;
     const link = `${location.origin}${location.pathname.replace('index.html','')}lumin-log.html?user=${encodeURIComponent(d.name)}`;
 
@@ -950,6 +972,7 @@ function renderDrivers() {
           <div style="min-width:0;flex:1;">
             <div style="font-size:14px;font-weight:600;letter-spacing:-.015em;margin-bottom:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
               ${esc(d.name)}
+              ${d._orfao ? `<span style="font-size:10.5px;font-weight:600;padding:2px 7px;border-radius:6px;background:rgba(255,179,71,.10);border:1px solid rgba(255,179,71,.25);color:var(--warning);letter-spacing:-.005em;">não cadastrado</span>` : ''}
               ${verificadoHtml}
               ${liveHtml}
             </div>

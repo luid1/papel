@@ -123,6 +123,36 @@ async function salvarFrequente(tipo, nome) {
 }
 
 
+function renderMotChips() {
+  const wrap = $('ll-mot-chips');
+  if (!wrap) return;
+  // Pega motoristas únicos dos registros (já inclui não-cadastrados)
+  const motoristas = [...new Set(_registros.map(r => (r.motorista || '').trim()).filter(Boolean))].sort();
+  const motoristaAtivo = (_filtros.motorista || '').trim();
+
+  const chip = (label, value, isActive) => `
+    <button data-mot-chip="${esc(value)}" style="
+      padding:5px 14px;border-radius:8px;font-size:12px;font-weight:600;letter-spacing:-.005em;cursor:pointer;
+      background:${isActive?'rgba(0,212,255,.12)':'rgba(255,255,255,.03)'};
+      border:1px solid ${isActive?'var(--accent)':'var(--border)'};
+      color:${isActive?'var(--accent)':'var(--muted)'};
+      transition:.15s;">${label}</button>`;
+
+  wrap.innerHTML =
+    chip('Todos', '', !motoristaAtivo) +
+    motoristas.map(m => chip(esc(m), m, motoristaAtivo.toLowerCase() === m.toLowerCase())).join('');
+
+  // Bind clicks
+  wrap.querySelectorAll('[data-mot-chip]').forEach(btn => {
+    btn.onclick = () => {
+      _filtros.motorista = btn.dataset.motChip || '';
+      const inp = $('ll-f-motorista');
+      if (inp) inp.value = _filtros.motorista;
+      renderTabela();
+    };
+  });
+}
+
 function aplicarFiltros() {
   return _registros.filter(r => {
     if (_filtros.dataInicio && r.data && r.data < _filtros.dataInicio) return false;
@@ -383,6 +413,7 @@ function renderTabela() {
 
   // KPIs sempre no topo
   renderKpis();
+  renderMotChips();
 
   // ── Totalizadores filtrados ────────────────────────────────────
   const filtEntrada = dados.filter(r => r.tipo === 'ENTRADA').reduce((a, r) => a + (r.quantidadeCx || 0), 0);
