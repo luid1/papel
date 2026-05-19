@@ -1058,6 +1058,7 @@ function initDriver(name) {
   window.confirmDeparture=async function(){
     if(S.saving) return; S.saving=true;
     try{
+      const today=new Date().toISOString().split('T')[0];
       const batch=db.batch();
       batch.set(db.collection('ll_drivers').doc(name),
         {name,truckBlack:S.truckBlack,truckWhite:S.truckWhite,lastUpdated:TS()},{merge:true});
@@ -1065,6 +1066,10 @@ function initDriver(name) {
         truckBlack:S.truckBlack,truckWhite:S.truckWhite,timestamp:TS()};
       if(S.fotos.cd_saida) ev.fotoUrl=S.fotos.cd_saida;
       batch.set(db.collection('ll_events').doc(),ev);
+      // Grava em controle_caixas: ENTRADA (saiu da Hetros e entrou no caminhão)
+      const carBlack=S.truckBlack, carWhite=S.truckWhite;
+      if(carBlack>0) batch.set(db.collection('controle_caixas').doc(),{tipo:'ENTRADA',data:today,cliente:'Hetros — Retirada CD',fornecedor:name,motorista:name,quantidadeCx:carBlack,cor:'Preta',valorUnitario:20,valorTotal:carBlack*20,status:'OK',origem:'motorista_cd_departure',createdAt:TS()});
+      if(carWhite>0) batch.set(db.collection('controle_caixas').doc(),{tipo:'ENTRADA',data:today,cliente:'Hetros — Retirada CD',fornecedor:name,motorista:name,quantidadeCx:carWhite,cor:'Branca',valorUnitario:28,valorTotal:carWhite*28,status:'OK',origem:'motorista_cd_departure',createdAt:TS()});
       await batch.commit();
       S.step='client';S.mode='client';render();
     }catch(e){toast('Erro ao salvar. Verifique a conexão.');}
@@ -1088,8 +1093,8 @@ function initDriver(name) {
         truckAfter:{black:newTB,white:newTW},timestamp:TS()};
       if(S.fotos.cd_return) ev.fotoUrl=S.fotos.cd_return;
       batch.set(db.collection('ll_events').doc(),ev);
-      if(retBlack>0) batch.set(db.collection('controle_caixas').doc(),{tipo:'ENTRADA',data:today,cliente:'CD — Devolução',fornecedor:name,motorista:name,quantidadeCx:retBlack,cor:'Preta',valorUnitario:20,valorTotal:retBlack*20,status:'OK',origem:'motorista_cd_return',createdAt:TS()});
-      if(retWhite>0) batch.set(db.collection('controle_caixas').doc(),{tipo:'ENTRADA',data:today,cliente:'CD — Devolução',fornecedor:name,motorista:name,quantidadeCx:retWhite,cor:'Branca',valorUnitario:28,valorTotal:retWhite*28,status:'OK',origem:'motorista_cd_return',createdAt:TS()});
+      if(retBlack>0) batch.set(db.collection('controle_caixas').doc(),{tipo:'SAÍDA',data:today,cliente:'Hetros — Devolução CD',fornecedor:name,motorista:name,quantidadeCx:retBlack,cor:'Preta',valorUnitario:20,valorTotal:retBlack*20,status:'OK',origem:'motorista_cd_return',createdAt:TS()});
+      if(retWhite>0) batch.set(db.collection('controle_caixas').doc(),{tipo:'SAÍDA',data:today,cliente:'Hetros — Devolução CD',fornecedor:name,motorista:name,quantidadeCx:retWhite,cor:'Branca',valorUnitario:28,valorTotal:retWhite*28,status:'OK',origem:'motorista_cd_return',createdAt:TS()});
       await batch.commit();
       S.truckBlack=newTB;S.truckWhite=newTW;S.retBlack=0;S.retWhite=0;S.fotos.cd_return=null;
       toast(`✓ ${retBlack+retWhite} caixas devolvidas ao CD!`);

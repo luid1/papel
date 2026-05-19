@@ -253,7 +253,7 @@ function atualizarAutocompleteLists() {
 function calcCaixasNoCaminhao() {
   const ehOpCD = (nome) => {
     const n = (nome || '').toUpperCase();
-    return /\b(CD|DEPOSITO|DEPÓSITO|RETIRADA|DEVOLU[CÇ][AÃ]O|RETORNO)\b/.test(n) || n === '—';
+    return /\b(CD|DEPOSITO|DEPÓSITO|RETIRADA|DEVOLU[CÇ][AÃ]O|RETORNO|HETROS)\b/.test(n) || n === '—';
   };
 
   const saldo = {};
@@ -264,18 +264,25 @@ function calcCaixasNoCaminhao() {
     const cx  = r.quantidadeCx || 0;
     if (!saldo[mot]) saldo[mot] = { total: 0, retiradoCD: 0, devolvidoCD: 0, porCliente: {} };
 
-    if (ehOpCD(cli)) {
+    // Classifica pela ORIGEM (mais confiável que tipo, já que há histórico com tipo errado)
+    if (r.origem === 'motorista_cd_departure') {
+      saldo[mot].retiradoCD += cx;
+    } else if (r.origem === 'motorista_cd_return') {
+      saldo[mot].devolvidoCD += cx;
+    } else if (ehOpCD(cli)) {
+      // Sem origem definida (lançamento manual) — usa tipo
       if (r.tipo === 'ENTRADA') saldo[mot].retiradoCD  += cx;
       else                       saldo[mot].devolvidoCD += cx;
     } else {
       if (!saldo[mot].porCliente[cli]) saldo[mot].porCliente[cli] = 0;
       // Por cliente: SAÍDA = entregou (cliente ficou devendo) | ENTRADA = coletou
-      if (r.tipo === 'SAÍDA')  saldo[mot].porCliente[cli] += cx;  // entregou
-      else                      saldo[mot].porCliente[cli] -= cx;  // coletou de volta
+      if (r.tipo === 'SAÍDA')  saldo[mot].porCliente[cli] += cx;
+      else                      saldo[mot].porCliente[cli] -= cx;
     }
   });
 
-  // Total em trânsito = retiradoCD - devolvidoCD
+  // Total em trânsito = retiradoCD - devolvidoCD - jáColetadoDoCliente
+  // (caixas que ainda não voltaram pro CD nem estão pendentes nos clientes)
   Object.values(saldo).forEach(s => {
     s.total = Math.max(0, s.retiradoCD - s.devolvidoCD);
   });
