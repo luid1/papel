@@ -377,8 +377,13 @@ function renderKpis() {
       motPanel.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:12px 0;">Nenhuma caixa em trânsito no momento.</div>`;
     } else {
       motPanel.innerHTML = motoristas.map(([mot, v]) => {
+        // Pula linhas de CD/retirada/devolução — não são clientes reais
+        const isOpCD = (nome) => {
+          const n = (nome || '').toUpperCase();
+          return /\b(CD|DEPOSITO|DEPÓSITO|RETIRADA|DEVOLU[CÇ][AÃ]O|RETORNO)\b/.test(n) || n === '—';
+        };
         const clientesComSaldo = Object.entries(v.porCliente)
-          .filter(([, cx]) => cx > 0)
+          .filter(([cli, cx]) => cx > 0 && !isOpCD(cli))
           .sort((a, b) => b[1] - a[1]);
         const clientesHtml = clientesComSaldo.map(([cli, cx]) =>
           `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04);font-size:13px;">
