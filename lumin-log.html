@@ -1373,7 +1373,7 @@ function initDriver(name) {
       const today=new Date().toISOString().split('T')[0];
       const newCx=Math.max(0,S.truckCx-retCx);
       const batch=db.batch();
-      batch.update(db.collection('ll_drivers').doc(name),{truckCx:newCx,lastUpdated:TS()});
+      batch.set(db.collection('ll_drivers').doc(name),{truckCx:newCx,lastUpdated:TS()},{merge:true});
       const ev={type:'cd_return',driverName:name,retCx,
         truckBefore:S.truckCx,truckAfter:newCx,timestamp:TS()};
       if(S.fotos.cd_return) ev.fotoUrl=S.fotos.cd_return;
@@ -1418,7 +1418,7 @@ function initDriver(name) {
       batch.set(cRef,cu,{merge:true});
       batch.set(db.collection('luminlog_frequentes').doc('index'),
         {nomes:firebase.firestore.FieldValue.arrayUnion(cn)},{merge:true});
-      batch.update(db.collection('ll_drivers').doc(name),{truckCx:finalCx,lastUpdated:TS()});
+      batch.set(db.collection('ll_drivers').doc(name),{truckCx:finalCx,lastUpdated:TS()},{merge:true});
       const ev={type:'client_transaction',driverName:name,clientName:cn,
         totalDel:S.totalDel,totalCol:S.totalCol,
         truckBefore:S.truckCx,truckAfter:finalCx,timestamp:TS()};
