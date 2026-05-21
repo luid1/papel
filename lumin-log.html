@@ -1320,7 +1320,7 @@ function initDriver(name) {
     S.mode=mode;
     if(mode==='cd'){S.depTotal=0;S.step='departure';}
     else if(mode==='client') S.step='client';
-    else if(mode==='cd_return'){S.retCx=0;S.step='cd_return';}
+    else if(mode==='cd_return'){S.retCx=S.truckCx;S.step='cd_return';}
     render();
   };
 
