@@ -23,7 +23,7 @@
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html{font-size:100%;-webkit-text-size-adjust:100%}
-body{font-family:'Inter',sans-serif;font-size:1.05rem;line-height:1.55;background:var(--bg);
+body{font-family:'Inter',sans-serif;font-size:1.15rem;line-height:1.55;background:var(--bg);
   color:var(--text);min-height:100svh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
 button{cursor:pointer;border:none;background:transparent;font-family:inherit;color:inherit}
 a{text-decoration:none;color:inherit}
@@ -34,20 +34,21 @@ a{text-decoration:none;color:inherit}
   backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:20px}
 
 /* ---- HOME CARDS ---- */
-.home-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:10px;}
-.home-card{display:flex;flex-direction:column;align-items:center;justify-content:center;
-  padding:20px 12px 16px;border-radius:20px;border:2px solid transparent;
+.home-grid{display:flex;flex-direction:column;gap:14px;margin-bottom:14px;}
+.home-card{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;
+  padding:22px 20px;border-radius:20px;border:2px solid transparent;
   background:rgba(255,255,255,.04);transition:transform .12s,background .15s;
   user-select:none;-webkit-user-select:none;touch-action:manipulation;
-  cursor:pointer;min-height:120px;gap:6px;text-align:center;}
-.home-card:active{transform:scale(.95);}
-.home-card-icon{font-size:2.2rem;line-height:1;}
-.home-card-title{font-family:'Montserrat',sans-serif;font-size:.9rem;font-weight:800;line-height:1.2;}
-.home-card-sub{font-size:.7rem;color:var(--muted);font-weight:500;line-height:1.3;}
-.home-card.cd   {border-color:rgba(0,212,255,.35);background:rgba(0,212,255,.07);}
-.home-card.route{border-color:rgba(0,229,160,.35);background:rgba(0,229,160,.06);}
-.home-card.ret  {border-color:rgba(255,179,71,.35);background:rgba(255,179,71,.06);}
-.home-card.sum  {border-color:rgba(255,255,255,.15);background:rgba(255,255,255,.04);}
+  cursor:pointer;min-height:88px;gap:18px;text-align:left;}
+.home-card:active{transform:scale(.97);}
+.home-card-icon{font-size:2.8rem;line-height:1;flex-shrink:0;}
+.home-card-text{display:flex;flex-direction:column;gap:5px;}
+.home-card-title{font-family:'Montserrat',sans-serif;font-size:1.2rem;font-weight:800;line-height:1.2;}
+.home-card-sub{font-size:.9rem;color:var(--muted);font-weight:500;line-height:1.3;}
+.home-card.cd   {border-color:rgba(0,212,255,.4);background:rgba(0,212,255,.08);}
+.home-card.route{border-color:rgba(0,229,160,.4);background:rgba(0,229,160,.07);}
+.home-card.ret  {border-color:rgba(255,179,71,.4);background:rgba(255,179,71,.07);}
+.home-card.sum  {border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.03);}
 
 /* ---- TELA CLIENTE — 100vh fixo ---- */
 #client-screen{
@@ -64,22 +65,22 @@ a{text-decoration:none;color:inherit}
 
 /* ---- Mini contadores ---- */
 .mini-cblock{display:flex;align-items:center;justify-content:space-between;
-  padding:8px 12px;border-radius:11px;background:rgba(255,255,255,.04);
-  border:1px solid var(--border);margin-bottom:5px;}
-.mini-cb-label{font-size:.77rem;font-weight:700;color:var(--muted);flex:1;}
-.mini-cb-ctrl{display:flex;align-items:center;gap:8px;}
-.mini-cb-btn{width:36px;height:36px;border-radius:9px;font-size:1.3rem;font-weight:900;
+  padding:14px 16px;border-radius:13px;background:rgba(255,255,255,.04);
+  border:1px solid var(--border);margin-bottom:10px;}
+.mini-cb-label{font-size:1rem;font-weight:700;color:var(--text);flex:1;}
+.mini-cb-ctrl{display:flex;align-items:center;gap:12px;}
+.mini-cb-btn{width:48px;height:48px;border-radius:12px;font-size:1.7rem;font-weight:900;
   display:flex;align-items:center;justify-content:center;
   user-select:none;touch-action:manipulation;transition:transform .07s,opacity .1s;}
 .mini-cb-btn:active{transform:scale(.88);opacity:.7;}
 .mini-cb-minus{background:rgba(255,255,255,.08);border:1.5px solid var(--border);color:var(--text);}
 .mini-cb-plus{background:linear-gradient(135deg,var(--accent),var(--accent2));color:var(--bg);}
 .mini-cb-plus.warn{background:linear-gradient(135deg,#ffb347,#e08010);}
-.mini-cb-val{font-family:'Montserrat',sans-serif;font-size:1.3rem;font-weight:900;
-  min-width:28px;text-align:center;color:var(--text);}
-.cs-sec-label{font-size:.65rem;font-weight:800;text-transform:uppercase;letter-spacing:.18em;
-  color:var(--muted);padding:5px 0 3px;}
-.cs-sec-div{height:1px;background:var(--border);margin:5px 0 7px;}
+.mini-cb-val{font-family:'Montserrat',sans-serif;font-size:1.7rem;font-weight:900;
+  min-width:38px;text-align:center;color:var(--text);}
+.cs-sec-label{font-size:.82rem;font-weight:800;text-transform:uppercase;letter-spacing:.15em;
+  color:var(--muted);padding:8px 0 4px;}
+.cs-sec-div{height:1px;background:var(--border);margin:8px 0 12px;}
 
 /* ---- Autocomplete ---- */
 #client-sugg-wrap{position:relative;}
@@ -90,11 +91,11 @@ a{text-decoration:none;color:inherit}
   cursor:pointer;border-bottom:1px solid rgba(255,255,255,.05);}
 #client-sugg .sugg-item:last-child{border-bottom:none;}
 #client-sugg .sugg-item:active{background:rgba(0,212,255,.12);}
-#recent-chips{display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;padding:4px 0 2px;scrollbar-width:none;}
+#recent-chips{display:flex;gap:8px;flex-wrap:wrap;padding:6px 0 4px;scrollbar-width:none;}
 #recent-chips::-webkit-scrollbar{display:none;}
 .r-chip{display:inline-flex;align-items:center;
   background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.2);
-  border-radius:100px;padding:5px 12px;font-size:.75rem;font-weight:700;
+  border-radius:100px;padding:8px 16px;font-size:.88rem;font-weight:700;
   color:var(--accent);white-space:nowrap;cursor:pointer;flex-shrink:0;
   transition:background .12s;}
 .r-chip:active{background:rgba(0,212,255,.2);}
@@ -209,6 +210,14 @@ body.is-offline .offline-pill{display:flex;}
   color:var(--accent);font-size:.78rem;font-weight:700;cursor:pointer;transition:background .15s;}
 .foto-mini-btn:active{background:rgba(0,212,255,.1);}
 .foto-mini-btn.done{border-color:rgba(0,229,160,.4);color:var(--success);background:rgba(0,229,160,.04);}
+.foto-grande-btn{width:100%;min-height:72px;border-radius:18px;
+  border:2.5px solid rgba(0,212,255,.4);background:rgba(0,212,255,.07);
+  color:var(--accent);font-family:'Montserrat',sans-serif;font-size:1.1rem;font-weight:800;
+  display:flex;align-items:center;justify-content:center;gap:14px;cursor:pointer;
+  transition:background .15s;user-select:none;touch-action:manipulation;letter-spacing:.01em;}
+.foto-grande-btn:active{background:rgba(0,212,255,.18);}
+.foto-grande-btn.done{border-color:rgba(0,229,160,.45);border-style:solid;
+  color:var(--success);background:rgba(0,229,160,.07);}
 </style>
 </head>
 <body>
@@ -334,11 +343,12 @@ function tirarFoto() {
 }
 
 window.tirarFotoMini = async function(key, btnId) {
-  const btn=$(btnId); if(btn){btn.disabled=true;btn.textContent='⏳';}
+  const btn=$(btnId); if(btn){btn.disabled=true;btn.textContent='⏳ Abrindo câmera...';}
   const data=await tirarFoto();
   if(data){
     window._S.fotos[key]=data;
-    if(btn){btn.disabled=false;btn.className='foto-mini-btn done';btn.innerHTML='📷 ✓ Foto salva';}
+    const isGrande = btn && btn.classList.contains('foto-grande-btn');
+    if(btn){btn.disabled=false;btn.className=(isGrande?'foto-grande-btn':'foto-mini-btn')+' done';btn.innerHTML='✅ &nbsp; Foto salva!';}
     toast('📸 Foto salva!');
     _atualizarBotaoRegistrar();
   } else { if(btn){btn.disabled=false;} }
@@ -350,38 +360,60 @@ window.tirarFotoMini = async function(key, btnId) {
 function initDriver(name) {
   const S = {
     step:'choose', mode:null,
-    truckBlack:0, truckWhite:0,
+    truckCx:0,
     clientName:'',
-    delBlack:0, delWhite:0,
-    colBlack:0, colWhite:0,
-    cxOcupBlack:0, cxOcupWhite:0,
-    retBlack:0, retWhite:0,
+    clientSubStep:'name',
+    totalDel:0, totalCol:0,
+    depTotal:0,
+    retCx:0,
     transactions:[], saving:false, fotos:{},
-    geoCoords:null,          // {lat, lng, acc}
-    _fotoObrigatoria:false,  // flag do cliente atual
-    _clienteData:null,       // dados do cliente selecionado
+    geoCoords:null,
+    _fotoObrigatoria:false,
+    _clienteData:null,
+    _lastRegistered:'',
+    _weekTotal:null,
   };
   window._S=S;
+
+  /* ── Splash imediato ── */
+  const _splashT0 = Date.now();
+  const _splashGreet = (()=>{const h=new Date().getHours();return h<12?'Bom dia':h<18?'Boa tarde':'Boa noite';})();
+  $('app').innerHTML=`
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
+      min-height:100svh;text-align:center;padding:40px 24px;">
+      <div style="font-family:'Comfortaa',cursive;font-size:1.1rem;font-weight:700;
+        color:var(--muted);margin-bottom:32px;">Controle Hetros</div>
+      <div style="font-size:1rem;color:var(--muted);margin-bottom:6px;">${_splashGreet},</div>
+      <div style="font-family:'Montserrat',sans-serif;font-size:1.7rem;font-weight:900;
+        color:var(--text);">${name}</div>
+      <div style="display:flex;gap:6px;margin-top:36px;">
+        <span style="width:7px;height:7px;border-radius:50%;background:var(--accent);opacity:.9;animation:sd 1s .0s ease-in-out infinite alternate;"></span>
+        <span style="width:7px;height:7px;border-radius:50%;background:var(--accent);opacity:.9;animation:sd 1s .2s ease-in-out infinite alternate;"></span>
+        <span style="width:7px;height:7px;border-radius:50%;background:var(--accent);opacity:.9;animation:sd 1s .4s ease-in-out infinite alternate;"></span>
+      </div>
+    </div>
+    <style>@keyframes sd{from{opacity:.2;transform:scale(.7)}to{opacity:.9;transform:scale(1)}}</style>`;
 
   // Listener em tempo real: admin zera → driver atualiza imediatamente
   let _firstLoad = true;
   db.collection('ll_drivers').doc(name).onSnapshot(doc => {
     if (!doc.exists) return;
     const d = doc.data();
-    const oldB = S.truckBlack, oldW = S.truckWhite;
-    S.truckBlack = nn(d.truckBlack);
-    S.truckWhite = nn(d.truckWhite);
-    S.dailyRoute = d.dailyRoute || null;     // Roteiro do dia definido pelo admin
+    const oldCx = S.truckCx;
+    S.truckCx = nn(d.truckCx) || (nn(d.truckBlack)+nn(d.truckWhite));
+    S.dailyRoute = d.dailyRoute || null;
     if (_firstLoad) {
       _firstLoad = false;
-      _loadClients().then(render).catch(render);
+      const _minDelay = 3000;
+      Promise.all([_loadClients(), _loadWeekTotal()]).then(()=>{
+        const wait = Math.max(0, _minDelay - (Date.now()-_splashT0));
+        setTimeout(render, wait);
+      }).catch(render);
     } else {
-      // Mudou via admin (não foi este device): re-renderiza a tela atual
-      if ((oldB !== S.truckBlack || oldW !== S.truckWhite) && !S.saving) {
-        if (oldB > S.truckBlack || oldW > S.truckWhite) toast('🔄 Caixas zeradas pelo admin');
+      if (oldCx !== S.truckCx && !S.saving) {
+        if (oldCx > S.truckCx) toast('🔄 Caixas zeradas pelo admin');
         render();
       } else if (S.step === 'choose') {
-        // Re-render só se na tela inicial (pra atualizar roteiro)
         render();
       }
     }
@@ -389,6 +421,29 @@ function initDriver(name) {
 
   function render() {
     ({choose:vChoose,departure:vDeparture,client:vClient,cd_return:vCdReturn,summary:vSummary,done:vDone}[S.step]||vChoose)();
+  }
+
+  async function _loadWeekTotal() {
+    try {
+      const now = new Date();
+      const day = now.getDay();
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
+      monday.setHours(0,0,0,0);
+      const snap = await db.collection('ll_events')
+        .where('driverName','==',name)
+        .get().catch(()=>({docs:[]}));
+      let total = 0;
+      snap.docs.forEach(d => {
+        const ev = d.data();
+        const ts = ev.timestamp && ev.timestamp.toDate ? ev.timestamp.toDate() : null;
+        if (!ts || ts < monday) return;
+        if (ev.type === 'cd_departure') total += nn(ev.depTotal);
+        else if (ev.type === 'cd_return') total += nn(ev.retCx);
+        else if (ev.type === 'client_transaction') total += nn(ev.totalDel) + nn(ev.totalCol);
+      });
+      S._weekTotal = total;
+    } catch(e) { S._weekTotal = 0; }
   }
 
   /* ── Geolocalização ── */
@@ -492,9 +547,11 @@ function initDriver(name) {
 
   /* ── Carregar histórico + dados do cliente selecionado ── */
   window._selecionarCliente = async function(nome) {
-    const inp=$('clientInput'); if(inp){inp.value=nome;} S.clientName=nome;
+    S.clientName=nome.trim().toUpperCase();
     _fecharSugg();
-    await _carregarDadosCliente(nome);
+    await _carregarDadosCliente(S.clientName);
+    S.clientSubStep='deliver';
+    render();
   };
 
   async function _carregarDadosCliente(nome) {
@@ -502,59 +559,19 @@ function initDriver(name) {
     try {
       const snap=await db.collection('ll_clients').doc(nome).get();
       if(!snap.exists) return;
-      const data=snap.data(); S._clienteData=data;
-
-      /* Saldo alto — alerta */
-      const totalSaldo=(nn(data.balanceBlack)+nn(data.balanceWhite));
-      const alertEl=$('cs-alert');
-      if(alertEl){
-        if(totalSaldo>=30){
-          alertEl.style.display='block';
-          alertEl.innerHTML=`⚠️ <b>${nome}</b> tem <b>${totalSaldo} caixas</b> em aberto — tente cobrar o retorno!`;
-        } else { alertEl.style.display='none'; }
-      }
-
-      /* Foto obrigatória */
+      const data=snap.data();
+      S._clienteData=data;
       S._fotoObrigatoria=!!(data.fotoObrigatoria);
-      const reqEl=$('cs-foto-req');
-      if(reqEl) reqEl.style.display=S._fotoObrigatoria?'flex':'none';
-
-      /* Última visita — pré-preenche e mostra botão repetir */
-      const histEl=$('cs-history');
-      if(histEl && data.lastVisit){
-        const lv=data.lastVisit;
-        const partes=[];
-        if(lv.delBlack) partes.push(`⬛ ${lv.delBlack} entregues`);
-        if(lv.delWhite) partes.push(`⬜ ${lv.delWhite} entregues`);
-        if(lv.colBlack) partes.push(`⬛ ${lv.colBlack} coletadas`);
-        if(lv.colWhite) partes.push(`⬜ ${lv.colWhite} coletadas`);
-        histEl.style.display='flex';
-        histEl.innerHTML=`
-          <span style="color:var(--muted);">Última visita ${lv.date||''}:</span>
-          <span>${partes.join(' · ')||'—'}</span>
-          <button class="repeat-btn" onclick="window._repetirUltima()">🔄 Repetir esta entrega</button>`;
-      } else if(histEl){ histEl.style.display='none'; }
-
-      _atualizarBotaoRegistrar();
     } catch(e){ /* offline */ }
   }
 
   /* Repetir última entrega */
   window._repetirUltima = function() {
     const lv=S._clienteData&&S._clienteData.lastVisit; if(!lv) return;
-    S.delBlack=nn(lv.delBlack); S.delWhite=nn(lv.delWhite);
-    S.colBlack=nn(lv.colBlack); S.colWhite=nn(lv.colWhite);
-    _syncCounterDisplays();
+    S.totalDel=nn(lv.totalDel)||(nn(lv.delBlack)+nn(lv.delWhite));
+    S.totalCol=nn(lv.totalCol)||(nn(lv.colBlack)+nn(lv.colWhite));
     vibe(30); toast('✓ Valores da última visita aplicados!');
   };
-
-  /* Sync display dos mini contadores sem re-render */
-  function _syncCounterDisplays() {
-    [['delBlack','dB'],['delWhite','dW'],['colBlack','cB'],['colWhite','cW'],
-     ['cxOcupBlack','oB'],['cxOcupWhite','oW']].forEach(([key,suf])=>{
-      const el=$(`mc-${key}-${suf}`); if(el) el.textContent=S[key];
-    });
-  }
 
   /* Atualiza estado do botão Registrar (bloqueio foto obrigatória) */
   function _atualizarBotaoRegistrar() {
@@ -566,10 +583,7 @@ function initDriver(name) {
 
   /* ── Helpers ── */
   function truckBadges() {
-    return `<div style="display:flex;gap:5px;flex-wrap:wrap;">
-      <span class="truck-badge">⬛ <b>${S.truckBlack}</b></span>
-      <span class="truck-badge">⬜ <b>${S.truckWhite}</b></span>
-    </div>`;
+    return `<span class="truck-badge">📦 <b>${S.truckCx}</b> cx</span>`;
   }
 
   function mCBlock(emoji,label,key,suf,warnClass='') {
@@ -658,70 +672,108 @@ function initDriver(name) {
   function vChoose() {
     const showGeoBtn = !_geoEnabled;
     $('app').innerHTML=`<div id="driver-wrap" class="fade-in">
-      <div style="text-align:center;padding:16px 0 22px;">
-        <span class="wordmark" style="font-size:1.8rem;">Controle Hetros</span>
-        <div style="font-size:.88rem;color:var(--muted);margin-top:4px;">Olá, <strong style="color:var(--text);">${name}</strong></div>
-        <div style="margin-top:8px;display:flex;gap:7px;justify-content:center;flex-wrap:wrap;">
-          <span class="truck-badge">⬛ <b>${S.truckBlack}</b> pretas</span>
-          <span class="truck-badge">⬜ <b>${S.truckWhite}</b> brancas</span>
-          <span class="offline-pill">📵 Offline</span>
+      <div style="text-align:center;padding:20px 0 26px;">
+        <span class="wordmark" style="font-size:2rem;">Controle Hetros</span>
+        <div style="font-size:1.05rem;color:var(--muted);margin-top:6px;">${(()=>{const h=new Date().getHours();return h<12?'Bom dia':h<18?'Boa tarde':'Boa noite';})()} <strong style="color:var(--text);font-size:1.15rem;">${name}</strong> 👋</div>
+        ${S._weekTotal!==null&&S._weekTotal>0?`<div style="margin-top:6px;font-size:.88rem;color:var(--muted);">Você já movimentou <strong style="color:var(--accent);">${S._weekTotal} cxs</strong> esta semana.</div>`:''}
+        <div style="margin-top:14px;padding:14px 28px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:16px;display:inline-flex;align-items:center;gap:10px;">
+          <div style="font-family:'Montserrat',sans-serif;font-size:2.4rem;font-weight:900;color:var(--text);">${S.truckCx}</div>
+          <div style="font-size:.9rem;color:var(--muted);text-align:left;line-height:1.3;">caixas<br>no caminhão</div>
         </div>
+        <div style="margin-top:10px;"><span class="offline-pill">📵 Offline</span></div>
         ${showGeoBtn ? `
-          <button id="geo-request-btn" onclick="window._llRequestGeo()" style="margin-top:12px;padding:8px 16px;border-radius:10px;background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.3);color:#4ade80;font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:7px;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <button id="geo-request-btn" onclick="window._llRequestGeo()" style="margin-top:12px;padding:10px 18px;border-radius:12px;background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.3);color:#4ade80;font-size:.95rem;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:8px;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
             Permitir localização
           </button>
         ` : ''}
       </div>
 
       ${_renderRoteiroDoDia()}
-      <div style="font-family:'Montserrat',sans-serif;font-size:1.1rem;font-weight:900;
-        text-align:center;margin-bottom:13px;">O que você vai fazer?</div>
+      <div style="font-family:'Montserrat',sans-serif;font-size:1.2rem;font-weight:900;
+        margin-bottom:16px;">O que você vai fazer?</div>
       <div class="home-grid">
         <button class="home-card cd" onclick="window.escolherModo('cd')">
           <span class="home-card-icon">🏭</span>
-          <span class="home-card-title" style="color:var(--accent);">Retirar no CD</span>
-          <span class="home-card-sub">Pegar caixas no depósito</span>
+          <div class="home-card-text">
+            <span class="home-card-title" style="color:var(--accent);">Retirar do CD</span>
+            <span class="home-card-sub">Busquei caixas no depósito</span>
+          </div>
         </button>
         <button class="home-card route" onclick="window.escolherModo('client')">
           <span class="home-card-icon">🚚</span>
-          <span class="home-card-title" style="color:var(--success);">Estou no Cliente</span>
-          <span class="home-card-sub">Entregar ou coletar</span>
+          <div class="home-card-text">
+            <span class="home-card-title" style="color:var(--success);">Estou no Cliente</span>
+            <span class="home-card-sub">Cheguei para entregar ou coletar</span>
+          </div>
         </button>
         <button class="home-card ret" onclick="window.escolherModo('cd_return')">
           <span class="home-card-icon">🏠</span>
-          <span class="home-card-title" style="color:var(--warning);">Deixar no CD</span>
-          <span class="home-card-sub">Devolver ao depósito</span>
-        </button>
-        <button class="home-card sum" onclick="window.goSummary()">
-          <span class="home-card-icon">📋</span>
-          <span class="home-card-title">Resumo</span>
-          <span class="home-card-sub">${S.transactions.length} cliente(s)</span>
+          <div class="home-card-text">
+            <span class="home-card-title" style="color:var(--warning);">Deixar no CD</span>
+            <span class="home-card-sub">Vou devolver caixas ao depósito</span>
+          </div>
         </button>
       </div>
+      <button class="home-card sum" onclick="window.goSummary()" style="width:100%;justify-content:flex-start;">
+        <span class="home-card-icon" style="font-size:1.8rem;">📋</span>
+        <div class="home-card-text">
+          <span class="home-card-title" style="font-size:1rem;">Resumo do dia</span>
+          <span class="home-card-sub">${S.transactions.length} cliente(s) registrado(s)</span>
+        </div>
+      </button>
     </div>`;
   }
 
   /* ════ RETIRADA NO CD ════ */
   function vDeparture() {
     $('app').innerHTML=`<div id="driver-wrap" class="fade-in">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
-        <button onclick="window.voltarEscolha()" style="padding:7px 12px;border-radius:10px;
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:22px;">
+        <button onclick="window.voltarEscolha()" style="padding:10px 16px;border-radius:12px;
           background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
-          font-size:.82rem;font-weight:700;color:rgba(228,240,246,.6);">← Voltar</button>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:1.4rem;">🏭</span>
-          <span style="font-family:'Montserrat',sans-serif;font-weight:900;">Retirada no CD</span>
+          font-size:.95rem;font-weight:700;color:rgba(228,240,246,.65);flex-shrink:0;">← Voltar</button>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:2rem;">🏭</span>
+          <span style="font-family:'Montserrat',sans-serif;font-size:1.3rem;font-weight:900;">Retirar do CD</span>
         </div>
       </div>
-      <div class="glass-card" style="padding:26px;margin-bottom:20px;">
-        ${cBlock('📦 CAIXAS PRETAS','truckBlack','c-depB')}
-        <div class="sep"></div>
-        ${cBlock('📦 CAIXAS BRANCAS','truckWhite','c-depW')}
-        <div class="sep" style="margin-top:2px;"></div>
-        <button id="foto-cd-btn" class="foto-mini-btn" onclick="window.tirarFotoMini('cd_saida','foto-cd-btn')"
-          style="width:100%;justify-content:center;">📷 Foto da retirada</button>
+      <div style="font-family:'Montserrat',sans-serif;font-size:1.4rem;font-weight:900;text-align:center;margin-bottom:8px;">
+        Quantas caixas está pegando?
       </div>
+      <div style="font-size:.95rem;color:var(--muted);text-align:center;margin-bottom:22px;">
+        Total de caixas que estão entrando no caminhão
+      </div>
+
+      ${(S.truckCx)>0?`<div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);
+        border-radius:14px;padding:12px 20px;margin-bottom:20px;text-align:center;">
+        <span style="font-size:.9rem;color:var(--muted);">Já no caminhão: </span>
+        <span style="font-weight:900;font-size:1.05rem;">${S.truckCx} caixas</span>
+      </div>`:''}
+
+      <div style="display:flex;align-items:center;justify-content:center;gap:24px;margin:8px 0 32px;">
+        <button onclick="window._depMinus()"
+          style="width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,.07);
+          border:2px solid rgba(255,255,255,.15);font-size:2.5rem;font-weight:900;
+          color:var(--text);display:flex;align-items:center;justify-content:center;">−</button>
+        <div style="text-align:center;min-width:110px;">
+          <input id="dep-count" type="tel" inputmode="numeric" pattern="[0-9]*"
+            value="${S.depTotal}" onfocus="this.select()"
+            oninput="var v=parseInt(this.value.replace(/\D/g,''))||0;window._S.depTotal=v;this.value=v;"
+            style="font-family:'Montserrat',sans-serif;font-size:4rem;font-weight:900;
+            color:var(--accent);line-height:1;background:transparent;border:none;outline:none;
+            width:110px;text-align:center;padding:0;caret-color:var(--accent);"/>
+          <div style="font-size:.78rem;color:var(--muted);margin-top:2px;">caixas</div>
+          <div style="font-size:.7rem;color:rgba(228,240,246,.3);margin-top:3px;">👆 toque p/ digitar</div>
+        </div>
+        <button onclick="window._depPlus()"
+          style="width:80px;height:80px;border-radius:50%;background:rgba(0,212,255,.1);
+          border:2px solid rgba(0,212,255,.3);font-size:2.5rem;font-weight:900;
+          color:var(--accent);display:flex;align-items:center;justify-content:center;">+</button>
+      </div>
+      <button id="foto-cd-btn" class="foto-grande-btn" onclick="window.tirarFotoMini('cd_saida','foto-cd-btn')"
+        style="margin-bottom:18px;">
+        📷 &nbsp; Tirar foto das caixas no CD
+      </button>
       <button onclick="confirmDeparture()" class="btn-giant">✅ Confirmar Retirada</button>
     </div>`;
   }
@@ -729,37 +781,29 @@ function initDriver(name) {
   /* ════ DEIXAR NO CD ════ */
   function vCdReturn() {
     $('app').innerHTML=`<div id="driver-wrap" class="fade-in">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
-        <button onclick="window.voltarEscolha()" style="padding:7px 12px;border-radius:10px;
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:22px;">
+        <button onclick="window.voltarEscolha()" style="padding:10px 16px;border-radius:12px;
           background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
-          font-size:.82rem;font-weight:700;color:rgba(228,240,246,.6);">← Voltar</button>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <span style="font-size:1.4rem;">🏠</span>
-          <span style="font-family:'Montserrat',sans-serif;font-weight:900;">Deixar no CD</span>
+          font-size:.95rem;font-weight:700;color:rgba(228,240,246,.65);flex-shrink:0;">← Voltar</button>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:2rem;">🏠</span>
+          <span style="font-family:'Montserrat',sans-serif;font-size:1.3rem;font-weight:900;">Deixar no CD</span>
         </div>
       </div>
-      <div style="background:rgba(255,179,71,.06);border:1.5px solid rgba(255,179,71,.2);border-radius:14px;padding:14px 16px;margin-bottom:16px;text-align:center;">
-        <div style="font-size:.78rem;color:rgba(228,240,246,.55);font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin-bottom:6px;">📦 Você tem no caminhão</div>
-        <div style="display:flex;justify-content:center;gap:24px;align-items:baseline;">
-          <div>
-            <span style="font-family:'DM Mono',monospace;font-size:1.9rem;font-weight:900;color:var(--text);">${S.truckBlack}</span>
-            <span style="font-size:.75rem;color:rgba(228,240,246,.55);font-weight:700;margin-left:4px;">⬛ pretas</span>
-          </div>
-          <div>
-            <span style="font-family:'DM Mono',monospace;font-size:1.9rem;font-weight:900;color:var(--text);">${S.truckWhite}</span>
-            <span style="font-size:.75rem;color:rgba(228,240,246,.55);font-weight:700;margin-left:4px;">⬜ brancas</span>
-          </div>
-        </div>
-        <div style="font-size:.75rem;color:rgba(255,179,71,.85);font-weight:600;margin-top:8px;">Quantas você vai deixar no CD?</div>
+      <div style="background:rgba(255,179,71,.07);border:1.5px solid rgba(255,179,71,.3);border-radius:18px;padding:20px;margin-bottom:20px;text-align:center;">
+        <div style="font-size:.88rem;color:rgba(228,240,246,.55);font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px;">📦 Caixas no seu caminhão agora</div>
+        <div style="font-family:'Montserrat',sans-serif;font-size:2.8rem;font-weight:900;color:var(--text);">${S.truckCx}</div>
+        <div style="font-size:.88rem;color:rgba(228,240,246,.55);font-weight:700;margin-top:4px;">caixas</div>
+        <div style="font-size:.95rem;color:rgba(255,179,71,.95);font-weight:700;margin-top:14px;">Quantas você vai deixar no CD?</div>
       </div>
-      <div class="glass-card" style="padding:26px;margin-bottom:20px;">
-        ${cBlock('⬛ PRETAS devolvidas','retBlack','c-rB')}
-        <div class="sep"></div>
-        ${cBlock('⬜ BRANCAS devolvidas','retWhite','c-rW')}
-        <div class="sep" style="margin-top:2px;"></div>
-        <button id="foto-ret-btn" class="foto-mini-btn" onclick="window.tirarFotoMini('cd_return','foto-ret-btn')"
-          style="width:100%;justify-content:center;">📷 Foto da devolução</button>
+      <div class="glass-card" style="padding:28px;margin-bottom:18px;">
+        ${cBlock('📦 CAIXAS a devolver','retCx','c-rB')}
       </div>
+      <button id="foto-ret-btn" class="foto-grande-btn"
+        style="border-color:rgba(255,179,71,.4);color:var(--warning);background:rgba(255,179,71,.07);margin-bottom:18px;"
+        onclick="window.tirarFotoMini('cd_return','foto-ret-btn')">
+        📷 &nbsp; Tirar foto da devolução
+      </button>
       <button id="retBtn" onclick="window.confirmCdReturn()" class="btn-giant"
         style="background:linear-gradient(135deg,#ffb347,#e08010);box-shadow:0 6px 28px rgba(255,179,71,.35);">
         ✅ Confirmar Devolução
@@ -767,132 +811,376 @@ function initDriver(name) {
     </div>`;
   }
 
-  /* ════ ESTOU NO CLIENTE — tela compacta, tudo visível ════ */
-  function vClient() {
-    // Inicia captura de GPS em background
-    _capturaGeo();
+  /* ════ ESTOU NO CLIENTE — FLUXO SEQUENCIAL ════ */
 
-    const rotaClientes = (S.dailyRoute?.clients || []).map(c=>c.toUpperCase());
-    const chipList = rotaClientes.length ? rotaClientes : [];
-    const chipsHtml=chipList.map(c=>
-      `<button class="r-chip" onmousedown="event.preventDefault();window._selecionarCliente('${c.replace(/'/g,"\\'")}');">${c}</button>`
+  function _stepBar(active) {
+    const icons  = ['👤','📤','📥','📷'];
+    const labels = ['Cliente','Entrega','Coleta','Foto'];
+    return `<div style="display:flex;justify-content:center;align-items:center;gap:0;margin-bottom:28px;">
+      ${icons.map((icon,i)=>`
+        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;">
+          <div style="width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.1rem;
+            background:${i===active?'var(--accent)':i<active?'rgba(0,229,160,.3)':'rgba(255,255,255,.07)'};
+            border:2px solid ${i===active?'var(--accent)':i<active?'var(--success)':'rgba(255,255,255,.13)'};
+            color:${i===active?'#000':i<active?'var(--success)':'var(--muted)'};">${i<active?'✓':icon}</div>
+          <div style="font-size:.65rem;color:${i===active?'var(--accent)':i<active?'var(--success)':'var(--muted)'};">${labels[i]}</div>
+        </div>
+        ${i<icons.length-1?`<div style="flex:0 0 20px;height:2px;background:${i<active?'rgba(0,229,160,.4)':'rgba(255,255,255,.1)'};margin-bottom:18px;"></div>`:''}
+      `).join('')}
+    </div>`;
+  }
+
+  function vClient() {
+    _capturaGeo();
+    const sub=S.clientSubStep||'name';
+    if(sub==='name')        _vcName();
+    else if(sub==='deliver')_vcDeliver();
+    else if(sub==='collect')_vcCollect();
+    else if(sub==='photo')  _vcPhoto();
+    else if(sub==='done')   _vcDone();
+    else                    _vcName();
+  }
+
+  function _vcName() {
+    const rotaClientes=(S.dailyRoute?.clients||[]).map(c=>c.toUpperCase());
+    const chipsHtml=rotaClientes.map(c=>
+      `<button class="r-chip" style="min-height:52px;font-size:1rem;font-weight:700;padding:12px 20px;"
+        onmousedown="event.preventDefault();window._selecionarCliente('${c.replace(/'/g,"\\'")}');">${c}</button>`
     ).join('');
 
     $('app').innerHTML=`
-    <div id="client-screen" class="fade-in">
+    <div class="fade-in" style="padding:0 20px 40px;">
 
-      <!-- CABEÇALHO -->
-      <div id="cs-header">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-          <button onclick="window.voltarEscolha()"
-            style="padding:5px 11px;border-radius:9px;background:rgba(255,255,255,.06);
-            border:1px solid rgba(255,255,255,.1);font-size:.78rem;font-weight:700;
-            color:rgba(228,240,246,.55);flex-shrink:0;">← Início</button>
-          <span style="font-family:'Montserrat',sans-serif;font-size:.9rem;font-weight:900;flex:1;text-align:center;">🚚 Estou no Cliente</span>
-          <div style="display:flex;align-items:center;gap:5px;flex-shrink:0;">
-            ${truckBadges()}
-            <span class="offline-pill" style="margin-left:4px;">📵</span>
-          </div>
-        </div>
-        <!-- Status GPS -->
-        <div style="font-size:.68rem;color:rgba(228,240,246,.35);margin-top:5px;display:flex;align-items:center;gap:4px;">
-          <span class="geo-dot" id="geo-dot"></span>
-          <span id="geo-txt">Capturando localização...</span>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 0 20px;">
+        <button onclick="window.voltarEscolha()"
+          style="padding:10px 18px;border-radius:12px;background:rgba(255,255,255,.07);
+          border:1px solid rgba(255,255,255,.12);font-size:1rem;font-weight:700;color:rgba(228,240,246,.65);">← Início</button>
+        <span style="font-family:'Montserrat',sans-serif;font-size:1rem;font-weight:900;">🚚 Estou no Cliente</span>
+        <div style="text-align:right;">
+          <div style="font-family:'Montserrat',sans-serif;font-size:1.3rem;font-weight:900;">${S.truckCx}</div>
+          <div style="font-size:.65rem;color:var(--muted);">caixas</div>
         </div>
       </div>
 
-      <!-- CAMPO CLIENTE -->
-      <div id="cs-client-area">
-        <div style="padding-top:7px;" id="client-sugg-wrap">
-          <input id="clientInput" type="text" class="input-field"
-            placeholder="🔍 Buscar ou digitar cliente..."
-            value="${S.clientName}"
-            oninput="window._S.clientName=this.value;_showSugg(this.value)"
-            onfocus="_showSugg(this.value)"
-            onblur="setTimeout(_fecharSugg,200)"
-            autocomplete="off" autocorrect="off" spellcheck="false"/>
-          <div id="client-sugg" style="display:none;"></div>
-        </div>
-        <!-- Chips rápidos -->
-        <div id="recent-chips">${chipsHtml}</div>
-        <!-- Resumo visual: quanto tem no caminhão agora -->
-        <div style="background:rgba(0,212,255,.06);border:1.5px solid rgba(0,212,255,.2);border-radius:14px;padding:14px 16px;margin:10px 0 6px;text-align:center;">
-          <div style="font-size:.78rem;color:rgba(228,240,246,.55);font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin-bottom:6px;">📦 No seu caminhão agora</div>
-          <div style="display:flex;justify-content:center;gap:24px;align-items:baseline;">
-            <div>
-              <span style="font-family:'DM Mono',monospace;font-size:1.8rem;font-weight:900;color:var(--text);">${S.truckBlack}</span>
-              <span style="font-size:.75rem;color:rgba(228,240,246,.55);font-weight:700;margin-left:4px;">⬛ pretas</span>
-            </div>
-            <div>
-              <span style="font-family:'DM Mono',monospace;font-size:1.8rem;font-weight:900;color:var(--text);">${S.truckWhite}</span>
-              <span style="font-size:.75rem;color:rgba(228,240,246,.55);font-weight:700;margin-left:4px;">⬜ brancas</span>
-            </div>
-          </div>
-        </div>
-        <!-- Alerta saldo alto -->
-        <div class="alert-banner" id="cs-alert"></div>
-        <!-- Foto obrigatória -->
-        <div class="foto-req" id="cs-foto-req">📷 Foto obrigatória para este cliente</div>
-        <!-- Última visita + repetir -->
-        <div class="history-banner" id="cs-history"></div>
+      ${_stepBar(0)}
+
+      <div style="font-family:'Montserrat',sans-serif;font-size:1.5rem;font-weight:900;text-align:center;margin-bottom:20px;">
+        Qual é o cliente?
       </div>
 
-      <!-- CONTADORES -->
-      <div id="cs-counters">
-        <div class="cs-sec-label">📤 ENTREGOU — saiu do caminhão</div>
-        ${mCBlock('⬛','Pretas entregues','delBlack','dB')}
-        ${mCBlock('⬜','Brancas entregues','delWhite','dW')}
-        <div class="cs-sec-div"></div>
-        <div class="cs-sec-label">📥 COLETOU — entrou no caminhão</div>
-        ${mCBlock('⬛','Pretas coletadas','colBlack','cB')}
-        ${mCBlock('⬜','Brancas coletadas','colWhite','cW')}
-        <div class="cs-sec-div"></div>
-        <div class="cs-sec-label" style="color:rgba(255,179,71,.7);">📦 CAIXAS OCUPADAS (com produto)</div>
-        ${mCBlock('⬛','Pretas ocupadas','cxOcupBlack','oB','warn')}
-        ${mCBlock('⬜','Brancas ocupadas','cxOcupWhite','oW','warn')}
-        <div class="cs-sec-div"></div>
-        <!-- Fotos inline -->
-        <div style="display:flex;gap:7px;padding-bottom:6px;">
-          <button id="foto-ent-btn" class="foto-mini-btn" style="flex:1;justify-content:center;"
-            onclick="window.tirarFotoMini('client_entrega','foto-ent-btn')">📷 Entrega</button>
-          <button id="foto-col-btn" class="foto-mini-btn" style="flex:1;justify-content:center;"
-            onclick="window.tirarFotoMini('client_coleta','foto-col-btn')">📷 Coleta</button>
+      <input id="clientInput" type="text" class="input-field"
+        style="font-size:1.15rem;min-height:62px;margin-bottom:12px;"
+        placeholder="🔍 Digite o nome..."
+        value="${S.clientName}"
+        oninput="window._S.clientName=this.value;_showSugg(this.value)"
+        onfocus="_showSugg(this.value)"
+        onblur="setTimeout(_fecharSugg,200)"
+        autocomplete="off" autocorrect="off" spellcheck="false"/>
+      <div id="client-sugg" style="display:none;"></div>
+
+      ${chipsHtml?`
+        <div style="font-size:.85rem;color:var(--muted);margin:16px 0 10px;font-weight:700;letter-spacing:.05em;">ROTA DE HOJE:</div>
+        <div id="recent-chips" style="display:flex;flex-wrap:wrap;gap:8px;">${chipsHtml}</div>
+      `:''}
+
+      <button onclick="window._vcNextDeliver()" class="btn-giant" style="margin-top:28px;">
+        Próximo →
+      </button>
+
+    </div>`;
+  }
+
+  function _vcDeliver() {
+    const cd=S._clienteData;
+    const saldo=cd?(nn(cd.balance)||(nn(cd.balanceBlack)+nn(cd.balanceWhite))):0;
+    const lv=cd&&cd.lastVisit;
+    const ultimaTotal=lv?(nn(lv.totalDel)||(nn(lv.delBlack)+nn(lv.delWhite))):0;
+
+    $('app').innerHTML=`
+    <div class="fade-in" style="padding:0 20px 40px;">
+
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 0 20px;">
+        <button onclick="window._vcBackName()"
+          style="padding:10px 18px;border-radius:12px;background:rgba(255,255,255,.07);
+          border:1px solid rgba(255,255,255,.12);font-size:1rem;font-weight:700;color:rgba(228,240,246,.65);">← Voltar</button>
+        <span style="font-family:'Montserrat',sans-serif;font-size:1rem;font-weight:900;">${S.clientName}</span>
+        <div style="text-align:right;">
+          <div style="font-family:'Montserrat',sans-serif;font-size:1.3rem;font-weight:900;">${S.truckCx}</div>
+          <div style="font-size:.65rem;color:var(--muted);">no caminhão</div>
         </div>
       </div>
 
-      <!-- RODAPÉ -->
-      <div id="cs-footer">
-        <div style="display:flex;gap:7px;">
-          <button id="regBtn" onclick="registerClient()" class="btn-giant compact" style="flex:2;">
-            ✅ Registrar
-          </button>
-          <button onclick="goSummary()" class="btn-sec compact" style="flex:1;">
-            📋 Resumo
-          </button>
+      ${_stepBar(1)}
+
+      <div style="font-family:'Montserrat',sans-serif;font-size:1.5rem;font-weight:900;text-align:center;margin-bottom:8px;">
+        📤 Quantas caixas entregou?
+      </div>
+      <div style="font-size:.95rem;color:var(--muted);text-align:center;margin-bottom:22px;">
+        Caixas que saíram do caminhão
+      </div>
+
+      ${saldo>=30?`<div style="background:rgba(255,179,71,.1);border:1px solid rgba(255,179,71,.35);
+        border-radius:14px;padding:14px 18px;margin-bottom:16px;font-size:.95rem;font-weight:700;color:var(--warning);text-align:center;">
+        ⚠️ ${S.clientName} tem <b>${saldo} caixas</b> em aberto — tente cobrar o retorno!
+      </div>`:''}
+
+      ${ultimaTotal?`<div style="background:rgba(0,212,255,.06);border:1px solid rgba(0,212,255,.15);
+        border-radius:14px;padding:12px 18px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+        <span style="font-size:.9rem;color:var(--muted);">Última vez: <b style="color:var(--text);">${ultimaTotal} caixas</b></span>
+        <button onclick="window._vcUsarUltimaDel(${ultimaTotal})"
+          style="padding:8px 16px;border-radius:10px;background:rgba(0,212,255,.12);flex-shrink:0;
+          border:1px solid rgba(0,212,255,.25);font-size:.85rem;font-weight:800;color:var(--accent);">🔄 Usar</button>
+      </div>`:''}
+
+      <div style="display:flex;align-items:center;justify-content:center;gap:24px;margin:16px 0 32px;">
+        <button onclick="window._vcDelMinus()"
+          style="width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,.07);
+          border:2px solid rgba(255,255,255,.15);font-size:2.5rem;font-weight:900;
+          color:var(--text);display:flex;align-items:center;justify-content:center;">−</button>
+        <div style="text-align:center;min-width:110px;">
+          <input id="del-count" type="tel" inputmode="numeric" pattern="[0-9]*"
+            value="${S.totalDel}" onfocus="this.select()"
+            oninput="var v=parseInt(this.value.replace(/\D/g,''))||0;window._S.totalDel=v;this.value=v;"
+            style="font-family:'Montserrat',sans-serif;font-size:4rem;font-weight:900;
+            color:var(--accent);line-height:1;background:transparent;border:none;outline:none;
+            width:110px;text-align:center;padding:0;caret-color:var(--accent);"/>
+          <div style="font-size:.78rem;color:var(--muted);margin-top:2px;">caixas</div>
+          <div style="font-size:.7rem;color:rgba(228,240,246,.3);margin-top:3px;">👆 toque p/ digitar</div>
+        </div>
+        <button onclick="window._vcDelPlus()"
+          style="width:80px;height:80px;border-radius:50%;background:rgba(0,212,255,.1);
+          border:2px solid rgba(0,212,255,.3);font-size:2.5rem;font-weight:900;
+          color:var(--accent);display:flex;align-items:center;justify-content:center;">+</button>
+      </div>
+
+      <button onclick="window._vcNextCollect()" class="btn-giant" style="margin-bottom:12px;">
+        Próximo →
+      </button>
+      <button onclick="window._vcSkipDeliver()"
+        style="width:100%;padding:14px;border-radius:14px;background:transparent;
+        border:1px solid rgba(255,255,255,.12);font-size:.95rem;font-weight:700;
+        color:rgba(228,240,246,.45);">Não entregou nada — Pular</button>
+
+    </div>`;
+  }
+
+  function _vcCollect() {
+    $('app').innerHTML=`
+    <div class="fade-in" style="padding:0 20px 40px;">
+
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 0 20px;">
+        <button onclick="window._vcBackDeliver()"
+          style="padding:10px 18px;border-radius:12px;background:rgba(255,255,255,.07);
+          border:1px solid rgba(255,255,255,.12);font-size:1rem;font-weight:700;color:rgba(228,240,246,.65);">← Voltar</button>
+        <span style="font-family:'Montserrat',sans-serif;font-size:1rem;font-weight:900;">${S.clientName}</span>
+        <div style="text-align:right;">
+          <div style="font-family:'Montserrat',sans-serif;font-size:1.3rem;font-weight:900;">${S.truckCx}</div>
+          <div style="font-size:.65rem;color:var(--muted);">no caminhão</div>
         </div>
       </div>
+
+      ${_stepBar(2)}
+
+      <div style="font-family:'Montserrat',sans-serif;font-size:1.5rem;font-weight:900;text-align:center;margin-bottom:8px;">
+        📥 Quantas caixas coletou?
+      </div>
+      <div style="font-size:.95rem;color:var(--muted);text-align:center;margin-bottom:22px;">
+        Caixas que entraram no caminhão
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:center;gap:24px;margin:16px 0 32px;">
+        <button onclick="window._vcColMinus()"
+          style="width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,.07);
+          border:2px solid rgba(255,255,255,.15);font-size:2.5rem;font-weight:900;
+          color:var(--text);display:flex;align-items:center;justify-content:center;">−</button>
+        <div style="text-align:center;min-width:110px;">
+          <input id="col-count" type="tel" inputmode="numeric" pattern="[0-9]*"
+            value="${S.totalCol}" onfocus="this.select()"
+            oninput="var v=parseInt(this.value.replace(/\D/g,''))||0;window._S.totalCol=v;this.value=v;"
+            style="font-family:'Montserrat',sans-serif;font-size:4rem;font-weight:900;
+            color:var(--success);line-height:1;background:transparent;border:none;outline:none;
+            width:110px;text-align:center;padding:0;caret-color:var(--success);"/>
+          <div style="font-size:.78rem;color:var(--muted);margin-top:2px;">caixas</div>
+          <div style="font-size:.7rem;color:rgba(228,240,246,.3);margin-top:3px;">👆 toque p/ digitar</div>
+        </div>
+        <button onclick="window._vcColPlus()"
+          style="width:80px;height:80px;border-radius:50%;background:rgba(0,229,160,.08);
+          border:2px solid rgba(0,229,160,.3);font-size:2.5rem;font-weight:900;
+          color:var(--success);display:flex;align-items:center;justify-content:center;">+</button>
+      </div>
+
+      <button onclick="window._vcNextPhoto()" class="btn-giant" style="background:var(--success);margin-bottom:12px;">
+        Próximo →
+      </button>
+      <button onclick="window._vcSkipCollect()"
+        style="width:100%;padding:14px;border-radius:14px;background:transparent;
+        border:1px solid rgba(255,255,255,.12);font-size:.95rem;font-weight:700;
+        color:rgba(228,240,246,.45);">Não coletou nada — Pular</button>
+
+    </div>`;
+  }
+
+  function _vcPhoto() {
+    $('app').innerHTML=`
+    <div class="fade-in" style="padding:0 20px 40px;">
+
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 0 20px;">
+        <button onclick="window._vcBackCollect()"
+          style="padding:10px 18px;border-radius:12px;background:rgba(255,255,255,.07);
+          border:1px solid rgba(255,255,255,.12);font-size:1rem;font-weight:700;color:rgba(228,240,246,.65);">← Voltar</button>
+        <span style="font-family:'Montserrat',sans-serif;font-size:1rem;font-weight:900;">${S.clientName}</span>
+        <div style="font-size:.68rem;color:var(--muted);text-align:right;">
+          <span class="geo-dot" id="geo-dot"></span> <span id="geo-txt">Localizando...</span>
+        </div>
+      </div>
+
+      ${_stepBar(3)}
+
+      <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:16px;
+        padding:16px 20px;margin-bottom:24px;display:flex;justify-content:center;gap:32px;align-items:center;">
+        <div style="text-align:center;">
+          <div style="font-size:2rem;font-weight:900;color:var(--accent);">${S.totalDel}</div>
+          <div style="font-size:.78rem;color:var(--muted);margin-top:4px;">📤 entregue${S.totalDel!==1?'s':''}</div>
+        </div>
+        <div style="width:1px;height:44px;background:rgba(255,255,255,.08);"></div>
+        <div style="text-align:center;">
+          <div style="font-size:2rem;font-weight:900;color:var(--success);">${S.totalCol}</div>
+          <div style="font-size:.78rem;color:var(--muted);margin-top:4px;">📥 coletad${S.totalCol!==1?'as':'a'}</div>
+        </div>
+      </div>
+
+      ${S._fotoObrigatoria?`<div style="background:rgba(255,179,71,.1);border:1px solid rgba(255,179,71,.35);
+        border-radius:14px;padding:12px 18px;margin-bottom:16px;font-size:.95rem;font-weight:700;
+        color:var(--warning);text-align:center;">📷 Foto obrigatória para este cliente</div>`:''}
+
+      <div style="font-size:.9rem;color:var(--muted);font-weight:700;letter-spacing:.05em;margin-bottom:12px;">
+        FOTOS${S._fotoObrigatoria?' — OBRIGATÓRIA':''}:
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:28px;">
+        <button id="foto-ent-btn" class="foto-grande-btn"
+          onclick="window.tirarFotoMini('client_entrega','foto-ent-btn')">
+          📷 &nbsp; Foto da entrega
+        </button>
+        <button id="foto-col-btn" class="foto-grande-btn"
+          style="border-color:rgba(0,229,160,.35);color:var(--success);background:rgba(0,229,160,.06);"
+          onclick="window.tirarFotoMini('client_coleta','foto-col-btn')">
+          📷 &nbsp; Foto da coleta
+        </button>
+      </div>
+
+      <button id="regBtn" onclick="registerClient()" class="btn-giant" style="font-size:1.2rem;min-height:68px;">
+        ✅ Registrar Visita
+      </button>
 
     </div>`;
 
-    // Atualiza texto do GPS quando capturar
     _watchGeoText();
     _atualizarBotaoRegistrar();
+    if(S.fotos.client_entrega){const b=$('foto-ent-btn');if(b){b.className='foto-grande-btn done';b.innerHTML='✅ &nbsp; Foto salva!';}}
+    if(S.fotos.client_coleta){const b=$('foto-col-btn');if(b){b.className='foto-grande-btn done';b.innerHTML='✅ &nbsp; Foto salva!';}}
   }
 
-  function _watchGeoText() {
+  function _vcDone() {
+    const cn=S._lastRegistered||'Cliente';
+    $('app').innerHTML=`
+    <div class="fade-in" style="padding:40px 20px 60px;display:flex;flex-direction:column;align-items:center;text-align:center;">
+
+      <div style="font-size:64px;line-height:1;margin-bottom:16px;
+        filter:drop-shadow(0 0 24px rgba(0,229,160,.5));">✅</div>
+      <div style="font-family:'Montserrat',sans-serif;font-size:1.5rem;font-weight:900;margin-bottom:6px;">
+        ${cn} registrado!
+      </div>
+      <div style="font-size:.95rem;color:var(--muted);margin-bottom:40px;">
+        O que fazer agora?
+      </div>
+
+      <div style="width:100%;display:flex;flex-direction:column;gap:14px;">
+
+        <button onclick="window._vcNovoCliente()"
+          style="width:100%;min-height:72px;border-radius:18px;
+          background:rgba(0,212,255,.1);border:2px solid rgba(0,212,255,.35);
+          color:var(--accent);font-family:'Montserrat',sans-serif;font-size:1.1rem;font-weight:900;
+          display:flex;align-items:center;justify-content:center;gap:14px;">
+          ➕ &nbsp; Mais um cliente
+        </button>
+
+        <button onclick="window.escolherModo('cd_return')"
+          style="width:100%;min-height:72px;border-radius:18px;
+          background:rgba(255,179,71,.08);border:2px solid rgba(255,179,71,.35);
+          color:var(--warning);font-family:'Montserrat',sans-serif;font-size:1.1rem;font-weight:900;
+          display:flex;align-items:center;justify-content:center;gap:14px;">
+          🏠 &nbsp; Deixar no CD
+        </button>
+
+        <button onclick="window.goSummary()"
+          style="width:100%;min-height:72px;border-radius:18px;
+          background:rgba(0,229,160,.08);border:2px solid rgba(0,229,160,.35);
+          color:var(--success);font-family:'Montserrat',sans-serif;font-size:1.1rem;font-weight:900;
+          display:flex;align-items:center;justify-content:center;gap:14px;">
+          📋 &nbsp; Ver resumo / Finalizar dia
+        </button>
+
+      </div>
+    </div>`;
+  }
+
+  window._vcNovoCliente=function(){
+    S.clientSubStep='name';S.clientName='';
+    S.totalDel=0;S.totalCol=0;S._fotoObrigatoria=false;S._clienteData=null;
+    S.fotos.client_entrega=null;S.fotos.client_coleta=null;
+    render();
+  };
+
+  /* Navegação entre sub-passos */
+  window._vcNextDeliver=function(){
+    const inp=$('clientInput'); const cn=(inp?inp.value:S.clientName).trim().toUpperCase();
+    if(!cn){toast('Digite o nome do cliente!');return;}
+    S.clientName=cn; S.clientSubStep='deliver'; render();
+  };
+  window._vcBackName=function(){S.clientSubStep='name';render();};
+  window._vcSkipDeliver=function(){S.totalDel=0;S.clientSubStep='collect';render();};
+  window._vcNextCollect=function(){
+    if(S.totalDel>(S.truckCx)){toast('Você não tem tantas caixas no caminhão!');return;}
+    S.clientSubStep='collect';render();
+  };
+  window._vcBackDeliver=function(){S.clientSubStep='deliver';render();};
+  window._vcSkipCollect=function(){S.totalCol=0;S.clientSubStep='photo';render();};
+  window._vcNextPhoto=function(){S.clientSubStep='photo';render();};
+  window._vcBackCollect=function(){S.clientSubStep='collect';render();};
+
+  /* Controles dos contadores */
+  window._vcDelPlus=function(){
+    if(S.totalDel>=(S.truckCx)){toast('Não tem mais caixas no caminhão!');return;}
+    S.totalDel++; const el=$('del-count');if(el)el.value=S.totalDel; vibe(15);
+  };
+  window._vcDelMinus=function(){
+    if(S.totalDel<=0)return; S.totalDel--; const el=$('del-count');if(el)el.value=S.totalDel; vibe(15);
+  };
+  window._vcColPlus=function(){
+    S.totalCol++; const el=$('col-count');if(el)el.value=S.totalCol; vibe(15);
+  };
+  window._vcColMinus=function(){
+    if(S.totalCol<=0)return; S.totalCol--; const el=$('col-count');if(el)el.value=S.totalCol; vibe(15);
+  };
+  window._vcUsarUltimaDel=function(total){
+    S.totalDel=total; const el=$('del-count');if(el)el.value=total; vibe(30); toast('✓ Valor da última visita aplicado!');
+  };
+
+  function _watchGeoText(){
     const interval=setInterval(()=>{
       const dot=$('geo-dot'); const txt=$('geo-txt');
-      if(!dot||!txt){ clearInterval(interval); return; }
+      if(!dot||!txt){clearInterval(interval);return;}
       if(S.geoCoords){
         dot.className='geo-dot ok';
-        txt.textContent=`📍 Localização capturada (±${S.geoCoords.acc}m)`;
+        txt.textContent=`📍 ±${S.geoCoords.acc}m`;
         clearInterval(interval);
       }
     },500);
     setTimeout(()=>{
       clearInterval(interval);
       const txt=$('geo-txt');
-      if(txt&&!S.geoCoords) txt.textContent='📍 Localização não disponível';
+      if(txt&&!S.geoCoords)txt.textContent='📍 Indisponível';
     },13000);
   }
 
@@ -912,18 +1200,10 @@ function initDriver(name) {
     // Narrativa por cliente: "Deixou 10pt e pegou 8pt"
     const txHtml=S.transactions.length?S.transactions.map(tx=>{
       const partes = [];
-      if (tx.delBlack || tx.delWhite) {
-        const det = [];
-        if (tx.delBlack) det.push(`<b>${tx.delBlack}</b> pretas`);
-        if (tx.delWhite) det.push(`<b>${tx.delWhite}</b> brancas`);
-        partes.push(`<span style="color:var(--alert);">↓ Deixou ${det.join(' e ')}</span>`);
-      }
-      if (tx.colBlack || tx.colWhite) {
-        const det = [];
-        if (tx.colBlack) det.push(`<b>${tx.colBlack}</b> pretas`);
-        if (tx.colWhite) det.push(`<b>${tx.colWhite}</b> brancas`);
-        partes.push(`<span style="color:var(--success);">↑ Pegou ${det.join(' e ')}</span>`);
-      }
+      const totalDel=tx.totalDel||(tx.delBlack||0)+(tx.delWhite||0);
+      const totalCol=tx.totalCol||(tx.colBlack||0)+(tx.colWhite||0);
+      if(totalDel) partes.push(`<span style="color:var(--alert);">↓ Deixou <b>${totalDel}</b> cx</span>`);
+      if(totalCol) partes.push(`<span style="color:var(--success);">↑ Pegou <b>${totalCol}</b> cx</span>`);
       const linha = partes.join(' · ') || '<span style="color:rgba(228,240,246,.4);">sem caixas</span>';
       return `
         <div style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,.06);">
@@ -943,9 +1223,7 @@ function initDriver(name) {
       <div class="glass-card" style="padding:20px;margin-bottom:12px;">
         <div class="label-section" style="margin-bottom:10px;">No Caminhão Agora</div>
         <div style="display:flex;gap:24px;">
-          <div><div class="big-num">${S.truckBlack}</div><div class="big-num-label">⬛ Pretas</div></div>
-          <div><div class="big-num">${S.truckWhite}</div><div class="big-num-label">⬜ Brancas</div></div>
-          <div><div class="big-num" style="color:var(--accent);">${S.truckBlack+S.truckWhite}</div><div class="big-num-label">Total</div></div>
+          <div><div class="big-num" style="color:var(--accent);">${S.truckCx}</div><div class="big-num-label">📦 Total</div></div>
         </div>
       </div>
       <div class="glass-card" style="padding:16px;margin-bottom:18px;">
@@ -966,23 +1244,17 @@ function initDriver(name) {
   function vDone() {
     // Monta mensagem WhatsApp formatada
     const hoje = new Date().toLocaleDateString('pt-BR', { weekday:'long', day:'2-digit', month:'2-digit', year:'numeric' });
-    const totalEntregue = S.transactions.reduce((a,tx)=>(a+(tx.delBlack||0)+(tx.delWhite||0)),0);
-    const totalColetado = S.transactions.reduce((a,tx)=>(a+(tx.colBlack||0)+(tx.colWhite||0)),0);
+    const totalEntregue = S.transactions.reduce((a,tx)=>(a+(tx.totalDel||(tx.delBlack||0)+(tx.delWhite||0))),0);
+    const totalColetado = S.transactions.reduce((a,tx)=>(a+(tx.totalCol||(tx.colBlack||0)+(tx.colWhite||0))),0);
     const saldoPendente = totalEntregue - totalColetado;
     const taxaRetorno   = totalEntregue > 0 ? Math.round(totalColetado/totalEntregue*100) : 0;
 
     const linhasClientes = S.transactions.map((tx, i) => {
       const partes = [];
-      if(tx.delBlack||tx.delWhite) {
-        const det = [tx.delBlack?`${tx.delBlack} pretas`:'', tx.delWhite?`${tx.delWhite} brancas`:''].filter(Boolean).join(' + ');
-        partes.push(`   📤 Entregou: ${(tx.delBlack||0)+(tx.delWhite||0)} cx _(${det})_`);
-      }
-      if(tx.colBlack||tx.colWhite) {
-        const det = [tx.colBlack?`${tx.colBlack} pretas`:'', tx.colWhite?`${tx.colWhite} brancas`:''].filter(Boolean).join(' + ');
-        partes.push(`   📥 Coletou: ${(tx.colBlack||0)+(tx.colWhite||0)} cx _(${det})_`);
-      }
-      if(tx.cxOcupBlack||tx.cxOcupWhite)
-        partes.push(`   ⚠️ Ocupadas: ${(tx.cxOcupBlack||0)+(tx.cxOcupWhite||0)} cx`);
+      const tDel=tx.totalDel||(tx.delBlack||0)+(tx.delWhite||0);
+      const tCol=tx.totalCol||(tx.colBlack||0)+(tx.colWhite||0);
+      if(tDel) partes.push(`   📤 Entregou: ${tDel} cx`);
+      if(tCol) partes.push(`   📥 Coletou: ${tCol} cx`);
       if(tx.temFoto) partes.push(`   📷 Foto registrada`);
       if(tx.geo)     partes.push(`   📍 Localização confirmada`);
       return `*${i+1}. ${tx.clientName}*\n${partes.join('\n')}`;
@@ -1006,8 +1278,7 @@ function initDriver(name) {
       saldoPendente > 0 ? `⏳ Saldo em rota: *${saldoPendente} cx*` : `✅ Tudo coletado!`,
       ``,
       `*🚚 CAMINHÃO FINAL*`,
-      `⬛ ${S.truckBlack} pretas  |  ⬜ ${S.truckWhite} brancas`,
-      `📦 Total: *${S.truckBlack+S.truckWhite} caixas*`,
+      `📦 Total: *${S.truckCx} caixas*`,
     ].join('\n'));
 
     $('app').innerHTML=`<div id="driver-wrap" class="fade-in"
@@ -1047,30 +1318,45 @@ function initDriver(name) {
 
   window.escolherModo=function(mode){
     S.mode=mode;
-    if(mode==='cd')          S.step='departure';
+    if(mode==='cd'){S.depTotal=0;S.step='departure';}
     else if(mode==='client') S.step='client';
-    else if(mode==='cd_return'){S.retBlack=0;S.retWhite=0;S.step='cd_return';}
+    else if(mode==='cd_return'){S.retCx=0;S.step='cd_return';}
     render();
   };
 
-  window.voltarEscolha=function(){S.step='choose';render();};
+  window.voltarEscolha=function(){
+    S.step='choose';
+    S.clientName='';S.totalDel=0;S.totalCol=0;S.clientSubStep='name';
+    S._fotoObrigatoria=false;S._clienteData=null;
+    render();
+  };
+
+  window._depPlus=function(){
+    S.depTotal++; const el=$('dep-count');if(el)el.value=S.depTotal; vibe(15);
+  };
+  window._depMinus=function(){
+    if(S.depTotal<=0)return; S.depTotal--; const el=$('dep-count');if(el)el.value=S.depTotal; vibe(15);
+  };
 
   window.confirmDeparture=async function(){
+    const total=S.depTotal;
+    if(!total){toast('Informe quantas caixas está pegando!');return;}
     if(S.saving) return; S.saving=true;
     try{
       const today=new Date().toISOString().split('T')[0];
+      const newCx=S.truckCx+total;
       const batch=db.batch();
       batch.set(db.collection('ll_drivers').doc(name),
-        {name,truckBlack:S.truckBlack,truckWhite:S.truckWhite,lastUpdated:TS()},{merge:true});
+        {name,truckCx:newCx,lastUpdated:TS()},{merge:true});
       const ev={type:'cd_departure',driverName:name,
-        truckBlack:S.truckBlack,truckWhite:S.truckWhite,timestamp:TS()};
+        depTotal:total,truckBefore:S.truckCx,truckAfter:newCx,timestamp:TS()};
       if(S.fotos.cd_saida) ev.fotoUrl=S.fotos.cd_saida;
       batch.set(db.collection('ll_events').doc(),ev);
-      // Grava em controle_caixas: ENTRADA (saiu da Hetros e entrou no caminhão)
-      const carBlack=S.truckBlack, carWhite=S.truckWhite;
-      if(carBlack>0) batch.set(db.collection('controle_caixas').doc(),{tipo:'ENTRADA',data:today,cliente:'Hetros — Retirada CD',fornecedor:name,motorista:name,quantidadeCx:carBlack,cor:'Preta',valorUnitario:20,valorTotal:carBlack*20,status:'OK',origem:'motorista_cd_departure',createdAt:TS()});
-      if(carWhite>0) batch.set(db.collection('controle_caixas').doc(),{tipo:'ENTRADA',data:today,cliente:'Hetros — Retirada CD',fornecedor:name,motorista:name,quantidadeCx:carWhite,cor:'Branca',valorUnitario:28,valorTotal:carWhite*28,status:'OK',origem:'motorista_cd_departure',createdAt:TS()});
+      batch.set(db.collection('controle_caixas').doc(),{tipo:'ENTRADA',data:today,
+        cliente:'Hetros — Retirada CD',fornecedor:name,motorista:name,
+        quantidadeCx:total,status:'OK',origem:'motorista_cd_departure',createdAt:TS()});
       await batch.commit();
+      S.truckCx=newCx; S.depTotal=0;
       S.step='client';S.mode='client';render();
     }catch(e){toast('Erro ao salvar. Verifique a conexão.');}
     finally{S.saving=false;}
@@ -1078,26 +1364,25 @@ function initDriver(name) {
 
   window.confirmCdReturn=async function(){
     if(S.saving) return;
-    const{retBlack,retWhite}=S;
-    if(!retBlack&&!retWhite){toast('Informe ao menos uma caixa!');return;}
+    const retCx=S.retCx;
+    if(!retCx){toast('Informe ao menos uma caixa!');return;}
     S.saving=true;
     const btn=$('retBtn');if(btn){btn.disabled=true;btn.textContent='⏳ Salvando...';}
     try{
       const today=new Date().toISOString().split('T')[0];
-      const newTB=Math.max(0,S.truckBlack-retBlack);
-      const newTW=Math.max(0,S.truckWhite-retWhite);
+      const newCx=Math.max(0,S.truckCx-retCx);
       const batch=db.batch();
-      batch.update(db.collection('ll_drivers').doc(name),{truckBlack:newTB,truckWhite:newTW,lastUpdated:TS()});
-      const ev={type:'cd_return',driverName:name,retBlack,retWhite,
-        truckBefore:{black:S.truckBlack,white:S.truckWhite},
-        truckAfter:{black:newTB,white:newTW},timestamp:TS()};
+      batch.update(db.collection('ll_drivers').doc(name),{truckCx:newCx,lastUpdated:TS()});
+      const ev={type:'cd_return',driverName:name,retCx,
+        truckBefore:S.truckCx,truckAfter:newCx,timestamp:TS()};
       if(S.fotos.cd_return) ev.fotoUrl=S.fotos.cd_return;
       batch.set(db.collection('ll_events').doc(),ev);
-      if(retBlack>0) batch.set(db.collection('controle_caixas').doc(),{tipo:'SAÍDA',data:today,cliente:'Hetros — Devolução CD',fornecedor:name,motorista:name,quantidadeCx:retBlack,cor:'Preta',valorUnitario:20,valorTotal:retBlack*20,status:'OK',origem:'motorista_cd_return',createdAt:TS()});
-      if(retWhite>0) batch.set(db.collection('controle_caixas').doc(),{tipo:'SAÍDA',data:today,cliente:'Hetros — Devolução CD',fornecedor:name,motorista:name,quantidadeCx:retWhite,cor:'Branca',valorUnitario:28,valorTotal:retWhite*28,status:'OK',origem:'motorista_cd_return',createdAt:TS()});
+      batch.set(db.collection('controle_caixas').doc(),{tipo:'SAÍDA',data:today,
+        cliente:'Hetros — Devolução CD',fornecedor:name,motorista:name,
+        quantidadeCx:retCx,status:'OK',origem:'motorista_cd_return',createdAt:TS()});
       await batch.commit();
-      S.truckBlack=newTB;S.truckWhite=newTW;S.retBlack=0;S.retWhite=0;S.fotos.cd_return=null;
-      toast(`✓ ${retBlack+retWhite} caixas devolvidas ao CD!`);
+      S.truckCx=newCx; S.retCx=0; S.fotos.cd_return=null;
+      toast(`✓ ${retCx} caixas devolvidas ao CD!`);
       S.step='choose';render();
     }catch(e){
       toast('Erro ao salvar. Tente novamente.');
@@ -1112,55 +1397,52 @@ function initDriver(name) {
     if(S._fotoObrigatoria&&!S.fotos.client_entrega&&!S.fotos.client_coleta){
       toast('📷 Foto obrigatória para este cliente!');return;
     }
-    const{delBlack,delWhite,colBlack,colWhite,cxOcupBlack,cxOcupWhite}=S;
-    if(!delBlack&&!delWhite&&!colBlack&&!colWhite){toast('Informe ao menos uma caixa!');return;}
+    if(!S.totalDel&&!S.totalCol){toast('Informe ao menos uma caixa!');return;}
     if(S.saving) return; S.saving=true;
     const btn=$('regBtn');if(btn){btn.disabled=true;btn.textContent='Salvando...';}
     try{
       const today=new Date().toISOString().split('T')[0];
-      const newTB=Math.max(0,S.truckBlack-delBlack+colBlack);
-      const newTW=Math.max(0,S.truckWhite-delWhite+colWhite);
+      const finalCx=Math.max(0,S.truckCx-S.totalDel+S.totalCol);
       const cRef=db.collection('ll_clients').doc(cn);
       const cSnap=await cRef.get();
-      const cur=cSnap.exists?cSnap.data():{balanceBlack:0,balanceWhite:0};
+      const cur=cSnap.exists?cSnap.data():{balance:0};
       const batch=db.batch();
-      batch.update(db.collection('ll_drivers').doc(name),{truckBlack:newTB,truckWhite:newTW,lastUpdated:TS()});
       const cu={
         name:cn,
-        balanceBlack:Math.max(0,nn(cur.balanceBlack)+delBlack-colBlack),
-        balanceWhite:Math.max(0,nn(cur.balanceWhite)+delWhite-colWhite),
+        balance:Math.max(0,nn(cur.balance||nn(cur.balanceBlack)+nn(cur.balanceWhite))+S.totalDel-S.totalCol),
         lastUpdated:TS(),
-        lastVisit:{delBlack,delWhite,colBlack,colWhite,date:today},  // histórico
+        lastVisit:{totalDel:S.totalDel,totalCol:S.totalCol,date:today},
       };
-      if(S.geoCoords) cu.lastVisitGeo=S.geoCoords;                  // geolocalização
-      if(cxOcupBlack||cxOcupWhite){cu.cxOcupBlack=cxOcupBlack;cu.cxOcupWhite=cxOcupWhite;cu.alertaOcupadas=true;}
+      if(S.geoCoords) cu.lastVisitGeo=S.geoCoords;
       batch.set(cRef,cu,{merge:true});
       batch.set(db.collection('luminlog_frequentes').doc('index'),
         {nomes:firebase.firestore.FieldValue.arrayUnion(cn)},{merge:true});
+      batch.update(db.collection('ll_drivers').doc(name),{truckCx:finalCx,lastUpdated:TS()});
       const ev={type:'client_transaction',driverName:name,clientName:cn,
-        delBlack,delWhite,colBlack,colWhite,cxOcupBlack,cxOcupWhite,
-        truckBefore:{black:S.truckBlack,white:S.truckWhite},
-        truckAfter:{black:newTB,white:newTW},timestamp:TS()};
+        totalDel:S.totalDel,totalCol:S.totalCol,
+        truckBefore:S.truckCx,truckAfter:finalCx,timestamp:TS()};
       if(S.geoCoords)            ev.geo=S.geoCoords;
       if(S.fotos.client_entrega) ev.fotoEntrega=S.fotos.client_entrega;
       if(S.fotos.client_coleta)  ev.fotoColeta=S.fotos.client_coleta;
       batch.set(db.collection('ll_events').doc(),ev);
-      if(delBlack>0) batch.set(db.collection('controle_caixas').doc(),{tipo:'SAÍDA',data:today,cliente:cn,fornecedor:name,motorista:name,quantidadeCx:delBlack,cor:'Preta',valorUnitario:20,valorTotal:delBlack*20,status:'OK',origem:'motorista',createdAt:TS()});
-      if(delWhite>0) batch.set(db.collection('controle_caixas').doc(),{tipo:'SAÍDA',data:today,cliente:cn,fornecedor:name,motorista:name,quantidadeCx:delWhite,cor:'Branca',valorUnitario:28,valorTotal:delWhite*28,status:'OK',origem:'motorista',createdAt:TS()});
-      if(colBlack>0) batch.set(db.collection('controle_caixas').doc(),{tipo:'ENTRADA',data:today,cliente:cn,fornecedor:name,motorista:name,quantidadeCx:colBlack,cor:'Preta',valorUnitario:20,valorTotal:colBlack*20,status:'OK',origem:'motorista',createdAt:TS()});
-      if(colWhite>0) batch.set(db.collection('controle_caixas').doc(),{tipo:'ENTRADA',data:today,cliente:cn,fornecedor:name,motorista:name,quantidadeCx:colWhite,cor:'Branca',valorUnitario:28,valorTotal:colWhite*28,status:'OK',origem:'motorista',createdAt:TS()});
+      if(S.totalDel>0) batch.set(db.collection('controle_caixas').doc(),{tipo:'SAÍDA',data:today,
+        cliente:cn,fornecedor:name,motorista:name,quantidadeCx:S.totalDel,
+        status:'OK',origem:'motorista',createdAt:TS()});
+      if(S.totalCol>0) batch.set(db.collection('controle_caixas').doc(),{tipo:'ENTRADA',data:today,
+        cliente:cn,fornecedor:name,motorista:name,quantidadeCx:S.totalCol,
+        status:'OK',origem:'motorista',createdAt:TS()});
       await batch.commit();
       if(!_clientesList.includes(cn)){_clientesList.push(cn);_clientesList.sort();}
       if(!_recentClientes.includes(cn)) _recentClientes.unshift(cn);
       _recentClientes=_recentClientes.slice(0,8);
       const temFoto=!!(S.fotos.client_entrega||S.fotos.client_coleta);
-      S.transactions.push({clientName:cn,delBlack,delWhite,colBlack,colWhite,
-        cxOcupBlack,cxOcupWhite,temFoto,geo:!!S.geoCoords});
-      S.truckBlack=newTB;S.truckWhite=newTW;
-      S.clientName='';S.delBlack=S.delWhite=S.colBlack=S.colWhite=0;
-      S.cxOcupBlack=S.cxOcupWhite=0;S._fotoObrigatoria=false;S._clienteData=null;
+      S.transactions.push({clientName:cn,totalDel:S.totalDel,totalCol:S.totalCol,temFoto,geo:!!S.geoCoords});
+      S.truckCx=finalCx;
+      S._lastRegistered=cn;
+      S.clientName='';S.totalDel=0;S.totalCol=0;S.clientSubStep='done';
+      S._fotoObrigatoria=false;S._clienteData=null;
       S.fotos.client_entrega=null;S.fotos.client_coleta=null;
-      render(); toast(`✓ ${cn} registrado!`);
+      render();
     }catch(e){
       console.error(e);toast('Erro ao salvar. Tente novamente.');
       if(btn){btn.disabled=false;btn.textContent='✅ Registrar';}
@@ -1169,8 +1451,9 @@ function initDriver(name) {
 
   window.goSummary=function(){S.step='summary';render();};
   window.backToClient=function(){
-    S.clientName='';S.delBlack=S.delWhite=S.colBlack=S.colWhite=0;
-    S.cxOcupBlack=S.cxOcupWhite=0;S.step='client';render();
+    S.clientName='';S.totalDel=0;S.totalCol=0;S.clientSubStep='name';
+    S._fotoObrigatoria=false;S._clienteData=null;
+    S.step='client';render();
   };
 
   window.finalize=async function(){
@@ -1179,7 +1462,7 @@ function initDriver(name) {
     try{
       await db.collection('ll_events').add({
         type:'day_finalized',driverName:name,
-        truckBlack:S.truckBlack,truckWhite:S.truckWhite,
+        truckCx:S.truckCx,
         totalClients:S.transactions.length,transactions:S.transactions,timestamp:TS()
       });
       S.step='done';render();
@@ -1191,8 +1474,7 @@ function initDriver(name) {
 
   window.newDay=function(){
     Object.assign(S,{step:'choose',mode:null,transactions:[],
-      clientName:'',delBlack:0,delWhite:0,colBlack:0,colWhite:0,
-      cxOcupBlack:0,cxOcupWhite:0,retBlack:0,retWhite:0,
+      clientName:'',totalDel:0,totalCol:0,depTotal:0,retCx:0,
       geoCoords:null,_fotoObrigatoria:false,_clienteData:null,fotos:{}});
     render();
   };
