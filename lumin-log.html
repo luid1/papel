@@ -400,7 +400,7 @@ function initDriver(name) {
     if (!doc.exists) return;
     const d = doc.data();
     const oldCx = S.truckCx;
-    S.truckCx = nn(d.truckCx) || (nn(d.truckBlack)+nn(d.truckWhite));
+    S.truckCx = (d.truckCx!=null) ? nn(d.truckCx) : (nn(d.truckBlack)+nn(d.truckWhite));
     S.dailyRoute = d.dailyRoute || null;
     if (_firstLoad) {
       _firstLoad = false;
@@ -568,8 +568,8 @@ function initDriver(name) {
   /* Repetir última entrega */
   window._repetirUltima = function() {
     const lv=S._clienteData&&S._clienteData.lastVisit; if(!lv) return;
-    S.totalDel=nn(lv.totalDel)||(nn(lv.delBlack)+nn(lv.delWhite));
-    S.totalCol=nn(lv.totalCol)||(nn(lv.colBlack)+nn(lv.colWhite));
+    S.totalDel=(lv.totalDel!=null)?nn(lv.totalDel):(nn(lv.delBlack)+nn(lv.delWhite));
+    S.totalCol=(lv.totalCol!=null)?nn(lv.totalCol):(nn(lv.colBlack)+nn(lv.colWhite));
     vibe(30); toast('✓ Valores da última visita aplicados!');
   };
 
