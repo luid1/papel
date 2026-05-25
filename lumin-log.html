@@ -1699,15 +1699,39 @@ function initDriver(name) {
   };
 
   window.finalize=async function(){
-    if(S.saving) return;S.saving=true;
+    if(S.saving) return; S.saving=true;
     const btn=$('finalBtn');if(btn){btn.disabled=true;btn.textContent='Salvando...';}
     try{
-      await db.collection('ll_events').add({
+      const today=new Date().toISOString().split('T')[0];
+      const batch=db.batch();
+
+      // Se ainda há caixas no caminhão, devolve automaticamente ao CD
+      if(S.truckCx>0){
+        const retCx=S.truckCx;
+        batch.update(db.collection('ll_drivers').doc(name),{truckCx:0,lastUpdated:TS()});
+        batch.set(db.collection('ll_events').doc(),{
+          type:'cd_return',driverName:name,retCx,
+          truckBefore:retCx,truckAfter:0,
+          auto:true, // marcador: foi automático ao finalizar o dia
+          timestamp:TS()
+        });
+        batch.set(db.collection('controle_caixas').doc(),{
+          tipo:'SAÍDA',data:today,
+          cliente:'Hetros — Devolução CD',fornecedor:name,motorista:name,
+          quantidadeCx:retCx,status:'OK',origem:'motorista_finalize_auto',createdAt:TS()
+        });
+      }
+
+      // Evento de encerramento do dia
+      batch.set(db.collection('ll_events').doc(),{
         type:'day_finalized',driverName:name,
         truckCx:S.truckCx,
         totalClients:S.transactions.length,transactions:S.transactions,timestamp:TS()
       });
-      S.step='done';render();
+
+      await batch.commit();
+      S.truckCx=0;
+      showSuccess(()=>{ S.step='done'; render(); });
     }catch(e){
       toast('Erro ao finalizar. Tente novamente.');
       if(btn){btn.disabled=false;btn.textContent='✅ Finalizar o Dia';}
