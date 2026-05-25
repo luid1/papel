@@ -204,8 +204,83 @@ body.is-offline .offline-pill{display:flex;}
 .big-num-label{font-size:.88rem;color:var(--muted);margin-top:4px}
 #driver-wrap{max-width:540px;margin:0 auto;padding:24px 20px 70px;position:relative;z-index:1}
 .empty{color:var(--muted);font-size:.9rem;padding:6px 0}
-.fade-in{animation:fadein .2s var(--ease)}
-@keyframes fadein{from{opacity:0}to{opacity:1}}
+
+/* ── ANIMAÇÕES PRINCIPAIS ─────────────────────────────────── */
+/* Entrada padrão: slide-up suave */
+.fade-in{animation:slideUp .32s cubic-bezier(.22,1,.36,1) both}
+@keyframes slideUp{
+  from{opacity:0;transform:translateY(22px)}
+  to{opacity:1;transform:translateY(0)}
+}
+/* Entrada rápida (sub-elementos) */
+.fade-in-fast{animation:slideUp .2s cubic-bezier(.22,1,.36,1) both}
+
+/* Stagger para cards do home (usa --d como delay) */
+.anim-stagger{animation:slideUp .38s cubic-bezier(.22,1,.36,1) both;
+  animation-delay:var(--d,0ms)}
+
+/* Número "pop" quando muda */
+@keyframes numPop{
+  0%  {transform:scale(1)}
+  35% {transform:scale(1.35)}
+  65% {transform:scale(.92)}
+  85% {transform:scale(1.06)}
+  100%{transform:scale(1)}
+}
+.num-pop{animation:numPop .38s cubic-bezier(.34,1.56,.64,1)}
+
+/* Flash de cor no badge do caminhão quando cx muda */
+@keyframes truckFlash{
+  0%  {background:rgba(0,212,255,.35);border-color:rgba(0,212,255,.8)}
+  100%{background:rgba(74,154,74,.15);border-color:rgba(74,154,74,.35)}
+}
+.truck-flash{animation:truckFlash .6s ease}
+
+/* Sucesso: check + burst */
+@keyframes checkDraw{
+  from{stroke-dashoffset:60}
+  to{stroke-dashoffset:0}
+}
+@keyframes burstRing{
+  from{transform:scale(.4);opacity:1}
+  to{transform:scale(1.8);opacity:0}
+}
+@keyframes confettiFall{
+  0%  {opacity:1;transform:translateY(0) rotate(0deg)}
+  100%{opacity:0;transform:translateY(80px) rotate(720deg)}
+}
+.success-overlay{
+  position:fixed;inset:0;z-index:8000;display:flex;align-items:center;
+  justify-content:center;pointer-events:none;
+}
+.success-circle{
+  width:110px;height:110px;border-radius:50%;
+  background:rgba(0,229,160,.15);border:3px solid rgba(0,229,160,.5);
+  display:flex;align-items:center;justify-content:center;position:relative;
+  animation:burstRing .55s ease-out 0s 1 forwards;
+}
+.success-check{
+  stroke-dasharray:60;stroke-dashoffset:60;
+  animation:checkDraw .35s ease-out .08s forwards;
+}
+/* Ripple no botão gigante */
+@keyframes ripple{
+  from{transform:scale(0);opacity:.4}
+  to{transform:scale(2.5);opacity:0}
+}
+.btn-giant{position:relative;overflow:hidden}
+.btn-ripple{
+  position:absolute;border-radius:50%;
+  background:rgba(255,255,255,.35);
+  animation:ripple .5s ease-out;
+  pointer-events:none;
+}
+/* Pulse no badge "caixas no caminhão" */
+@keyframes badgePulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(0,212,255,.4)}
+  50%{box-shadow:0 0 0 12px rgba(0,212,255,0)}
+}
+.badge-pulse{animation:badgePulse .7s ease-out}
 .foto-mini-btn{display:flex;align-items:center;gap:7px;padding:8px 14px;border-radius:10px;
   border:1.5px dashed rgba(0,212,255,.3);background:rgba(0,212,255,.03);
   color:var(--accent);font-size:.78rem;font-weight:700;cursor:pointer;transition:background .15s;}
@@ -460,6 +535,65 @@ function initDriver(name) {
       }
     }
   }, () => { _loadClients().then(render).catch(render); });
+
+  // ── Helpers de animação ──────────────────────────────────────
+  // Transição de tela: fade-out rápido → substitui → slide-up
+  let _rendering = false;
+  function animTransition(renderFn) {
+    if (_rendering) { renderFn(); return; }
+    const wrap = document.getElementById('driver-wrap');
+    if (!wrap) { renderFn(); return; }
+    _rendering = true;
+    wrap.style.transition = 'opacity .12s ease, transform .12s ease';
+    wrap.style.opacity = '0';
+    wrap.style.transform = 'translateY(10px)';
+    setTimeout(() => { renderFn(); _rendering = false; }, 130);
+  }
+
+  // Pop de número (chama em qualquer elemento)
+  function numPop(el) {
+    if (!el) return;
+    el.classList.remove('num-pop');
+    void el.offsetWidth; // reflow
+    el.classList.add('num-pop');
+    el.addEventListener('animationend', () => el.classList.remove('num-pop'), {once:true});
+  }
+
+  // Ripple no botão
+  function addRipple(btn, e) {
+    const r = btn.getBoundingClientRect();
+    const size = Math.max(r.width, r.height);
+    const x = (e.clientX - r.left) - size/2;
+    const y = (e.clientY - r.top)  - size/2;
+    const rip = document.createElement('span');
+    rip.className = 'btn-ripple';
+    rip.style.cssText = `width:${size}px;height:${size}px;left:${x}px;top:${y}px;`;
+    btn.appendChild(rip);
+    rip.addEventListener('animationend', () => rip.remove(), {once:true});
+  }
+
+  // Animação de sucesso (checkmark + burst, dura ~700ms)
+  function showSuccess(cb) {
+    const ov = document.createElement('div');
+    ov.className = 'success-overlay';
+    ov.innerHTML = `
+      <div class="success-circle">
+        <svg width="52" height="52" viewBox="0 0 52 52" fill="none">
+          <polyline class="success-check" points="14,28 22,36 38,18"
+            stroke="var(--success)" stroke-width="4.5"
+            stroke-linecap="round" stroke-linejoin="round"
+            fill="none" stroke-dasharray="60" stroke-dashoffset="60"/>
+        </svg>
+      </div>`;
+    document.body.appendChild(ov);
+    setTimeout(() => { ov.remove(); if(cb) cb(); }, 700);
+  }
+
+  // Ripple delegado em todos os .btn-giant
+  document.addEventListener('click', function(e) {
+    const btn = e.target.closest('.btn-giant');
+    if (btn && !btn.disabled) addRipple(btn, e);
+  }, true);
 
   function render() {
     ({choose:vChoose,departure:vDeparture,client:vClient,cd_return:vCdReturn,summary:vSummary,done:vDone}[S.step]||vChoose)();
@@ -761,21 +895,21 @@ function initDriver(name) {
         O que você vai fazer?
       </div>
       <div class="home-grid">
-        <button class="home-card cd" onclick="window.escolherModo('cd')">
+        <button class="home-card cd anim-stagger" style="--d:60ms" onclick="window.escolherModo('cd')">
           <span class="home-card-icon">🏭</span>
           <div class="home-card-text">
             <span class="home-card-title" style="color:var(--accent);">Retirar do CD</span>
             <span class="home-card-sub">Busquei caixas no depósito</span>
           </div>
         </button>
-        <button class="home-card route" onclick="window.escolherModo('client')">
+        <button class="home-card route anim-stagger" style="--d:130ms" onclick="window.escolherModo('client')">
           <span class="home-card-icon">🚚</span>
           <div class="home-card-text">
             <span class="home-card-title" style="color:var(--success);">Estou no Cliente</span>
             <span class="home-card-sub">Cheguei para entregar ou coletar</span>
           </div>
         </button>
-        <button class="home-card ret" onclick="window.escolherModo('cd_return')">
+        <button class="home-card ret anim-stagger" style="--d:200ms" onclick="window.escolherModo('cd_return')">
           <span class="home-card-icon">🏠</span>
           <div class="home-card-text">
             <span class="home-card-title" style="color:var(--warning);">Deixar no CD</span>
@@ -783,7 +917,7 @@ function initDriver(name) {
           </div>
         </button>
       </div>
-      <button class="home-card sum" onclick="window.goSummary()" style="width:100%;justify-content:flex-start;">
+      <button class="home-card sum anim-stagger" style="--d:270ms;width:100%;justify-content:flex-start;" onclick="window.goSummary()">
         <span class="home-card-icon" style="font-size:1.8rem;">📋</span>
         <div class="home-card-text">
           <span class="home-card-title" style="font-size:1rem;">Resumo do dia</span>
@@ -1247,22 +1381,22 @@ function initDriver(name) {
   /* Controles dos contadores */
   window._vcDelPlus=function(){
     if(S.totalDel>=(S.truckCx)){toast('Não tem mais caixas no caminhão!');return;}
-    S.totalDel++; const el=$('del-count');if(el)el.value=S.totalDel; vibe(15);
+    S.totalDel++; const el=$('del-count');if(el){el.value=S.totalDel;numPop(el);} vibe(15);
   };
   window._vcDelMinus=function(){
-    if(S.totalDel<=0)return; S.totalDel--; const el=$('del-count');if(el)el.value=S.totalDel; vibe(15);
+    if(S.totalDel<=0)return; S.totalDel--; const el=$('del-count');if(el){el.value=S.totalDel;numPop(el);} vibe(15);
   };
   window._vcColPlus=function(){
-    S.totalCol++; const el=$('col-count');if(el)el.value=S.totalCol; vibe(15);
+    S.totalCol++; const el=$('col-count');if(el){el.value=S.totalCol;numPop(el);} vibe(15);
   };
   window._vcColMinus=function(){
-    if(S.totalCol<=0)return; S.totalCol--; const el=$('col-count');if(el)el.value=S.totalCol; vibe(15);
+    if(S.totalCol<=0)return; S.totalCol--; const el=$('col-count');if(el){el.value=S.totalCol;numPop(el);} vibe(15);
   };
   window._vcOcpPlus=function(){
-    S.totalOcp++; const el=$('ocp-count');if(el)el.value=S.totalOcp; vibe(15);
+    S.totalOcp++; const el=$('ocp-count');if(el){el.value=S.totalOcp;numPop(el);} vibe(15);
   };
   window._vcOcpMinus=function(){
-    if(S.totalOcp<=0)return; S.totalOcp--; const el=$('ocp-count');if(el)el.value=S.totalOcp; vibe(15);
+    if(S.totalOcp<=0)return; S.totalOcp--; const el=$('ocp-count');if(el){el.value=S.totalOcp;numPop(el);} vibe(15);
   };
   window._vcUsarUltimaDel=function(total){
     S.totalDel=total; const el=$('del-count');if(el)el.value=total; vibe(30); toast('✓ Valor da última visita aplicado!');
@@ -1439,10 +1573,10 @@ function initDriver(name) {
   };
 
   window._depPlus=function(){
-    S.depTotal++; const el=$('dep-count');if(el)el.value=S.depTotal; vibe(15);
+    S.depTotal++; const el=$('dep-count');if(el){el.value=S.depTotal;numPop(el);} vibe(15);
   };
   window._depMinus=function(){
-    if(S.depTotal<=0)return; S.depTotal--; const el=$('dep-count');if(el)el.value=S.depTotal; vibe(15);
+    if(S.depTotal<=0)return; S.depTotal--; const el=$('dep-count');if(el){el.value=S.depTotal;numPop(el);} vibe(15);
   };
 
   window.confirmDeparture=async function(){
@@ -1464,7 +1598,8 @@ function initDriver(name) {
         quantidadeCx:total,status:'OK',origem:'motorista_cd_departure',createdAt:TS()});
       await batch.commit();
       S.truckCx=newCx; S.depTotal=0;
-      S.step='client';S.mode='client';render();
+      S.step='client';S.mode='client';
+      showSuccess(render);
     }catch(e){toast('Erro ao salvar. Verifique a conexão.');}
     finally{S.saving=false;}
   };
@@ -1489,8 +1624,8 @@ function initDriver(name) {
         quantidadeCx:retCx,status:'OK',origem:'motorista_cd_return',createdAt:TS()});
       await batch.commit();
       S.truckCx=newCx; S.retCx=0; S.fotos.cd_return=null;
-      toast(`✓ ${retCx} caixas devolvidas ao CD!`);
-      S.step='choose';render();
+      S.step='choose';
+      showSuccess(() => { toast(`✓ ${retCx} caixas devolvidas ao CD!`); render(); });
     }catch(e){
       toast('Erro ao salvar. Tente novamente.');
       if(btn){btn.disabled=false;btn.textContent='✅ Confirmar Devolução';}
@@ -1549,7 +1684,7 @@ function initDriver(name) {
       S.clientName='';S.totalDel=0;S.totalCol=0;S.totalOcp=0;S.clientSubStep='done';
       S._fotoObrigatoria=false;S._clienteData=null;
       S.fotos.client_entrega=null;S.fotos.client_coleta=null;
-      render();
+      showSuccess(render);
     }catch(e){
       console.error(e);toast('Erro ao salvar. Tente novamente.');
       if(btn){btn.disabled=false;btn.textContent='✅ Registrar';}
