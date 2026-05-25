@@ -275,6 +275,35 @@ body.is-offline .offline-pill{display:flex;}
   animation:ripple .5s ease-out;
   pointer-events:none;
 }
+/* ---- ANIMAÇÃO DO CAMINHÃO (finalizar dia) ---- */
+@keyframes trkDrive{
+  0%  {transform:translateX(115vw)}
+  100%{transform:translateX(-135vw)}
+}
+@keyframes trkBounce{
+  0%,100%{transform:translateY(0)}
+  50%   {transform:translateY(-5px)}
+}
+@keyframes trkRoad{
+  from{transform:translateX(0)}
+  to  {transform:translateX(-50%)}
+}
+@keyframes trkMsg{
+  from{opacity:0;transform:translateY(26px)}
+  to  {opacity:1;transform:translateY(0)}
+}
+@keyframes trkStar{
+  0%,100%{opacity:.35}
+  50%    {opacity:1}
+}
+@keyframes trkMoon{
+  from{opacity:0;transform:translateY(-14px) scale(.8)}
+  to  {opacity:1;transform:translateY(0)     scale(1)}
+}
+@keyframes trkFadeOut{
+  from{opacity:1}
+  to  {opacity:0}
+}
 /* Pulse no badge "caixas no caminhão" */
 @keyframes badgePulse{
   0%,100%{box-shadow:0 0 0 0 rgba(0,212,255,.4)}
@@ -587,6 +616,96 @@ function initDriver(name) {
       </div>`;
     document.body.appendChild(ov);
     setTimeout(() => { ov.remove(); if(cb) cb(); }, 700);
+  }
+
+  // Animação de caminhão ao finalizar o dia (~3.8s)
+  function showTruckAnim(cb) {
+    const ov = document.createElement('div');
+    ov.style.cssText = [
+      'position:fixed;inset:0;z-index:9999;overflow:hidden;',
+      'background:linear-gradient(180deg,#03080d 0%,#071626 55%,#0b1f30 100%);',
+      'display:flex;flex-direction:column;align-items:center;justify-content:center;'
+    ].join('');
+
+    // Estrelas aleatórias
+    const stars = Array.from({length:22},(_,i)=>{
+      const sz = 5 + Math.random()*9;
+      const dur = (1.2 + Math.random()*2).toFixed(2);
+      const del = (Math.random()*2.5).toFixed(2);
+      const sym = Math.random() > .45 ? '✦' : '·';
+      return `<span style="position:absolute;left:${(Math.random()*96).toFixed(1)}%;`+
+             `top:${(Math.random()*62).toFixed(1)}%;font-size:${sz}px;color:#fff;`+
+             `animation:trkStar ${dur}s ${del}s ease-in-out infinite;">${sym}</span>`;
+    }).join('');
+
+    ov.innerHTML = `
+      <!-- Céu / estrelas -->
+      <div style="position:absolute;inset:0;overflow:hidden;pointer-events:none;">
+        ${stars}
+        <!-- Lua -->
+        <div style="position:absolute;top:14%;right:15%;width:58px;height:58px;border-radius:50%;
+          background:radial-gradient(circle at 38% 35%,#fff4c2,#f5c520);
+          box-shadow:0 0 40px rgba(245,197,32,.45),0 0 80px rgba(245,197,32,.15);
+          animation:trkMoon .7s cubic-bezier(.22,1,.36,1) .2s both;"></div>
+      </div>
+
+      <!-- Mensagem (aparece em 2.3s) -->
+      <div style="position:absolute;top:22%;left:0;right:0;text-align:center;
+        animation:trkMsg .65s cubic-bezier(.22,1,.36,1) 2.3s both;pointer-events:none;">
+        <div style="font-size:2rem;font-weight:900;color:#fff;
+          font-family:'Montserrat',sans-serif;letter-spacing:.01em;
+          text-shadow:0 2px 24px rgba(0,212,255,.4);">
+          Dia encerrado! 🎉
+        </div>
+        <div style="font-size:1rem;color:rgba(0,212,255,.8);margin-top:10px;
+          font-family:'Montserrat',sans-serif;font-weight:600;">
+          Bom descanso, ${name}!
+        </div>
+      </div>
+
+      <!-- Estrada -->
+      <div style="position:absolute;bottom:0;left:0;right:0;height:36%;
+        background:linear-gradient(180deg,#141f2a 0%,#0d1720 100%);
+        border-top:2px solid rgba(0,212,255,.12);overflow:hidden;">
+
+        <!-- Faixas da pista rolando -->
+        <div style="position:absolute;top:42%;left:0;height:5px;
+          width:200%;display:flex;align-items:center;gap:0;
+          animation:trkRoad .9s linear infinite;">
+          ${ Array.from({length:32},()=>
+            `<span style="display:inline-block;flex-shrink:0;width:55px;height:5px;
+              border-radius:3px;margin-right:38px;
+              background:rgba(0,212,255,.28);"></span>`
+          ).join('') }
+        </div>
+
+        <!-- Caminhão percorrendo a tela -->
+        <div style="position:absolute;top:0;left:0;width:100%;height:100%;
+          animation:trkDrive 3.4s cubic-bezier(.18,0,.35,1) forwards;">
+          <!-- Emoji com bounce de roda -->
+          <div style="position:absolute;top:10%;left:50%;transform:translateX(-50%);
+            font-size:5.5rem;line-height:1;user-select:none;
+            filter:drop-shadow(0 8px 18px rgba(0,0,0,.6));
+            animation:trkBounce .22s linear infinite;">
+            🚛
+          </div>
+          <!-- Faróis (brilho à esquerda do caminhão) -->
+          <div style="position:absolute;top:28%;left:calc(50% - 160px);
+            width:140px;height:12px;border-radius:50%;
+            background:linear-gradient(90deg,rgba(255,255,200,.0),rgba(255,255,180,.18));
+            filter:blur(6px);"></div>
+        </div>
+
+      </div>
+    `;
+
+    document.body.appendChild(ov);
+
+    // Fade out e callback
+    setTimeout(() => {
+      ov.style.animation = 'trkFadeOut .45s ease-out forwards';
+      setTimeout(() => { ov.remove(); if(cb) cb(); }, 450);
+    }, 3600);
   }
 
   // Ripple delegado em todos os .btn-giant
@@ -1731,7 +1850,7 @@ function initDriver(name) {
 
       await batch.commit();
       S.truckCx=0;
-      showSuccess(()=>{ S.step='done'; render(); });
+      showTruckAnim(()=>{ S.step='done'; render(); });
     }catch(e){
       toast('Erro ao finalizar. Tente novamente.');
       if(btn){btn.disabled=false;btn.textContent='✅ Finalizar o Dia';}
