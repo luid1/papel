@@ -878,13 +878,32 @@ function closePhotoModal() {
   document.body.style.overflow = "";
 }
 
+// Helper: detecta se um registro é operação de CD (não cliente)
+function _isCdOp(r) {
+  const c = String(r.cliente || "").trim();
+  return /hetros|cd|dep[oó]sito/i.test(c) && /(retirada|devolu|cd)/i.test(c);
+}
+
 // ── Aplica todos os filtros ativos sobre _llCache ─────────────
 function applyFilters() {
   let data = [..._llCache];
 
-  // Filtro rápido de tipo (botões Todos / Entradas / Saídas)
-  if (_llFilter !== "all") {
-    data = data.filter(r => normTipo(r.tipo) === normTipo(_llFilter));
+  // Filtro rápido (Todos / Entregas / Coletas / CD Retirou / CD Devolveu / CD Ambos / ENTRADA / SAÍDA)
+  if (_llFilter && _llFilter !== "all") {
+    if (_llFilter === "cli-entrega") {
+      data = data.filter(r => !_isCdOp(r) && normTipo(r.tipo) === "SAIDA");
+    } else if (_llFilter === "cli-coleta") {
+      data = data.filter(r => !_isCdOp(r) && normTipo(r.tipo) === "ENTRADA");
+    } else if (_llFilter === "cd-retirou") {
+      data = data.filter(r =>  _isCdOp(r) && normTipo(r.tipo) === "ENTRADA");
+    } else if (_llFilter === "cd-devolveu") {
+      data = data.filter(r =>  _isCdOp(r) && normTipo(r.tipo) === "SAIDA");
+    } else if (_llFilter === "cd-todos") {
+      data = data.filter(r =>  _isCdOp(r));
+    } else {
+      // Compat. com ENTRADA / SAÍDA antigo
+      data = data.filter(r => normTipo(r.tipo) === normTipo(_llFilter));
+    }
   }
 
   // Filtros avançados
@@ -926,7 +945,7 @@ function renderLuminLog() {
 
   if (llEl("ll-total-entrada")) llEl("ll-total-entrada").textContent = totalQtdEntrada + " cx";
   if (llEl("ll-total-saida"))   llEl("ll-total-saida").textContent   = totalQtdSaida   + " cx";
-  if (llEl("ll-total-valor"))   llEl("ll-total-valor").textContent   = llFmt(totalValor);
+  // "Em rota" agora mostra caixas (não valor monetário) — gerenciado por luminlog-controller.js
   if (llEl("ll-total-count"))   llEl("ll-total-count").textContent   = _llCache.length;
 
   const banner = llEl("ll-revisar-banner");
@@ -944,6 +963,17 @@ function renderLuminLog() {
   // Aplica filtros
   const data = applyFilters();
 
+  // Ordenação (controlada pelo select #ll-sort via window._llSortOrder)
+  if (window._llSortOrder === "asc") {
+    data.sort((a, b) => {
+      const da = a.data || "", db2 = b.data || "";
+      if (da !== db2) return da < db2 ? -1 : 1;
+      const ta = a.createdAt?.seconds || 0, tb = b.createdAt?.seconds || 0;
+      return ta - tb;
+    });
+  }
+  // desc já é a ordem padrão de _llCache — não precisa re-ordenar
+
   // KPIs do filtro ativo
   const filtEntradas = data.filter(r => normTipo(r.tipo) === "ENTRADA");
   const filtSaidas   = data.filter(r => normTipo(r.tipo) === "SAIDA");
@@ -956,7 +986,10 @@ function renderLuminLog() {
     filtEntradas.reduce((a, r) => a + (Number(r.quantidade_cx || r.quantidadeCx) || 0), 0) + " cx";
   if (llEl("ll-filt-saida"))   llEl("ll-filt-saida").textContent =
     filtSaidas.reduce((a, r) => a + (Number(r.quantidade_cx || r.quantidadeCx) || 0), 0) + " cx";
-  if (llEl("ll-filt-valor"))   llEl("ll-filt-valor").textContent = llFmt(filtValor);
+  // "Em rota" filtrado: mostra soma de caixas em rota, não valor monetário
+  if (llEl("ll-filt-valor"))   llEl("ll-filt-valor").textContent =
+    Math.max(0, filtEntradas.reduce((a, r) => a + (Number(r.quantidade_cx || r.quantidadeCx) || 0), 0)
+              - filtSaidas.reduce((a, r) => a + (Number(r.quantidade_cx || r.quantidadeCx) || 0), 0)) + " cx";
   if (llEl("ll-filt-count"))   llEl("ll-filt-count").textContent = data.length + " reg.";
 
   // Botão limpar filtro
@@ -984,9 +1017,24 @@ function renderLuminLog() {
   tbody.innerHTML = data.map(r => {
     const isEntrada  = normTipo(r.tipo) === "ENTRADA";
     const isRevisar  = r.status_processamento === "REVISAR";
-    const tipoColor  = isEntrada ? "var(--success)" : "var(--alert)";
-    const tipoBg     = isEntrada ? "rgba(0,229,160,.1)" : "rgba(255,91,112,.1)";
-    const tipoBorder = isEntrada ? "rgba(0,229,160,.25)" : "rgba(255,91,112,.25)";
+    // Detecta operações de CD (não são clientes — são retiradas/devoluções do depósito)
+    const clienteRaw = String(r.cliente || "").trim();
+    const isCdOp    = /hetros|cd|dep[oó]sito/i.test(clienteRaw) &&
+                       /(retirada|devolu|cd)/i.test(clienteRaw);
+    const isCdPickup = isCdOp && isEntrada;   // retirou caixas do CD
+    const isCdReturn = isCdOp && !isEntrada;  // devolveu caixas ao CD
+
+    // Cores: CD vira azul (operação interna), cliente mantém verde/vermelho
+    const tipoColor  = isCdOp ? "var(--accent)" : (isEntrada ? "var(--success)" : "var(--alert)");
+    const tipoBg     = isCdOp ? "rgba(0,212,255,.1)"   : (isEntrada ? "rgba(0,229,160,.1)"   : "rgba(255,91,112,.1)");
+    const tipoBorder = isCdOp ? "rgba(0,212,255,.25)"  : (isEntrada ? "rgba(0,229,160,.25)"  : "rgba(255,91,112,.25)");
+    const tipoLabel  = isCdPickup ? "🏭 RETIRADA CD"
+                     : isCdReturn ? "🏠 DEVOLUÇÃO CD"
+                     : (isEntrada ? "▲ ENTRADA" : "▼ SAÍDA");
+    const clienteDisplay = isCdOp
+      ? `<span style="color:var(--accent);font-style:italic;">— operação de depósito —</span>`
+      : esc(clienteRaw);
+
     const qtd        = r.quantidade_cx ?? r.quantidadeCx;
     const vlUnit     = r.valor_unitario ?? r.valorUnitario;
     const vlTotal    = r.valor_total    ?? r.valorTotal;
@@ -1007,109 +1055,74 @@ function renderLuminLog() {
         📷 ${esc(f.label)}
       </button>`).join("");
 
+    const accent = tipoColor;
+
     return `
-      <div class="ll-card" data-ll-id="${r.id}"
-        style="background:rgba(255,255,255,.025);border:1px solid ${isRevisar ? "rgba(255,179,71,.3)" : "rgba(255,255,255,.07)"};
-        border-radius:14px;padding:16px 18px;transition:background .15s;cursor:pointer;"
-        data-ll-expand="false">
+      <div class="ll-rec-row" data-ll-id="${r.id}" data-ll-expand="false"
+        style="border-left:3px solid ${accent};">
 
-        <!-- Linha principal -->
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-
-          <!-- Badge tipo -->
-          <span style="font-size:11px;font-weight:800;padding:4px 11px;border-radius:20px;
-            background:${tipoBg};color:${tipoColor};border:1px solid ${tipoBorder};
-            text-transform:uppercase;letter-spacing:.5px;flex-shrink:0;">
-            ${isEntrada ? "▲" : "▼"} ${esc(r.tipo)}
+        <!-- Linha única compacta -->
+        <div class="ll-rec-row-main">
+          <span class="ll-rec-badge" style="background:${tipoBg};color:${tipoColor};border-color:${tipoBorder};">
+            ${tipoLabel}
           </span>
-
-          <!-- Data -->
-          <span style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);flex-shrink:0;">
-            ${esc(r.data)}
+          <span class="ll-rec-date">${esc(r.data)}${(() => {
+            const ts = r.createdAt || r.timestamp;
+            const d  = ts?.toDate ? ts.toDate() : (ts?.seconds ? new Date(ts.seconds*1000) : null);
+            if (!d) return "";
+            const hh = String(d.getHours()).padStart(2,"0");
+            const mm = String(d.getMinutes()).padStart(2,"0");
+            return ` <span style="color:rgba(228,240,246,.3);">·</span> <span style="color:rgba(228,240,246,.55);">${hh}:${mm}</span>`;
+          })()}</span>
+          <span class="ll-rec-cliente">${clienteDisplay}</span>
+          <span class="ll-rec-motorista">${motorista ? `🚚 ${esc(motorista)}` : ""}</span>
+          ${fotos.length ? `<span class="ll-rec-foto" title="${fotos.length} foto(s)">📷 ${fotos.length}</span>` : ""}
+          ${isRevisar ? `<span class="ll-rec-revisar" title="Precisa conferir">⚠</span>` : ""}
+          <span class="ll-rec-qtd" style="color:${accent};">
+            ${qtd === null || qtd === undefined ? '<span style="color:var(--warning);">?</span>' : qtd}
+            <span class="ll-rec-qtd-suf">cx</span>
           </span>
-
-          <!-- Cliente -->
-          <span style="font-weight:700;font-size:14px;flex:1;min-width:100px;overflow:hidden;
-            text-overflow:ellipsis;white-space:nowrap;">
-            ${esc(r.cliente)}
-          </span>
-
-          <!-- Qtd -->
-          <span style="font-family:'DM Mono',monospace;font-size:16px;font-weight:800;
-            color:${tipoColor};flex-shrink:0;">
-            ${qtd === null || qtd === undefined
-              ? '<span style="color:var(--warning);">?</span>'
-              : qtd + " cx"}
-          </span>
-
-          <!-- Valor -->
-          <span style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;
-            color:${tipoColor};flex-shrink:0;">
-            ${llFmt(vlTotal)}
-          </span>
-
-          <!-- Ícone foto -->
-          ${fotos.length ? `<span style="font-size:14px;flex-shrink:0;" title="${fotos.length} foto(s)">📷</span>` : ""}
-
-          <!-- Expandir -->
-          <svg class="ll-expand-icon" width="14" height="14" viewBox="0 0 24 24" fill="none"
-            stroke="rgba(228,240,246,.35)" stroke-width="2.5" stroke-linecap="round"
-            style="flex-shrink:0;transition:transform .2s;">
+          <svg class="ll-expand-icon ll-rec-chevron" width="13" height="13" viewBox="0 0 24 24" fill="none"
+            stroke="currentColor" stroke-width="2" stroke-linecap="round">
             <polyline points="6 9 12 15 18 9"/>
           </svg>
-
+          <button class="ll-card-del-btn" data-ll-del="${r.id}" data-ll-col="${r._col || "controle_caixas"}"
+            title="Excluir registro">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/>
+              <path d="M10 11v6M14 11v6"/>
+            </svg>
+          </button>
         </div>
 
-        <!-- Detalhe expandido (oculto por padrão) -->
-        <div class="ll-detail" style="display:none;margin-top:14px;padding-top:14px;
-          border-top:1px solid rgba(255,255,255,.06);">
-          <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:${fotos.length ? "14px" : "0"};">
-            ${motorista ? `<div><div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;">Motorista</div><div style="font-size:13px;font-weight:600;">${esc(motorista)}</div></div>` : ""}
-            ${r.cor ? `<div><div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;">Cor</div><div style="font-size:13px;font-weight:600;">${esc(r.cor)}</div></div>` : ""}
-            ${vlUnit ? `<div><div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;">Vl. Unit.</div><div style="font-family:'DM Mono',monospace;font-size:13px;font-weight:600;">${llFmt(vlUnit)}</div></div>` : ""}
-            ${r.conferente ? `<div><div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;">Conferente</div><div style="font-size:13px;font-weight:600;">${esc(r.conferente)}</div></div>` : ""}
-            ${r.fornecedor && r.fornecedor !== motorista ? `<div><div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;">Fornecedor</div><div style="font-size:13px;font-weight:600;">${esc(r.fornecedor)}</div></div>` : ""}
-            ${origem ? `<div><div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;">Origem</div><div style="font-size:13px;font-weight:600;">${esc(origem)}</div></div>` : ""}
-            ${isRevisar ? `<div><div style="font-size:10px;font-weight:700;color:var(--warning);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;">Status</div><div style="font-size:13px;font-weight:800;color:var(--warning);">⚠ REVISAR</div></div>` : ""}
-          </div>
-
-          <!-- Fotos -->
+        <!-- Detalhe expandido -->
+        <div class="ll-detail" style="display:none;padding:12px 16px 14px;border-top:1px solid rgba(255,255,255,.06);background:rgba(0,0,0,.15);">
+          ${(r.conferente || (r.fornecedor && r.fornecedor !== motorista) || origem) ? `
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:${fotos.length ? "12px" : "0"};">
+              ${r.conferente ? `<div><div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;">Conferente</div><div style="font-size:13px;font-weight:600;">${esc(r.conferente)}</div></div>` : ""}
+              ${r.fornecedor && r.fornecedor !== motorista ? `<div><div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;">Fornecedor</div><div style="font-size:13px;font-weight:600;">${esc(r.fornecedor)}</div></div>` : ""}
+              ${origem ? `<div><div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;">Origem</div><div style="font-size:13px;font-weight:600;">${esc(origem)}</div></div>` : ""}
+            </div>` : ""}
           ${fotos.length ? `
-            <div style="margin-bottom:12px;">
-              <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;
-                letter-spacing:.1em;margin-bottom:10px;">📷 Fotos</div>
-              <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <div>
+              <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;">📷 Fotos</div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;">
                 ${fotos.map(f => `
-                  <div class="ll-foto-thumb" data-foto-src="${encodeURIComponent(f.src)}"
-                    data-foto-label="${esc(f.label)}"
-                    style="cursor:pointer;border-radius:10px;overflow:hidden;
-                    border:2px solid rgba(255,179,71,.3);flex-shrink:0;
-                    width:100px;height:100px;position:relative;">
-                    <img src="${f.src}" alt="${esc(f.label)}"
-                      style="width:100%;height:100%;object-fit:cover;display:block;" />
-                    <div style="position:absolute;bottom:0;left:0;right:0;
-                      background:rgba(0,0,0,.55);padding:4px 6px;
-                      font-size:10px;font-weight:700;color:#fff;text-align:center;">
-                      ${esc(f.label)}
-                    </div>
+                  <div class="ll-foto-thumb" data-foto-src="${encodeURIComponent(f.src)}" data-foto-label="${esc(f.label)}"
+                    style="cursor:pointer;border-radius:8px;overflow:hidden;border:1px solid rgba(255,179,71,.3);flex-shrink:0;width:80px;height:80px;position:relative;">
+                    <img src="${f.src}" alt="${esc(f.label)}" style="width:100%;height:100%;object-fit:cover;display:block;" />
+                    <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,.6);padding:3px 5px;font-size:9px;font-weight:700;color:#fff;text-align:center;">${esc(f.label)}</div>
                   </div>`).join("")}
               </div>
             </div>` : ""}
-
-          <!-- Ações -->
-          <div style="display:flex;gap:8px;justify-content:flex-end;">
-            <button class="btn-act del" data-ll-del="${r.id}" data-ll-col="${r._col || "controle_caixas"}"
-              title="Excluir este registro"
-              style="padding:6px 14px;font-size:12px;">
-              🗑 Excluir
-            </button>
-          </div>
         </div>
       </div>`;
   }).join("");
 
   // Bind: expandir card ao clicar
-  tbody.querySelectorAll(".ll-card").forEach(card => {
+  tbody.querySelectorAll(".ll-rec-row, .ll-rec-card, .ll-card").forEach(card => {
     card.addEventListener("click", e => {
       // Não propaga se clicou num botão filho
       if (e.target.closest("button[data-ll-del]") || e.target.closest(".ll-foto-thumb")) return;
@@ -1117,9 +1130,8 @@ function renderLuminLog() {
       const icon   = card.querySelector(".ll-expand-icon");
       const open   = card.dataset.llExpand === "true";
       card.dataset.llExpand = open ? "false" : "true";
-      detail.style.display  = open ? "none" : "block";
+      if (detail) detail.style.display = open ? "none" : "block";
       if (icon) icon.style.transform = open ? "" : "rotate(180deg)";
-      card.style.background = open ? "rgba(255,255,255,.025)" : "rgba(255,255,255,.045)";
     });
   });
 
@@ -1185,15 +1197,14 @@ function initLuminLog() {
     btn.addEventListener("click", () => {
       document.querySelectorAll(".ll-filter-btn").forEach(b => {
         b.classList.remove("active");
-        b.style.borderColor = "var(--border)";
-        b.style.background  = "transparent";
-        b.style.color       = "var(--muted)";
+        // Remove inline styles deixados por handlers antigos
+        b.style.borderColor = "";
+        b.style.background  = "";
+        b.style.color       = "";
       });
       btn.classList.add("active");
-      btn.style.borderColor = "var(--accent)";
-      btn.style.background  = "rgba(0,212,255,.12)";
-      btn.style.color       = "var(--accent)";
-      _llFilter = btn.dataset.llFilter; // "all", "ENTRADA" ou "SAÍDA"
+      _llFilter = btn.dataset.llFilter || "all";
+      console.log("[Filtro]", _llFilter);
       renderLuminLog();
     });
   });
@@ -1220,18 +1231,22 @@ function initLuminLog() {
     _llAdv    = {};
     document.querySelectorAll(".ll-filter-btn").forEach(b => {
       b.classList.remove("active");
-      b.style.borderColor = "var(--border)";
-      b.style.background  = "transparent";
-      b.style.color       = "var(--muted)";
+      b.style.borderColor = "";
+      b.style.background  = "";
+      b.style.color       = "";
     });
     const allBtn = document.querySelector(".ll-filter-btn[data-ll-filter='all']");
-    if (allBtn) {
-      allBtn.classList.add("active");
-      allBtn.style.borderColor = "var(--accent)";
-      allBtn.style.background  = "rgba(0,212,255,.12)";
-      allBtn.style.color       = "var(--accent)";
-    }
+    if (allBtn) allBtn.classList.add("active");
     advIds.forEach(id => { const e = llEl(id); if (e) e.value = e.tagName === "SELECT" ? (id === "ll-f-cor" || id === "ll-f-tipo" ? "all" : "") : ""; });
+    // Limpa as buscas visuais (Cliente + Motorista)
+    ["ll-search-cliente", "ll-search-motorista"].forEach(id => {
+      const e = llEl(id); if (e) e.value = "";
+    });
+    document.querySelectorAll(".ll-search-clear-btn").forEach(b => b.style.display = "none");
+    // Reseta ordenação
+    const sortSel = llEl("ll-sort");
+    if (sortSel) sortSel.value = "desc";
+    window._llSortOrder = "desc";
     // Fecha filtros avançados se aberto
     const body = llEl("ll-filtros-body");
     if (body) { body.style.maxHeight = "0"; body.style.opacity = "0"; }

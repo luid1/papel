@@ -25,6 +25,17 @@
   <script src="https://cdn.pluggy.ai/pluggy-connect/v2.8.2/pluggy-connect.js"></script>
 
   <link rel="stylesheet" href="style.css">
+  <!-- CSS crítico inline — garante troca de sub-aba Hetros mesmo com cache antigo -->
+  <style>
+    body[class*="llm-sub-"] #llm-panel-dashboard,
+    body[class*="llm-sub-"] #llm-panel-registros,
+    body[class*="llm-sub-"] #llm-panel-motoristas,
+    body[class*="llm-sub-"] #llm-panel-clientes { display: none !important; }
+    body.llm-sub-dashboard  #llm-panel-dashboard  { display: block !important; }
+    body.llm-sub-registros  #llm-panel-registros  { display: block !important; }
+    body.llm-sub-motoristas #llm-panel-motoristas { display: block !important; }
+    body.llm-sub-clientes   #llm-panel-clientes   { display: block !important; }
+  </style>
 </head>
 <body>
 
@@ -109,38 +120,85 @@
   <aside id="adm-sidebar">
     <!-- Header -->
     <div id="adm-sb-header">
-      <div style="font-family:'Inter',sans-serif;font-size:18px;font-weight:600;color:var(--text);letter-spacing:-.025em;line-height:1;display:flex;align-items:center;gap:8px;">
+      <div style="font-family:'Inter',sans-serif;font-size:18px;font-weight:600;color:var(--text);letter-spacing:-.025em;line-height:1;display:flex;align-items:center;gap:8px;" class="adm-sb-brand">
         <span style="width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent);"></span>
-        Lumin
+        <span class="adm-sb-brand-text">Lumin</span>
       </div>
-      <button id="adm-btn-sb-close" aria-label="Fechar menu">✕</button>
+      <div style="display:flex;align-items:center;gap:4px;">
+        <button id="adm-btn-sb-collapse" aria-label="Colapsar menu" title="Colapsar"
+          style="width:30px;height:30px;border-radius:7px;background:transparent;border:none;color:var(--muted);display:grid;place-items:center;cursor:pointer;transition:.15s;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
+        </button>
+        <button id="adm-btn-sb-close" aria-label="Fechar menu">✕</button>
+      </div>
     </div>
 
-    <div class="adm-sb-section-label">Administração</div>
+    <!-- ══ MODO PRINCIPAL ══════════════════════════════ -->
+    <div id="adm-sb-nav-main">
+      <div class="adm-sb-section-label">Administração</div>
 
-    <nav style="padding:2px 10px;display:flex;flex-direction:column;gap:1px;">
-      <button class="adm-nav-item active" data-adm-tab="tab-companies">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
-        Empresas &amp; Contas
-      </button>
-      <button class="adm-nav-item" data-adm-tab="tab-users">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-        Usuários
-      </button>
-    </nav>
+      <nav style="padding:2px 10px;display:flex;flex-direction:column;gap:1px;">
+        <button class="adm-nav-item active" data-adm-tab="tab-companies">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+          <span class="adm-nav-label">Empresas &amp; Contas</span>
+        </button>
+        <button class="adm-nav-item" data-adm-tab="tab-users">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          <span class="adm-nav-label">Usuários</span>
+        </button>
+      </nav>
 
-    <div class="adm-sb-section-label">Módulos</div>
+      <div class="adm-sb-section-label">Módulos</div>
 
-    <nav style="padding:2px 10px;display:flex;flex-direction:column;gap:1px;">
-      <button class="adm-nav-item" data-adm-tab="tab-combustivel">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 22V8a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v14"/><path d="M16 8h2a2 2 0 0 1 2 2v4a2 2 0 0 0 2 2h0"/><line x1="3" y1="22" x2="16" y2="22"/></svg>
-        Logística
-      </button>
-      <button class="adm-nav-item" data-adm-tab="tab-luminlog">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
-        Controle Hetros
-      </button>
-    </nav>
+      <nav style="padding:2px 10px;display:flex;flex-direction:column;gap:1px;">
+        <button class="adm-nav-item" data-adm-tab="tab-combustivel">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 22V8a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v14"/><path d="M16 8h2a2 2 0 0 1 2 2v4a2 2 0 0 0 2 2h0"/><line x1="3" y1="22" x2="16" y2="22"/></svg>
+          <span class="adm-nav-label">Logística</span>
+        </button>
+        <button class="adm-nav-item" data-adm-tab="tab-luminlog">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
+          <span class="adm-nav-label">Controle Hetros</span>
+        </button>
+      </nav>
+    </div>
+
+    <!-- ══ MODO HETROS (sub-navegação contextual) ══════ -->
+    <div id="adm-sb-nav-hetros" style="display:none;">
+      <!-- Logo da Hetros -->
+      <div id="adm-sb-hetros-logo" style="padding:16px 18px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:center;">
+        <img src="hetros-logo.png" alt="Hetros" style="height:34px;max-width:100%;
+          filter:drop-shadow(0 1px 4px rgba(0,0,0,.35));"/>
+      </div>
+
+      <!-- Botão Voltar -->
+      <div style="padding:10px 10px 4px;">
+        <button id="adm-sb-back-btn" class="adm-nav-item" style="color:var(--accent);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+          <span class="adm-nav-label">Voltar ao Menu</span>
+        </button>
+      </div>
+
+      <div class="adm-sb-section-label">Controle Hetros</div>
+
+      <nav style="padding:2px 10px;display:flex;flex-direction:column;gap:1px;">
+        <button class="adm-sb-hetros-item active" data-llm-tab="dashboard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+          <span class="adm-nav-label">Visão geral</span>
+        </button>
+        <button class="adm-sb-hetros-item" data-llm-tab="registros">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          <span class="adm-nav-label">Registros</span>
+        </button>
+        <button class="adm-sb-hetros-item" data-llm-tab="motoristas">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 4v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+          <span class="adm-nav-label">Motoristas</span>
+        </button>
+        <button class="adm-sb-hetros-item" data-llm-tab="clientes">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span class="adm-nav-label">Clientes</span>
+        </button>
+      </nav>
+    </div>
 
     <!-- Footer com usuário + logout -->
     <div id="adm-sb-footer">
@@ -169,6 +227,9 @@
         <h2 id="adm-v-title" style="font-family:'Inter',sans-serif;font-size:15px;font-weight:600;letter-spacing:-.02em;color:var(--text);margin:0;">Empresas &amp; Contas</h2>
         <span style="font-size:11px;color:var(--muted);font-weight:400;letter-spacing:-.005em;border-left:1px solid var(--border);padding-left:12px;margin-left:2px;white-space:nowrap;">Painel de administração</span>
       </div>
+      <!-- Logo Hetros (visível só no modo Controle Hetros) -->
+      <img id="adm-topbar-hetros-logo" src="hetros-logo.png" alt="Hetros"
+        style="display:none;height:28px;margin-left:auto;filter:drop-shadow(0 1px 4px rgba(0,0,0,.4));"/>
     </header>
 
     <!-- Conteúdo das abas -->
@@ -510,12 +571,6 @@
     <!-- ── ABA: LUMIN LOG ── -->
     <div class="admin-tab-panel" id="tab-luminlog">
 
-      <!-- Cabeçalho -->
-      <div style="margin-bottom:18px;">
-        <h3 style="font-family:'Inter',sans-serif;font-size:20px;font-weight:700;letter-spacing:-.025em;margin:0 0 4px;">Controle Hetros</h3>
-        <p style="font-size:13px;color:var(--muted);margin:0;letter-spacing:-.005em;">Registro de caixas Hetros, motoristas e clientes em rota.</p>
-      </div>
-
       <!-- ══ SUB-TABS ══════════════════════════════════ -->
       <div id="llm-subtabs" style="display:flex;gap:2px;margin-bottom:20px;border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none;">
         <button id="llm-btn-dashboard" onclick="llmSwitchTab('dashboard')" class="llm-subtab active">
@@ -539,87 +594,68 @@
       <!-- ══ PAINEL: DASHBOARD ══════════════════════════════════ -->
       <div id="llm-panel-dashboard">
 
-        <!-- ── HOJE (foco principal) ─────────────────────────── -->
+        <!-- ══ ALERTAS PENDENTES (visível só quando houver) ══ -->
+        <div id="ll-alerts-container" style="margin-bottom:16px;"></div>
+
+        <!-- ── HOJE (único foco) ──────────────────────────── -->
         <div style="margin-bottom:14px;display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-          <h2 style="font-family:'Inter',sans-serif;font-size:15px;font-weight:600;letter-spacing:-.02em;margin:0;color:var(--text);">Hoje</h2>
+          <h2 style="font-family:'Inter',sans-serif;font-size:17px;font-weight:700;letter-spacing:-.02em;margin:0;color:var(--text);">Hoje</h2>
           <span id="ll-today-date" style="font-size:12px;color:var(--muted);letter-spacing:-.005em;"></span>
         </div>
 
+        <!-- KPIs (4 cards) -->
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:18px;">
           <div class="llm-kpi">
-            <p class="llm-kpi-label">Saíram</p>
+            <p class="llm-kpi-label">Saíram do CD</p>
             <div class="llm-kpi-val num" id="ll-today-entrada" style="color:var(--success);">0 cx</div>
           </div>
           <div class="llm-kpi">
-            <p class="llm-kpi-label">Voltaram</p>
+            <p class="llm-kpi-label">Deixadas no cliente</p>
             <div class="llm-kpi-val num" id="ll-today-saida" style="color:var(--alert);">0 cx</div>
-          </div>
-          <div class="llm-kpi">
-            <p class="llm-kpi-label">Motoristas ativos</p>
-            <div class="llm-kpi-val num" id="ll-today-drivers" style="color:var(--text);">0</div>
           </div>
           <div class="llm-kpi">
             <p class="llm-kpi-label">Em rota</p>
             <div class="llm-kpi-val num" id="ll-today-count" style="color:var(--warning);">0 cx</div>
           </div>
+          <div class="llm-kpi">
+            <p class="llm-kpi-label">Motoristas ativos</p>
+            <div class="llm-kpi-val num" id="ll-today-drivers" style="color:var(--text);">0</div>
+          </div>
         </div>
 
-        <!-- Mapa ao vivo dos motoristas -->
-        <div class="llm-section">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px;flex-wrap:wrap;">
-            <div>
-              <p class="llm-section-title" style="margin:0 0 2px;">Onde estão agora</p>
-              <p style="font-size:11.5px;color:var(--muted);margin:0;letter-spacing:-.005em;">
-                <span id="ll-map-status" style="display:inline-flex;align-items:center;gap:5px;">
-                  <span style="width:6px;height:6px;border-radius:50%;background:#4ade80;display:inline-block;"></span>
-                  <span id="ll-map-count">0</span> motorista(s) com localização
-                </span>
-              </p>
+        <!-- Grid: mapa (esquerda) + gráfico (direita) em telas grandes; empilhado em mobile -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px;margin-bottom:14px;">
+
+          <!-- Mapa ao vivo -->
+          <div class="llm-section" style="margin-bottom:0;">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px;flex-wrap:wrap;">
+              <div>
+                <p class="llm-section-title" style="margin:0 0 2px;">Onde estão agora</p>
+                <p style="font-size:11.5px;color:var(--muted);margin:0;letter-spacing:-.005em;">
+                  <span id="ll-map-status" style="display:inline-flex;align-items:center;gap:5px;">
+                    <span style="width:6px;height:6px;border-radius:50%;background:#4ade80;display:inline-block;"></span>
+                    <span id="ll-map-count">0</span> motorista(s) com localização
+                  </span>
+                </p>
+              </div>
+              <button id="ll-map-fit" class="llm-action-btn" style="height:28px;padding:0 10px;font-size:11.5px;">Centralizar</button>
             </div>
-            <button id="ll-map-fit" class="llm-action-btn" style="height:28px;padding:0 10px;font-size:11.5px;">Centralizar</button>
-          </div>
-          <div id="ll-map" style="height:300px;border-radius:9px;overflow:hidden;background:var(--bg3);border:1px solid var(--border);position:relative;">
-            <div id="ll-map-empty" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;letter-spacing:-.005em;text-align:center;padding:20px;">
-              Nenhum motorista compartilhando localização.<br>
-              <span style="font-size:11.5px;opacity:.7;">Peça pros motoristas tocarem em "Permitir localização" no app.</span>
+            <div id="ll-map" style="height:280px;border-radius:9px;overflow:hidden;background:var(--bg3);border:1px solid var(--border);position:relative;">
+              <div id="ll-map-empty" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;letter-spacing:-.005em;text-align:center;padding:20px;">
+                Nenhum motorista compartilhando localização.<br>
+                <span style="font-size:11.5px;opacity:.7;">Peça pros motoristas tocarem em "Permitir localização" no app.</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <!-- Últimos lançamentos (atividade de hoje) -->
-        <div class="llm-section">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-            <p class="llm-section-title" style="margin:0;">Atividade de hoje</p>
-            <button onclick="llmSwitchTab('registros')" class="llm-action-btn" style="height:26px;padding:0 10px;font-size:11.5px;">Ver tudo →</button>
+          <!-- Gráfico: caixas em rota por motorista -->
+          <div class="llm-section" style="margin-bottom:0;">
+            <p class="llm-section-title" style="margin-bottom:10px;">Caixas em rota por motorista</p>
+            <div id="ll-chart-drivers-wrap" style="position:relative;height:280px;">
+              <canvas id="ll-chart-drivers"></canvas>
+            </div>
           </div>
-          <div id="ll-today-feed">
-            <p style="color:var(--muted);font-size:13px;padding:8px 0;letter-spacing:-.005em;">Nenhum lançamento hoje ainda.</p>
-          </div>
-        </div>
 
-        <!-- ── ESTA SEMANA (totalizado) ───────────────────── -->
-        <div style="margin:24px 0 14px;display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-          <h2 style="font-family:'Inter',sans-serif;font-size:15px;font-weight:600;letter-spacing:-.02em;margin:0;color:var(--text);">Esta semana</h2>
-          <span id="ll-week-date" style="font-size:12px;color:var(--muted);letter-spacing:-.005em;"></span>
-        </div>
-
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:18px;">
-          <div class="llm-kpi">
-            <p class="llm-kpi-label">Saíram</p>
-            <div class="llm-kpi-val num" id="ll-total-entrada" style="color:var(--success);">0 cx</div>
-          </div>
-          <div class="llm-kpi">
-            <p class="llm-kpi-label">Voltaram</p>
-            <div class="llm-kpi-val num" id="ll-total-saida" style="color:var(--alert);">0 cx</div>
-          </div>
-          <div class="llm-kpi">
-            <p class="llm-kpi-label">Em rota</p>
-            <div class="llm-kpi-val num" id="ll-total-valor" style="color:var(--warning);">0 cx</div>
-          </div>
-          <div class="llm-kpi">
-            <p class="llm-kpi-label">Lançamentos</p>
-            <div class="llm-kpi-val num" id="ll-total-count" style="color:var(--text);">0</div>
-          </div>
         </div>
 
         <!-- Em trânsito agora -->
@@ -630,58 +666,41 @@
           </div>
         </div>
 
-        <!-- ── DETALHES (recolhível, 2o plano) ────────────── -->
-        <details style="margin-top:16px;">
-          <summary style="cursor:pointer;padding:10px 12px;border:1px solid var(--border);border-radius:9px;font-size:13px;font-weight:500;color:var(--muted);letter-spacing:-.005em;background:transparent;list-style:none;">
-            Mais detalhes (gráficos e radar de suspeitas) ▾
-          </summary>
-          <div style="padding-top:12px;">
-            <div class="llm-section">
-              <p class="llm-section-title">Entradas e saídas · últimos 14 dias</p>
-              <div style="position:relative;height:200px;"><canvas id="ll-chart-daily"></canvas></div>
-            </div>
-
-            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-bottom:12px;">
-              <div class="llm-section" style="margin-bottom:0;">
-                <p class="llm-section-title">Caixas em rota por motorista</p>
-                <div id="ll-chart-drivers-wrap" style="position:relative;height:190px;"><canvas id="ll-chart-drivers"></canvas></div>
-              </div>
-              <div class="llm-section" style="margin-bottom:0;">
-                <p class="llm-section-title">Volume por cliente</p>
-                <div id="ll-chart-clients-wrap" style="position:relative;height:190px;"><canvas id="ll-chart-clients"></canvas></div>
-              </div>
-            </div>
-
-            <div class="llm-section" style="margin-top:12px;">
-              <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;flex-wrap:wrap;">
-                <div>
-                  <p style="font-size:13px;font-weight:600;letter-spacing:-.018em;margin:0 0 2px;color:var(--text);">Radar de suspeitas</p>
-                  <p style="font-size:12px;color:var(--muted);margin:0;letter-spacing:-.005em;">Motoristas ordenados por risco de desvio.</p>
-                </div>
-                <div style="display:flex;gap:4px;flex-wrap:wrap;">
-                  <button onclick="window.llSetRadarFiltro('risco')" id="ll-radar-f-risco" class="llm-pill active">Mais risco</button>
-                  <button onclick="window.llSetRadarFiltro('saldo')" id="ll-radar-f-saldo" class="llm-pill">Mais caixas</button>
-                  <button onclick="window.llSetRadarFiltro('taxa')" id="ll-radar-f-taxa" class="llm-pill">Menos retorno</button>
-                  <button onclick="window.llSetRadarFiltro('semfoto')" id="ll-radar-f-semfoto" class="llm-pill">Sem foto</button>
-                </div>
-              </div>
-              <div id="ll-radar-list">
-                <div style="color:var(--muted);font-size:13px;text-align:center;padding:20px 0;letter-spacing:-.005em;">Aguardando dados...</div>
-              </div>
-            </div>
+        <!-- Atividade de hoje (feed) -->
+        <div class="llm-section">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <p class="llm-section-title" style="margin:0;">Atividade de hoje</p>
+            <button onclick="llmSwitchTab('registros')" class="llm-action-btn" style="height:26px;padding:0 10px;font-size:11.5px;">Ver tudo →</button>
           </div>
-        </details>
+          <div id="ll-today-feed">
+            <p style="color:var(--muted);font-size:13px;padding:8px 0;letter-spacing:-.005em;">Nenhum lançamento hoje ainda.</p>
+          </div>
+        </div>
+
+        <!-- Elementos invisíveis (mantidos por compatibilidade com os controllers) -->
+        <div style="display:none;">
+          <span id="ll-week-date"></span>
+          <span id="ll-total-entrada"></span>
+          <span id="ll-total-saida"></span>
+          <span id="ll-total-valor"></span>
+          <span id="ll-total-count"></span>
+          <canvas id="ll-chart-daily"></canvas>
+          <canvas id="ll-chart-clients"></canvas>
+          <div id="ll-radar-list"></div>
+        </div>
 
       </div><!-- /llm-panel-dashboard -->
 
       <!-- ══ PAINEL: REGISTROS ══════════════════════════════════ -->
       <div id="llm-panel-registros" style="display:none;">
 
-        <!-- Cabeçalho com ações -->
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
-          <div>
-            <h2 style="font-family:'Inter',sans-serif;font-size:16px;font-weight:600;margin:0 0 2px;letter-spacing:-.018em;">Registros</h2>
-            <p style="font-size:12.5px;color:var(--muted);margin:0;letter-spacing:-.005em;">Todas as movimentações de caixas Hetros.</p>
+        <!-- Cabeçalho com ações (com selo REVISAR ao lado do título) -->
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <h2 style="font-family:'Inter',sans-serif;font-size:16px;font-weight:600;margin:0;letter-spacing:-.018em;">Registros</h2>
+            <span id="ll-revisar-banner" style="display:none;font-size:11px;font-weight:700;color:var(--warning);background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.25);border-radius:20px;padding:3px 9px;letter-spacing:-.005em;">
+              ⚠ <span id="ll-revisar-count">0</span> p/ conferir
+            </span>
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
             <button id="ll-refresh" class="llm-action-btn" title="Atualizar">
@@ -699,29 +718,75 @@
           </div>
         </div>
 
-        <!-- Banner REVISAR -->
-        <div id="ll-revisar-banner"
-          style="display:none;padding:9px 12px;border-radius:8px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.2);color:var(--warning);font-size:12.5px;font-weight:500;margin-bottom:12px;letter-spacing:-.005em;">
-          <span id="ll-revisar-count">0</span> registro(s) precisam de conferência.
+        <!-- BUSCA: Cliente + Motorista lado a lado -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;">
+          <!-- Cliente -->
+          <div style="position:relative;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+              style="position:absolute;top:50%;left:11px;transform:translateY(-50%);color:var(--muted);pointer-events:none;">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+            </svg>
+            <input type="text" id="ll-search-cliente" placeholder="Cliente…" list="ll-clientes-list"
+              style="width:100%;height:36px;padding:0 32px 0 34px;border-radius:9px;
+              background:var(--bg2);border:1px solid var(--border);color:var(--text);
+              font-size:13px;outline:none;box-sizing:border-box;transition:border-color .15s;"
+              autocomplete="off"/>
+            <button class="ll-search-clear-btn" data-target="ll-search-cliente"
+              style="display:none;position:absolute;top:50%;right:6px;transform:translateY(-50%);
+              width:22px;height:22px;border-radius:5px;border:none;background:transparent;color:var(--muted);cursor:pointer;font-size:14px;">✕</button>
+          </div>
+          <!-- Motorista -->
+          <div style="position:relative;">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+              style="position:absolute;top:50%;left:11px;transform:translateY(-50%);color:var(--muted);pointer-events:none;">
+              <rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 4v3h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>
+            </svg>
+            <input type="text" id="ll-search-motorista" placeholder="Motorista…" list="ll-motoristas-list"
+              style="width:100%;height:36px;padding:0 32px 0 34px;border-radius:9px;
+              background:var(--bg2);border:1px solid var(--border);color:var(--text);
+              font-size:13px;outline:none;box-sizing:border-box;transition:border-color .15s;"
+              autocomplete="off"/>
+            <button class="ll-search-clear-btn" data-target="ll-search-motorista"
+              style="display:none;position:absolute;top:50%;right:6px;transform:translateY(-50%);
+              width:22px;height:22px;border-radius:5px;border:none;background:transparent;color:var(--muted);cursor:pointer;font-size:14px;">✕</button>
+          </div>
         </div>
 
-        <!-- Filtros rápidos -->
-        <div style="margin-bottom:12px;">
-          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
-            <button class="ll-filter-btn active" data-ll-filter="all">Todos</button>
-            <button class="ll-filter-btn" data-ll-filter="ENTRADA">Entradas</button>
-            <button class="ll-filter-btn" data-ll-filter="SAÍDA">Saídas</button>
-            <div style="flex:1;"></div>
-            <button id="ll-filtros-toggle" class="llm-action-btn">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-              Filtros
-              <span id="ll-filter-badge" style="display:none;background:var(--accent);color:var(--bg);font-size:9px;font-weight:600;padding:1px 5px;border-radius:5px;line-height:1.4;">0</span>
-              <svg class="ll-filtros-arrow" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" style="transition:transform .3s;"><polyline points="6 9 12 15 18 9"/></svg>
+        <!-- LINHA ÚNICA DE FILTROS (sempre visível) -->
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px;">
+          <!-- Presets de data -->
+          <button class="ll-date-preset active" data-ll-date="hoje">Hoje</button>
+          <button class="ll-date-preset" data-ll-date="ontem">Ontem</button>
+          <button class="ll-date-preset" data-ll-date="7d">7 dias</button>
+          <button class="ll-date-preset" data-ll-date="30d">30 dias</button>
+          <button class="ll-date-preset" data-ll-date="all">Tudo</button>
+          <span style="width:1px;height:18px;background:var(--border);margin:0 4px;"></span>
+          <!-- Tipo (Todos / Clientes / CD) -->
+          <button class="ll-filter-btn active" data-ll-filter="all" title="Mostrar todos os lançamentos">Todos</button>
+          <button class="ll-filter-btn" data-ll-filter="cli-entrega" title="Caixas entregues no cliente">📤 Entregas</button>
+          <button class="ll-filter-btn" data-ll-filter="cli-coleta"  title="Caixas coletadas no cliente">📥 Coletas</button>
+          <span style="width:1px;height:18px;background:var(--border);margin:0 4px;"></span>
+          <button class="ll-filter-btn" data-ll-filter="cd-retirou"  title="Motorista retirou caixas do CD">🏭 Retirou CD</button>
+          <button class="ll-filter-btn" data-ll-filter="cd-devolveu" title="Motorista devolveu caixas ao CD">🏠 Devolveu CD</button>
+          <button class="ll-filter-btn" data-ll-filter="cd-todos"    title="Todas as operações de CD">🚚 CD (ambos)</button>
+          <div style="flex:1;"></div>
+          <!-- Ordenação -->
+          <select id="ll-sort" class="input-field"
+            style="height:30px;padding:0 26px 0 10px;border-radius:8px;font-size:12px;
+            background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2210%22 height=%2210%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%23999%22 stroke-width=%222%22><polyline points=%226 9 12 15 18 9%22/></svg>');
+            background-repeat:no-repeat;background-position:right 8px center;
+            -webkit-appearance:none;appearance:none;cursor:pointer;">
+            <option value="desc">Mais recente</option>
+            <option value="asc">Mais antigo</option>
+          </select>
+          <button id="ll-filter-reset" class="llm-action-btn" style="display:none;color:var(--alert);">Limpar</button>
+          <button id="ll-filtros-toggle" class="llm-action-btn" style="display:none;">
+              <span id="ll-filter-badge" style="display:none;">0</span>
+              <svg class="ll-filtros-arrow" style="display:none;"></svg>
             </button>
-            <button id="ll-filter-reset" class="llm-action-btn" style="display:none;color:var(--alert);">Limpar</button>
           </div>
-          <!-- Filtros avançados (colapsável) -->
-          <div id="ll-filtros-body" class="collapsed" style="max-height:0;overflow:hidden;transition:max-height .3s ease,opacity .3s ease;opacity:0;">
+          <!-- Filtros avançados (ocultos — usuário usa busca + presets) -->
+          <div id="ll-filtros-body" style="display:none;">
             <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;padding-top:14px;">
               <div>
                 <label style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:5px;">De</label>
@@ -739,14 +804,7 @@
                   <option value="SAÍDA">SAÍDA</option>
                 </select>
               </div>
-              <div>
-                <label style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:5px;">Cor</label>
-                <select id="ll-f-cor" class="input-field" style="font-size:12px;padding:9px 11px;border-radius:10px;width:100%;box-sizing:border-box;cursor:pointer;">
-                  <option value="all">Todas</option>
-                  <option value="pret">⬛ Preta</option>
-                  <option value="branc">⬜ Branca</option>
-                </select>
-              </div>
+              <select id="ll-f-cor" style="display:none;"><option value="all"></option></select>
               <div>
                 <label style="font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:5px;">Cliente</label>
                 <input type="text" id="ll-f-cliente" class="input-field" list="ll-clientes-list" placeholder="Buscar cliente…" style="font-size:12px;padding:9px 11px;border-radius:10px;width:100%;box-sizing:border-box;">
@@ -761,28 +819,20 @@
           </div>
         </div>
 
-        <!-- Resumo filtro ativo -->
-        <div id="ll-filt-row" style="display:none;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;padding:10px 14px;border-radius:11px;background:rgba(0,212,255,.04);border:1px solid rgba(0,212,255,.1);">
-          <div>
-            <p style="font-size:9px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;">Saíram</p>
-            <div id="ll-filt-entrada" style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:var(--success);">0 cx</div>
-          </div>
-          <div>
-            <p style="font-size:9px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;">Voltaram</p>
-            <div id="ll-filt-saida" style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:var(--alert);">0 cx</div>
-          </div>
-          <div>
-            <p style="font-size:9px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;">Em rota</p>
-            <div id="ll-filt-valor" style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:var(--warning);">0 cx</div>
-          </div>
-          <div>
-            <p style="font-size:9px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.1em;margin-bottom:3px;">Total</p>
-            <div id="ll-filt-count" style="font-family:'DM Mono',monospace;font-size:14px;font-weight:700;color:var(--muted);">0 reg.</div>
-          </div>
+        <!-- Resumo filtro ativo (versão mini, inline) -->
+        <div id="ll-filt-row" style="display:none;align-items:center;gap:12px;flex-wrap:wrap;
+          margin-bottom:12px;padding:8px 12px;border-radius:9px;
+          background:rgba(0,212,255,.04);border:1px solid rgba(0,212,255,.1);font-size:12px;">
+          <span style="color:var(--muted);font-weight:500;">Resultado:</span>
+          <span><span id="ll-filt-count" style="font-family:'DM Mono',monospace;font-weight:700;color:var(--text);">0</span></span>
+          <span style="width:1px;height:14px;background:var(--border);"></span>
+          <span><span id="ll-filt-entrada" style="font-family:'DM Mono',monospace;font-weight:700;color:var(--success);">0 cx</span> <span style="color:var(--muted);">saíram</span></span>
+          <span><span id="ll-filt-saida" style="font-family:'DM Mono',monospace;font-weight:700;color:var(--alert);">0 cx</span> <span style="color:var(--muted);">voltaram</span></span>
+          <span><span id="ll-filt-valor" style="font-family:'DM Mono',monospace;font-weight:700;color:var(--warning);">0 cx</span> <span style="color:var(--muted);">em rota</span></span>
         </div>
 
-        <!-- Filtros por motorista (chips) -->
-        <div id="ll-mot-chips" style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 0 12px;border-bottom:1px solid var(--border);margin-bottom:10px;"></div>
+        <!-- chips ocultos (mantidos por compatibilidade) -->
+        <div id="ll-mot-chips" style="display:none;"></div>
 
         <!-- Lista de registros -->
         <div id="ll-tbody" style="display:flex;flex-direction:column;gap:6px;padding:4px 0;">
@@ -2142,7 +2192,29 @@ mark { background: rgba(0,212,255,.25); color: var(--accent); border-radius: 3px
 <script>
 document.addEventListener("DOMContentLoaded", () => {
   // ✅ PADRONIZAÇÃO: Navegação via sidebar (.adm-nav-item) — idêntico ao Tenant
+  // ── Helpers para o modo Hetros (sidebar contextual) ───────
+  function enterHetrosMode() {
+    document.body.classList.add("adm-hetros-mode");
+    const mainNav   = document.getElementById("adm-sb-nav-main");
+    const hetrosNav = document.getElementById("adm-sb-nav-hetros");
+    if (mainNav)   mainNav.style.display   = "none";
+    if (hetrosNav) hetrosNav.style.display = "block";
+  }
+  function exitHetrosMode() {
+    document.body.classList.remove("adm-hetros-mode");
+    const mainNav   = document.getElementById("adm-sb-nav-main");
+    const hetrosNav = document.getElementById("adm-sb-nav-hetros");
+    if (mainNav)   mainNav.style.display   = "";
+    if (hetrosNav) hetrosNav.style.display = "none";
+  }
+
   // ── Função central de troca de aba (reusável) ──────────────
+  const TAB_TITLES = {
+    "tab-companies":    "Empresas & Contas",
+    "tab-users":        "Usuários",
+    "tab-combustivel":  "Logística",
+    "tab-luminlog":     "Controle Hetros"
+  };
   function switchAdmTab(target) {
     document.querySelectorAll(".adm-nav-item").forEach(t => t.classList.remove("active"));
     document.querySelectorAll(".admin-tab-panel").forEach(p => p.classList.remove("active"));
@@ -2150,6 +2222,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const navBtn = document.querySelector(`.adm-nav-item[data-adm-tab="${target}"]`);
     if (navBtn) navBtn.classList.add("active");
     document.getElementById(target)?.classList.add("active");
+
+    // Atualiza título do topbar
+    const titleEl = document.getElementById("adm-v-title");
+    if (titleEl && TAB_TITLES[target]) titleEl.textContent = TAB_TITLES[target];
 
     // Persiste aba ativa na sessão
     try { sessionStorage.setItem("lumin_adm_tab", target); } catch(_) {}
@@ -2161,11 +2237,70 @@ document.addEventListener("DOMContentLoaded", () => {
     // Carrega consolidado ao abrir aba
     if (target === "tab-combustivel") loadAdminCombustivel(_adminCombPeriod);
 
-    // Ativa luminlog quando aba é aberta
+    // Ativa luminlog quando aba é aberta + entra no modo Hetros
     if (target === "tab-luminlog") {
+      enterHetrosMode();
+      // Restaura a última sub-aba (ou dashboard se nunca abriu)
+      let sub = 'dashboard';
+      try { sub = sessionStorage.getItem('lumin_llm_subtab') || 'dashboard'; } catch(_) {}
+      switchHetrosSubTab(sub); // IMEDIATO — define classe no body antes de renderizar
       if (typeof initLuminLog === "function") { initLuminLog(); setTimeout(renderLuminLog, 100); }
+    } else {
+      // Saiu do Hetros — limpa classes de sub-aba
+      document.body.classList.remove('llm-sub-dashboard','llm-sub-registros','llm-sub-motoristas','llm-sub-clientes');
+      exitHetrosMode();
     }
   }
+
+  // ── Sub-navegação Hetros (sidebar contextual) ─────────────
+  // Usa CLASSE no body como única fonte da verdade (CSS controla display)
+  function switchHetrosSubTab(tab) {
+    if (!tab) return;
+    // Visual da sidebar
+    document.querySelectorAll(".adm-sb-hetros-item").forEach(b => b.classList.remove("active"));
+    const sbBtn = document.querySelector(`.adm-sb-hetros-item[data-llm-tab="${tab}"]`);
+    if (sbBtn) sbBtn.classList.add("active");
+
+    // Limpa display inline (deixa CSS controlar)
+    ['dashboard','registros','motoristas','clientes'].forEach(p => {
+      const el = document.getElementById('llm-panel-' + p);
+      if (el) el.style.display = '';
+    });
+
+    // Define classe no body — CSS faz o resto
+    document.body.classList.remove('llm-sub-dashboard','llm-sub-registros','llm-sub-motoristas','llm-sub-clientes');
+    document.body.classList.add('llm-sub-' + tab);
+
+    // Atualiza pílulas horizontais (se ainda existirem)
+    document.querySelectorAll('.llm-subtab').forEach(b => b.classList.remove('active'));
+    document.getElementById('llm-btn-' + tab)?.classList.add('active');
+
+    // Persiste última aba ativa
+    try { sessionStorage.setItem('lumin_llm_subtab', tab); } catch(_) {}
+    console.log('[Hetros sub-tab]', tab);
+  }
+  // Expõe globalmente — sobrescreve qualquer llmSwitchTab dos modules
+  window.llmSwitchTab = switchHetrosSubTab;
+  document.querySelectorAll(".adm-sb-hetros-item").forEach(btn => {
+    btn.addEventListener("click", () => switchHetrosSubTab(btn.dataset.llmTab));
+  });
+
+  // ── Botão Voltar (sai do modo Hetros e volta ao tab-companies) ──
+  document.getElementById("adm-sb-back-btn")?.addEventListener("click", () => {
+    switchAdmTab("tab-companies");
+  });
+
+  // ── Botão Colapsar Sidebar ────────────────────────────────
+  const COLLAPSE_KEY = "lumin_adm_sb_collapsed";
+  const sidebar = document.getElementById("adm-sidebar");
+  try {
+    if (sessionStorage.getItem(COLLAPSE_KEY) === "1") sidebar?.classList.add("collapsed");
+  } catch(_) {}
+  document.getElementById("adm-btn-sb-collapse")?.addEventListener("click", () => {
+    if (!sidebar) return;
+    sidebar.classList.toggle("collapsed");
+    try { sessionStorage.setItem(COLLAPSE_KEY, sidebar.classList.contains("collapsed") ? "1" : "0"); } catch(_) {}
+  });
 
   document.querySelectorAll(".adm-nav-item").forEach(tab => {
     tab.addEventListener("click", () => switchAdmTab(tab.dataset.admTab));
@@ -2377,5 +2512,117 @@ document.addEventListener("DOMContentLoaded", () => {
 </script>
 
 <script type="module" src="luminlog-motoristas-controller.js"></script>
+
+<!-- ════ MODO PREVIEW: ?preview=1 abre o admin sem autenticação ════ -->
+<script>
+(function(){
+  if (new URLSearchParams(location.search).get('preview') !== '1') return;
+
+  function forceAdmin() {
+    ['preloader','login-screen','loadingOverlay'].forEach(id => {
+      const e = document.getElementById(id);
+      if (e) { e.style.display='none'; e.classList.remove('active'); }
+    });
+    const adm = document.getElementById('admin-panel');
+    if (adm) { adm.style.display='flex'; adm.classList.add('active'); }
+    // Garante que tab-companies tem .active se nenhuma estiver ativa
+    if (!document.querySelector('.admin-tab-panel.active')) {
+      document.getElementById('tab-companies')?.classList.add('active');
+    }
+  }
+
+  // Roda imediatamente e re-aplica continuamente para vencer o auth-manager
+  window.addEventListener('load', () => {
+    forceAdmin();
+    window.dispatchEvent(new CustomEvent('lumin:admin-ready', {
+      detail: { user: { role: 'master', name: 'Preview' } }
+    }));
+    // Re-força a cada 500ms por 5 segundos para garantir
+    let count = 0;
+    const interval = setInterval(() => {
+      forceAdmin();
+      if (++count > 10) clearInterval(interval);
+    }, 500);
+    // Observa mudanças no admin-panel para impedir que sumam
+    const obs = new MutationObserver(() => {
+      const adm = document.getElementById('admin-panel');
+      if (adm && adm.style.display === 'none') forceAdmin();
+    });
+    const adm = document.getElementById('admin-panel');
+    if (adm) obs.observe(adm, { attributes: true, attributeFilter: ['style','class'] });
+    console.log('[PREVIEW] Admin aberto sem autenticação (modo persistente).');
+  });
+})();
+</script>
+
+<!-- ════ Wiring: busca livre + presets de data + ordenação (Registros) ════ -->
+<script>
+(function(){
+  function $(id){ return document.getElementById(id); }
+  function fireInput(el){ el && el.dispatchEvent(new Event('input', {bubbles:true})); }
+
+  function toIso(d){
+    const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${dd}`;
+  }
+  function setRange(ini, fim){
+    const a=$('ll-f-data-ini'), b=$('ll-f-data-fim');
+    if(a){ a.value = ini; fireInput(a); }
+    if(b){ b.value = fim; fireInput(b); }
+  }
+  function applyPreset(mode){
+    const now = new Date();
+    if(mode==='hoje'){       const t=toIso(now);                          setRange(t,t); }
+    else if(mode==='ontem'){ const y=new Date(now); y.setDate(y.getDate()-1); const t=toIso(y); setRange(t,t); }
+    else if(mode==='7d'){    const a=new Date(now); a.setDate(a.getDate()-6); setRange(toIso(a),toIso(now)); }
+    else if(mode==='30d'){   const a=new Date(now); a.setDate(a.getDate()-29); setRange(toIso(a),toIso(now)); }
+    else /* all */{           setRange('',''); }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    // Presets de data
+    document.querySelectorAll('.ll-date-preset').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.ll-date-preset').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        applyPreset(btn.dataset.llDate);
+      });
+    });
+    // Aplica preset "hoje" assim que carrega (default)
+    setTimeout(() => applyPreset('hoje'), 600);
+
+    // Busca dupla: Cliente + Motorista (AND quando os dois preenchidos)
+    function wireSearch(srcId, dstId, clearBtnSel) {
+      const src = $(srcId), dst = $(dstId);
+      if (!src) return;
+      const clear = document.querySelector(clearBtnSel);
+      src.addEventListener('input', () => {
+        const v = src.value.trim();
+        if (clear) clear.style.display = v ? 'block' : 'none';
+        if (dst) { dst.value = v; fireInput(dst); }
+      });
+      if (clear) {
+        clear.addEventListener('click', () => {
+          src.value = ''; src.dispatchEvent(new Event('input', {bubbles:true}));
+          src.focus();
+        });
+      }
+    }
+    wireSearch('ll-search-cliente',   'll-f-cliente',   '.ll-search-clear-btn[data-target="ll-search-cliente"]');
+    wireSearch('ll-search-motorista', 'll-f-motorista', '.ll-search-clear-btn[data-target="ll-search-motorista"]');
+
+    // Ordenação
+    const sortSel = $('ll-sort');
+    if (sortSel) {
+      sortSel.addEventListener('change', () => {
+        window._llSortOrder = sortSel.value; // desc | asc
+        // Forca re-render se houver fn
+        if (typeof window.renderLuminLog === 'function') window.renderLuminLog();
+        else if (typeof window.renderLuminLogTable === 'function') window.renderLuminLogTable();
+      });
+    }
+  });
+})();
+</script>
 </body>
 </html>

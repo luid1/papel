@@ -305,15 +305,27 @@ function renderKpis() {
 
   // ── Hoje ────────────────────────────────────────────────────
   const todayRegs = _registros.filter(r => r.data === todayYmd);
-  const tEnt = todayRegs.filter(r => r.tipo === 'ENTRADA').reduce((a,r)=>a+(r.quantidadeCx||0),0);
-  const tSai = todayRegs.filter(r => r.tipo === 'SAÍDA').reduce((a,r)=>a+(r.quantidadeCx||0),0);
+  const ehOpCD = (nome) => {
+    const n = (nome || '').toUpperCase();
+    return /\b(CD|DEPOSITO|DEPÓSITO|RETIRADA|DEVOLU[CÇ][AÃ]O|RETORNO|HETROS)\b/.test(n) || n === '—';
+  };
+  const ehRetiradaCD = r => r.origem === 'motorista_cd_departure' || (r.tipo === 'ENTRADA' && ehOpCD(r.cliente));
+  const ehDevolucaoCD = r => r.origem === 'motorista_cd_return' || (r.tipo === 'SAÍDA' && ehOpCD(r.cliente));
+  const ehEntregaCliente = r => r.tipo === 'SAÍDA' && !ehDevolucaoCD(r);
+
+  // Saíram do CD = retiradas no CD hoje
+  const tEnt = todayRegs.filter(ehRetiradaCD).reduce((a,r)=>a+(r.quantidadeCx||0),0);
+  // Deixadas no cliente = entregas de hoje
+  const tSai = todayRegs.filter(ehEntregaCliente).reduce((a,r)=>a+(r.quantidadeCx||0),0);
+  // Devolvidas ao CD hoje
+  const tDev = todayRegs.filter(ehDevolucaoCD).reduce((a,r)=>a+(r.quantidadeCx||0),0);
   const tDrivers = new Set(todayRegs.map(r=>r.motorista).filter(Boolean)).size;
 
   const $ = id => document.getElementById(id);
   $('ll-today-entrada') && ($('ll-today-entrada').textContent = `${tEnt} cx`);
   $('ll-today-saida')   && ($('ll-today-saida').textContent   = `${tSai} cx`);
   $('ll-today-drivers') && ($('ll-today-drivers').textContent = tDrivers);
-  $('ll-today-count')   && ($('ll-today-count').textContent   = `${Math.max(0, tEnt - tSai)} cx`);
+  $('ll-today-count')   && ($('ll-today-count').textContent   = `${Math.max(0, tEnt - tSai - tDev)} cx`);
   const todayDateEl = $('ll-today-date');
   if (todayDateEl) todayDateEl.textContent = todayD.toLocaleDateString('pt-BR', {weekday:'long',day:'2-digit',month:'long'});
 
@@ -323,36 +335,38 @@ function renderKpis() {
     if (!todayRegs.length) {
       feed.innerHTML = '<p style="color:var(--muted);font-size:13px;padding:8px 0;letter-spacing:-.005em;">Nenhum lançamento hoje ainda.</p>';
     } else {
-      // Agrupa por motorista
+      // Agrupa por motorista — distingue retirada CD vs entrega real
       const porMotorista = {};
       todayRegs.forEach(r => {
         const m = (r.motorista || '— sem motorista —').trim().toUpperCase();
-        if (!porMotorista[m]) porMotorista[m] = { saiu: 0, voltou: 0, clientes: new Set() };
+        if (!porMotorista[m]) porMotorista[m] = { saiu: 0, deixou: 0, devolveu: 0, clientes: new Set() };
         const qtd = r.quantidadeCx || 0;
-        if (r.tipo === 'ENTRADA') porMotorista[m].saiu += qtd;
-        else porMotorista[m].voltou += qtd;
-        if (r.cliente) porMotorista[m].clientes.add(r.cliente);
+        if (ehRetiradaCD(r))         porMotorista[m].saiu    += qtd;
+        else if (ehDevolucaoCD(r))   porMotorista[m].devolveu+= qtd;
+        else if (ehEntregaCliente(r)){porMotorista[m].deixou += qtd; if (r.cliente) porMotorista[m].clientes.add(r.cliente);}
+        else if (r.cliente && !ehOpCD(r.cliente)) porMotorista[m].clientes.add(r.cliente);
       });
 
-      const totalSaiu   = todayRegs.filter(r => r.tipo === 'ENTRADA').reduce((a, r) => a + (r.quantidadeCx||0), 0);
-      const totalVoltou = todayRegs.filter(r => r.tipo === 'SAÍDA').reduce((a, r) => a + (r.quantidadeCx||0), 0);
-      const emRota = Math.max(0, totalSaiu - totalVoltou);
+      const emRota = Math.max(0, tEnt - tSai - tDev);
 
       const blocos = Object.entries(porMotorista)
         .sort(([,a],[,b]) => (b.saiu+b.voltou) - (a.saiu+a.voltou))
         .map(([m, v]) => {
-          const emRotaM = Math.max(0, v.saiu - v.voltou);
+          const emRotaM = Math.max(0, v.saiu - v.deixou - v.devolveu);
+          const clientesTxt = v.clientes.size
+            ? `${v.clientes.size} cliente${v.clientes.size!==1?'s':''} visitado${v.clientes.size!==1?'s':''}`
+            : (v.saiu > 0 ? 'Só retirou no CD — sem entregas ainda' : 'Sem atividade');
           return `
             <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);">
               <div style="min-width:0;flex:1;">
                 <div style="font-size:13px;font-weight:600;color:var(--text);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(m)}</div>
                 <div style="font-size:11.5px;color:var(--muted);letter-spacing:-.005em;margin-top:2px;">
-                  ${v.clientes.size} cliente${v.clientes.size!==1?'s':''} visitado${v.clientes.size!==1?'s':''}
+                  ${clientesTxt}
                 </div>
               </div>
               <div style="display:flex;gap:14px;flex-shrink:0;font-size:12px;font-family:'DM Mono',monospace;">
-                <span style="color:var(--success);">↑${v.saiu}</span>
-                <span style="color:var(--alert);">↓${v.voltou}</span>
+                <span style="color:var(--success);" title="Saiu do CD">↑${v.saiu}</span>
+                <span style="color:var(--alert);" title="Deixou no cliente">↓${v.deixou}</span>
                 <span style="color:${emRotaM>0?'var(--warning)':'var(--muted)'};min-width:36px;text-align:right;">${emRotaM} rota</span>
               </div>
             </div>`;
@@ -361,12 +375,12 @@ function renderKpis() {
       feed.innerHTML = `
         <div style="display:flex;gap:12px;flex-wrap:wrap;padding:8px 0 14px;border-bottom:1px solid var(--border);margin-bottom:6px;">
           <div style="flex:1;min-width:90px;">
-            <div style="font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;">Saíram</div>
-            <div style="font-family:'DM Mono',monospace;font-size:18px;font-weight:600;color:var(--success);">${totalSaiu} cx</div>
+            <div style="font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;">Saíram do CD</div>
+            <div style="font-family:'DM Mono',monospace;font-size:18px;font-weight:600;color:var(--success);">${tEnt} cx</div>
           </div>
           <div style="flex:1;min-width:90px;">
-            <div style="font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;">Voltaram</div>
-            <div style="font-family:'DM Mono',monospace;font-size:18px;font-weight:600;color:var(--alert);">${totalVoltou} cx</div>
+            <div style="font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;">Deixadas no cliente</div>
+            <div style="font-family:'DM Mono',monospace;font-size:18px;font-weight:600;color:var(--alert);">${tSai} cx</div>
           </div>
           <div style="flex:1;min-width:90px;">
             <div style="font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;">Em rota</div>
@@ -381,14 +395,14 @@ function renderKpis() {
 
   // ── Esta semana ────────────────────────────────────────────
   const weekRegs = _registros.filter(r => (r.data||'') >= mondayYmd && (r.data||'') <= sundayYmd);
-  const totEntrada = weekRegs.filter(r => r.tipo === 'ENTRADA').reduce((a, r) => a + (r.quantidadeCx || 0), 0);
-  const totSaida   = weekRegs.filter(r => r.tipo === 'SAÍDA').reduce((a, r)   => a + (r.quantidadeCx || 0), 0);
-  const totValor   = weekRegs.reduce((a, r) => a + (r.valorTotal || 0), 0);
+  const wkSaiu     = weekRegs.filter(ehRetiradaCD).reduce((a,r)=>a+(r.quantidadeCx||0),0);
+  const wkDeixou   = weekRegs.filter(ehEntregaCliente).reduce((a,r)=>a+(r.quantidadeCx||0),0);
+  const wkDevolveu = weekRegs.filter(ehDevolucaoCD).reduce((a,r)=>a+(r.quantidadeCx||0),0);
   const totCount   = weekRegs.length;
 
-  $('ll-total-entrada') && ($('ll-total-entrada').textContent = `${totEntrada} cx`);
-  $('ll-total-saida')   && ($('ll-total-saida').textContent   = `${totSaida} cx`);
-  $('ll-total-valor')   && ($('ll-total-valor').textContent   = `${Math.max(0, totEntrada - totSaida)} cx`);
+  $('ll-total-entrada') && ($('ll-total-entrada').textContent = `${wkSaiu} cx`);
+  $('ll-total-saida')   && ($('ll-total-saida').textContent   = `${wkDeixou} cx`);
+  $('ll-total-valor')   && ($('ll-total-valor').textContent   = `${Math.max(0, wkSaiu - wkDeixou - wkDevolveu)} cx`);
   $('ll-total-count')   && ($('ll-total-count').textContent   = totCount);
   const wkLbl = $('ll-week-date');
   if (wkLbl) {

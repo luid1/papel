@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -20,6 +20,7 @@
   --text:#e4f0f6; --muted:rgba(228,240,246,.45);
   --glass:rgba(255,255,255,.04); --border:rgba(255,255,255,.08);
   --ease:cubic-bezier(.4,0,.2,1);
+  --het-green:#4a9a4a; --het-red:#d44d1a;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
 html{font-size:100%;-webkit-text-size-adjust:100%}
@@ -225,10 +226,11 @@ body.is-offline .offline-pill{display:flex;}
 <div class="orb" style="width:400px;height:400px;background:#b085f5;bottom:-130px;right:-60px;"></div>
 <div id="app"></div>
 <script>
+const LOGO_SRC='data:image/png;base64,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';
 /* ═══════════ FIREBASE ═══════════ */
 firebase.initializeApp({
   apiKey:"AIzaSyAeAOjFZSHy28uZFgH1PyoJaxPRyS-N1Kw",
-  authDomain:"lumin-a5b29.firebaseapp.com",
+  authDomain:"luminmkt.shop",
   projectId:"lumin-a5b29",
   storageBucket:"lumin-a5b29.firebasestorage.app",
   messagingSenderId:"413860601418",
@@ -306,8 +308,8 @@ const driverName = params.get('user') ? decodeURIComponent(params.get('user')) :
 if(!driverName) {
   $('app').innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;
     justify-content:center;min-height:100svh;padding:40px 20px;text-align:center;">
-    <div style="font-family:'Comfortaa',cursive;font-size:2rem;font-weight:700;margin-bottom:12px;">Controle Hetros</div>
-    <p style="color:var(--muted);font-size:1.1rem;max-width:320px;line-height:1.6;">
+    <img src="${LOGO_SRC}" alt="Hetros" style="width:160px;margin-bottom:24px;opacity:.9;filter:drop-shadow(0 4px 18px rgba(0,0,0,.4));"/>
+    <p style="color:var(--muted);font-size:1rem;max-width:300px;line-height:1.7;">
       Este link é exclusivo para motoristas.<br>Acesse pelo link do administrador.
     </p></div>`;
 } else { initDriver(driverName); }
@@ -326,14 +328,21 @@ function tirarFoto() {
       reader.onload=e=>{
         const img=new Image();
         img.onload=()=>{
-          const maxW=900,maxH=900;let{width:w,height:h}=img;
-          if(w>maxW||h>maxH){const r=Math.min(maxW/w,maxH/h);w=Math.round(w*r);h=Math.round(h*r);}
-          const cv=document.createElement('canvas');cv.width=w;cv.height=h;
-          cv.getContext('2d').drawImage(img,0,0,w,h);finish(cv.toDataURL('image/jpeg',.65));
+          try {
+            const maxW=480,maxH=480;let{width:w,height:h}=img;
+            if(w>maxW||h>maxH){const r=Math.min(maxW/w,maxH/h);w=Math.round(w*r);h=Math.round(h*r);}
+            const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+            cv.getContext('2d').drawImage(img,0,0,w,h);
+            let data=cv.toDataURL('image/jpeg',.40);
+            if(data.length>400000) data=cv.toDataURL('image/jpeg',.20);
+            finish(data);
+          } catch(err){ toast('Erro ao processar foto. Tente novamente.',4000); finish(null); }
         };
-        img.onerror=()=>finish(null);img.src=e.target.result;
+        img.onerror=()=>{ toast('Não foi possível ler a foto.',3000); finish(null); };
+        img.src=e.target.result;
       };
-      reader.onerror=()=>finish(null);reader.readAsDataURL(file);
+      reader.onerror=()=>{ toast('Erro ao acessar a foto. Verifique o armazenamento do aparelho.',4000); finish(null); };
+      reader.readAsDataURL(file);
     };
     window.addEventListener('focus',function onF(){
       window.removeEventListener('focus',onF);setTimeout(()=>{if(!done)finish(null);},800);
@@ -364,6 +373,7 @@ function initDriver(name) {
     clientName:'',
     clientSubStep:'name',
     totalDel:0, totalCol:0,
+    totalOcp:0,
     depTotal:0,
     retCx:0,
     transactions:[], saving:false, fotos:{},
@@ -381,26 +391,50 @@ function initDriver(name) {
   $('app').innerHTML=`
     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;
       min-height:100svh;text-align:center;padding:40px 24px;">
-      <div style="font-family:'Comfortaa',cursive;font-size:1.1rem;font-weight:700;
-        color:var(--muted);margin-bottom:32px;">Controle Hetros</div>
-      <div style="font-size:1rem;color:var(--muted);margin-bottom:6px;">${_splashGreet},</div>
-      <div style="font-family:'Montserrat',sans-serif;font-size:1.7rem;font-weight:900;
-        color:var(--text);">${name}</div>
-      <div style="display:flex;gap:6px;margin-top:36px;">
-        <span style="width:7px;height:7px;border-radius:50%;background:var(--accent);opacity:.9;animation:sd 1s .0s ease-in-out infinite alternate;"></span>
-        <span style="width:7px;height:7px;border-radius:50%;background:var(--accent);opacity:.9;animation:sd 1s .2s ease-in-out infinite alternate;"></span>
-        <span style="width:7px;height:7px;border-radius:50%;background:var(--accent);opacity:.9;animation:sd 1s .4s ease-in-out infinite alternate;"></span>
+      <img src="${LOGO_SRC}" alt="Hetros" style="width:180px;max-width:70vw;margin-bottom:28px;
+        filter:drop-shadow(0 4px 18px rgba(0,0,0,.5));"/>
+      <div style="height:1px;width:60px;background:rgba(255,255,255,.12);margin-bottom:22px;"></div>
+      <div style="font-size:1rem;color:var(--muted);margin-bottom:5px;">${_splashGreet},</div>
+      <div style="font-family:'Montserrat',sans-serif;font-size:1.8rem;font-weight:900;
+        color:var(--text);letter-spacing:-.01em;">${name}</div>
+      <div style="display:flex;gap:7px;margin-top:36px;">
+        <span style="width:8px;height:8px;border-radius:50%;background:var(--het-green);opacity:.9;animation:sd 1s .0s ease-in-out infinite alternate;"></span>
+        <span style="width:8px;height:8px;border-radius:50%;background:var(--accent);opacity:.9;animation:sd 1s .2s ease-in-out infinite alternate;"></span>
+        <span style="width:8px;height:8px;border-radius:50%;background:var(--het-red);opacity:.9;animation:sd 1s .4s ease-in-out infinite alternate;"></span>
       </div>
     </div>
     <style>@keyframes sd{from{opacity:.2;transform:scale(.7)}to{opacity:.9;transform:scale(1)}}</style>`;
 
   // Listener em tempo real: admin zera → driver atualiza imediatamente
   let _firstLoad = true;
-  db.collection('ll_drivers').doc(name).onSnapshot(doc => {
+  db.collection('ll_drivers').doc(name).onSnapshot(async doc => {
     if (!doc.exists) return;
     const d = doc.data();
     const oldCx = S.truckCx;
-    S.truckCx = (d.truckCx!=null) ? nn(d.truckCx) : (nn(d.truckBlack)+nn(d.truckWhite));
+    const today = new Date().toISOString().split('T')[0];
+
+    // Auto-reset diário: ao abrir num dia novo, zera caminhão e avisa admin se havia caixas
+    if (_firstLoad && d.lastAutoReset !== today) {
+      const cxEsquecidas = nn(d.truckCx) || (nn(d.truckBlack)+nn(d.truckWhite));
+      try {
+        if (cxEsquecidas > 0) {
+          const batch = db.batch();
+          batch.update(db.collection('ll_drivers').doc(name),
+            { truckCx: 0, lastAutoReset: today, lastUpdated: TS() });
+          batch.set(db.collection('ll_events').doc(), {
+            type: 'driver_forgot_cd', driverName: name,
+            cxEsquecidas, date: today, status: 'pending', timestamp: TS()
+          });
+          await batch.commit();
+          d.truckCx = 0; d.truckBlack = 0; d.truckWhite = 0;
+          setTimeout(() => toast('⚠️ Caminhão zerado — não esqueça de deixar as caixas no CD!', 5000), 3200);
+        } else {
+          await db.collection('ll_drivers').doc(name).update({ lastAutoReset: today, lastUpdated: TS() });
+        }
+      } catch(e) { console.warn('[auto-reset]', e); }
+    }
+
+    S.truckCx = nn(d.truckCx) || (nn(d.truckBlack)+nn(d.truckWhite));
     S.dailyRoute = d.dailyRoute || null;
     if (_firstLoad) {
       _firstLoad = false;
@@ -568,8 +602,8 @@ function initDriver(name) {
   /* Repetir última entrega */
   window._repetirUltima = function() {
     const lv=S._clienteData&&S._clienteData.lastVisit; if(!lv) return;
-    S.totalDel=(lv.totalDel!=null)?nn(lv.totalDel):(nn(lv.delBlack)+nn(lv.delWhite));
-    S.totalCol=(lv.totalCol!=null)?nn(lv.totalCol):(nn(lv.colBlack)+nn(lv.colWhite));
+    S.totalDel=nn(lv.totalDel)||(nn(lv.delBlack)+nn(lv.delWhite));
+    S.totalCol=nn(lv.totalCol)||(nn(lv.colBlack)+nn(lv.colWhite));
     vibe(30); toast('✓ Valores da última visita aplicados!');
   };
 
@@ -672,26 +706,52 @@ function initDriver(name) {
   function vChoose() {
     const showGeoBtn = !_geoEnabled;
     $('app').innerHTML=`<div id="driver-wrap" class="fade-in">
-      <div style="text-align:center;padding:20px 0 26px;">
-        <span class="wordmark" style="font-size:2rem;">Controle Hetros</span>
-        <div style="font-size:1.05rem;color:var(--muted);margin-top:6px;">${(()=>{const h=new Date().getHours();return h<12?'Bom dia':h<18?'Boa tarde':'Boa noite';})()} <strong style="color:var(--text);font-size:1.15rem;">${name}</strong> 👋</div>
-        ${S._weekTotal!==null&&S._weekTotal>0?`<div style="margin-top:6px;font-size:.88rem;color:var(--muted);">Você já movimentou <strong style="color:var(--accent);">${S._weekTotal} cxs</strong> esta semana.</div>`:''}
-        <div style="margin-top:14px;padding:14px 28px;background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:16px;display:inline-flex;align-items:center;gap:10px;">
-          <div style="font-family:'Montserrat',sans-serif;font-size:2.4rem;font-weight:900;color:var(--text);">${S.truckCx}</div>
-          <div style="font-size:.9rem;color:var(--muted);text-align:left;line-height:1.3;">caixas<br>no caminhão</div>
+
+      <!-- HEADER com logo -->
+      <div style="text-align:center;padding:22px 0 10px;">
+        <img src="${LOGO_SRC}" alt="Hetros" style="width:150px;max-width:60vw;
+          filter:drop-shadow(0 2px 12px rgba(0,0,0,.4));margin-bottom:16px;"/>
+        <div style="font-size:1rem;color:var(--muted);">
+          ${(()=>{const h=new Date().getHours();return h<12?'Bom dia':h<18?'Boa tarde':'Boa noite';})()},
+          <strong style="color:var(--text);font-size:1.05rem;">${name}</strong> 👋
         </div>
-        <div style="margin-top:10px;"><span class="offline-pill">📵 Offline</span></div>
-        ${showGeoBtn ? `
-          <button id="geo-request-btn" onclick="window._llRequestGeo()" style="margin-top:12px;padding:10px 18px;border-radius:12px;background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.3);color:#4ade80;font-size:.95rem;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:8px;">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-            Permitir localização
-          </button>
-        ` : ''}
+        ${S._weekTotal!==null&&S._weekTotal>0?`
+          <div style="margin-top:5px;font-size:.82rem;color:var(--muted);">
+            Você já movimentou <strong style="color:var(--accent);">${S._weekTotal} cxs</strong> esta semana.
+          </div>`:''
+        }
       </div>
 
+      <!-- BADGE caixas no caminhão -->
+      <div style="margin:12px 0 18px;padding:16px 24px;
+        background:linear-gradient(135deg,rgba(74,154,74,.15),rgba(0,212,255,.08));
+        border:1.5px solid rgba(74,154,74,.35);border-radius:20px;
+        display:flex;align-items:center;justify-content:center;gap:16px;">
+        <div style="font-size:2.6rem;">🚛</div>
+        <div>
+          <div style="font-family:'Montserrat',sans-serif;font-size:2.8rem;font-weight:900;
+            color:var(--text);line-height:1;">${S.truckCx}</div>
+          <div style="font-size:.82rem;color:var(--muted);margin-top:2px;">caixas no caminhão</div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:8px;"><span class="offline-pill">📵 Offline</span></div>
+      ${showGeoBtn ? `
+        <button id="geo-request-btn" onclick="window._llRequestGeo()"
+          style="margin-bottom:14px;padding:10px 18px;border-radius:12px;
+          background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.3);
+          color:#4ade80;font-size:.9rem;font-weight:600;cursor:pointer;
+          display:inline-flex;align-items:center;gap:8px;width:100%;justify-content:center;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          Permitir localização
+        </button>
+      ` : ''}
+
       ${_renderRoteiroDoDia()}
-      <div style="font-family:'Montserrat',sans-serif;font-size:1.2rem;font-weight:900;
-        margin-bottom:16px;">O que você vai fazer?</div>
+      <div style="font-family:'Montserrat',sans-serif;font-size:1.1rem;font-weight:900;
+        margin-bottom:14px;color:rgba(228,240,246,.6);letter-spacing:.04em;text-transform:uppercase;font-size:.78rem;">
+        O que você vai fazer?
+      </div>
       <div class="home-grid">
         <button class="home-card cd" onclick="window.escolherModo('cd')">
           <span class="home-card-icon">🏭</span>
@@ -1009,6 +1069,33 @@ function initDriver(name) {
           color:var(--success);display:flex;align-items:center;justify-content:center;">+</button>
       </div>
 
+      <div style="margin:4px 0 16px;height:1px;background:rgba(255,255,255,.08);"></div>
+      <div style="font-size:.9rem;font-weight:800;color:var(--warning);text-align:center;margin-bottom:4px;">
+        📦 Ficaram cheias no cliente?
+      </div>
+      <div style="font-size:.82rem;color:var(--muted);text-align:center;margin-bottom:14px;">
+        Caixas cheias que não conseguiu esvaziar hoje
+      </div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:24px;margin:0 0 24px;">
+        <button onclick="window._vcOcpMinus()"
+          style="width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,.07);
+          border:2px solid rgba(255,255,255,.15);font-size:2rem;font-weight:900;
+          color:var(--text);display:flex;align-items:center;justify-content:center;">−</button>
+        <div style="text-align:center;min-width:90px;">
+          <input id="ocp-count" type="tel" inputmode="numeric" pattern="[0-9]*"
+            value="${S.totalOcp}" onfocus="this.select()"
+            oninput="var v=parseInt(this.value.replace(/\D/g,''))||0;window._S.totalOcp=v;this.value=v;"
+            style="font-family:'Montserrat',sans-serif;font-size:3rem;font-weight:900;
+            color:var(--warning);line-height:1;background:transparent;border:none;outline:none;
+            width:90px;text-align:center;padding:0;caret-color:var(--warning);"/>
+          <div style="font-size:.72rem;color:var(--muted);margin-top:2px;">cx cheias</div>
+        </div>
+        <button onclick="window._vcOcpPlus()"
+          style="width:64px;height:64px;border-radius:50%;background:rgba(255,179,71,.1);
+          border:2px solid rgba(255,179,71,.3);font-size:2rem;font-weight:900;
+          color:var(--warning);display:flex;align-items:center;justify-content:center;">+</button>
+      </div>
+
       <button onclick="window._vcNextPhoto()" class="btn-giant" style="background:var(--success);margin-bottom:12px;">
         Próximo →
       </button>
@@ -1127,7 +1214,7 @@ function initDriver(name) {
 
   window._vcNovoCliente=function(){
     S.clientSubStep='name';S.clientName='';
-    S.totalDel=0;S.totalCol=0;S._fotoObrigatoria=false;S._clienteData=null;
+    S.totalDel=0;S.totalCol=0;S.totalOcp=0;S._fotoObrigatoria=false;S._clienteData=null;
     S.fotos.client_entrega=null;S.fotos.client_coleta=null;
     render();
   };
@@ -1145,7 +1232,7 @@ function initDriver(name) {
     S.clientSubStep='collect';render();
   };
   window._vcBackDeliver=function(){S.clientSubStep='deliver';render();};
-  window._vcSkipCollect=function(){S.totalCol=0;S.clientSubStep='photo';render();};
+  window._vcSkipCollect=function(){S.totalCol=0;S.totalOcp=0;S.clientSubStep='photo';render();};
   window._vcNextPhoto=function(){S.clientSubStep='photo';render();};
   window._vcBackCollect=function(){S.clientSubStep='collect';render();};
 
@@ -1162,6 +1249,12 @@ function initDriver(name) {
   };
   window._vcColMinus=function(){
     if(S.totalCol<=0)return; S.totalCol--; const el=$('col-count');if(el)el.value=S.totalCol; vibe(15);
+  };
+  window._vcOcpPlus=function(){
+    S.totalOcp++; const el=$('ocp-count');if(el)el.value=S.totalOcp; vibe(15);
+  };
+  window._vcOcpMinus=function(){
+    if(S.totalOcp<=0)return; S.totalOcp--; const el=$('ocp-count');if(el)el.value=S.totalOcp; vibe(15);
   };
   window._vcUsarUltimaDel=function(total){
     S.totalDel=total; const el=$('del-count');if(el)el.value=total; vibe(30); toast('✓ Valor da última visita aplicado!');
@@ -1202,8 +1295,10 @@ function initDriver(name) {
       const partes = [];
       const totalDel=tx.totalDel||(tx.delBlack||0)+(tx.delWhite||0);
       const totalCol=tx.totalCol||(tx.colBlack||0)+(tx.colWhite||0);
+      const totalOcp=tx.totalOcp||0;
       if(totalDel) partes.push(`<span style="color:var(--alert);">↓ Deixou <b>${totalDel}</b> cx</span>`);
       if(totalCol) partes.push(`<span style="color:var(--success);">↑ Pegou <b>${totalCol}</b> cx</span>`);
+      if(totalOcp) partes.push(`<span style="color:var(--warning);">⚠ <b>${totalOcp}</b> cx cheias</span>`);
       const linha = partes.join(' · ') || '<span style="color:rgba(228,240,246,.4);">sem caixas</span>';
       return `
         <div style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,.06);">
@@ -1216,7 +1311,7 @@ function initDriver(name) {
 
     $('app').innerHTML=`<div id="driver-wrap" class="fade-in">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
-        <span class="wordmark">Controle Hetros</span>
+        <img src="${LOGO_SRC}" alt="Hetros" style="height:36px;filter:drop-shadow(0 2px 8px rgba(0,0,0,.4));"/>
         <span class="offline-pill">📵 Offline</span>
       </div>
       <div style="font-family:'Montserrat',sans-serif;font-size:1.35rem;font-weight:900;margin-bottom:14px;">📋 Resumo do Dia</div>
@@ -1253,8 +1348,10 @@ function initDriver(name) {
       const partes = [];
       const tDel=tx.totalDel||(tx.delBlack||0)+(tx.delWhite||0);
       const tCol=tx.totalCol||(tx.colBlack||0)+(tx.colWhite||0);
+      const tOcp=tx.totalOcp||0;
       if(tDel) partes.push(`   📤 Entregou: ${tDel} cx`);
       if(tCol) partes.push(`   📥 Coletou: ${tCol} cx`);
+      if(tOcp) partes.push(`   ⚠️ Cheias no cliente: ${tOcp} cx`);
       if(tx.temFoto) partes.push(`   📷 Foto registrada`);
       if(tx.geo)     partes.push(`   📍 Localização confirmada`);
       return `*${i+1}. ${tx.clientName}*\n${partes.join('\n')}`;
@@ -1284,12 +1381,14 @@ function initDriver(name) {
     $('app').innerHTML=`<div id="driver-wrap" class="fade-in"
       style="display:flex;flex-direction:column;align-items:center;justify-content:center;
       min-height:85svh;text-align:center;padding:40px 20px;">
-      <div style="font-size:80px;line-height:1;margin-bottom:22px;
-        filter:drop-shadow(0 0 30px rgba(0,229,160,.4));">✅</div>
-      <h1 style="font-family:'Montserrat',sans-serif;font-size:2.2rem;font-weight:900;
-        margin-bottom:10px;line-height:1.1;">Dia Finalizado!</h1>
-      <p style="color:var(--muted);font-size:1.1rem;margin-bottom:4px;">Tudo salvo com sucesso.</p>
-      <p style="color:var(--muted);font-size:1rem;margin-bottom:36px;">
+      <img src="${LOGO_SRC}" alt="Hetros" style="width:130px;margin-bottom:24px;
+        filter:drop-shadow(0 4px 16px rgba(0,0,0,.45));"/>
+      <div style="font-size:64px;line-height:1;margin-bottom:16px;
+        filter:drop-shadow(0 0 24px rgba(0,229,160,.45));">✅</div>
+      <h1 style="font-family:'Montserrat',sans-serif;font-size:2rem;font-weight:900;
+        margin-bottom:8px;line-height:1.1;">Dia Finalizado!</h1>
+      <p style="color:var(--muted);font-size:1rem;margin-bottom:4px;">Tudo salvo com sucesso.</p>
+      <p style="color:var(--muted);font-size:.95rem;margin-bottom:32px;">
         Obrigado, <span style="color:var(--text);font-weight:700;">${name}</span>!
       </p>
       <div style="width:100%;max-width:320px;display:flex;flex-direction:column;gap:10px;">
@@ -1326,8 +1425,7 @@ function initDriver(name) {
 
   window.voltarEscolha=function(){
     S.step='choose';
-    S.clientName='';S.totalDel=0;S.totalCol=0;S.clientSubStep='name';
-    S.retCx=0;S.depTotal=0;
+    S.clientName='';S.totalDel=0;S.totalCol=0;S.totalOcp=0;S.clientSubStep='name';
     S._fotoObrigatoria=false;S._clienteData=null;
     render();
   };
@@ -1373,7 +1471,7 @@ function initDriver(name) {
       const today=new Date().toISOString().split('T')[0];
       const newCx=Math.max(0,S.truckCx-retCx);
       const batch=db.batch();
-      batch.set(db.collection('ll_drivers').doc(name),{truckCx:newCx,lastUpdated:TS()},{merge:true});
+      batch.update(db.collection('ll_drivers').doc(name),{truckCx:newCx,lastUpdated:TS()});
       const ev={type:'cd_return',driverName:name,retCx,
         truckBefore:S.truckCx,truckAfter:newCx,timestamp:TS()};
       if(S.fotos.cd_return) ev.fotoUrl=S.fotos.cd_return;
@@ -1418,9 +1516,9 @@ function initDriver(name) {
       batch.set(cRef,cu,{merge:true});
       batch.set(db.collection('luminlog_frequentes').doc('index'),
         {nomes:firebase.firestore.FieldValue.arrayUnion(cn)},{merge:true});
-      batch.set(db.collection('ll_drivers').doc(name),{truckCx:finalCx,lastUpdated:TS()},{merge:true});
+      batch.update(db.collection('ll_drivers').doc(name),{truckCx:finalCx,lastUpdated:TS()});
       const ev={type:'client_transaction',driverName:name,clientName:cn,
-        totalDel:S.totalDel,totalCol:S.totalCol,
+        totalDel:S.totalDel,totalCol:S.totalCol,totalOcp:S.totalOcp,
         truckBefore:S.truckCx,truckAfter:finalCx,timestamp:TS()};
       if(S.geoCoords)            ev.geo=S.geoCoords;
       if(S.fotos.client_entrega) ev.fotoEntrega=S.fotos.client_entrega;
@@ -1437,10 +1535,10 @@ function initDriver(name) {
       if(!_recentClientes.includes(cn)) _recentClientes.unshift(cn);
       _recentClientes=_recentClientes.slice(0,8);
       const temFoto=!!(S.fotos.client_entrega||S.fotos.client_coleta);
-      S.transactions.push({clientName:cn,totalDel:S.totalDel,totalCol:S.totalCol,temFoto,geo:!!S.geoCoords});
+      S.transactions.push({clientName:cn,totalDel:S.totalDel,totalCol:S.totalCol,totalOcp:S.totalOcp,temFoto,geo:!!S.geoCoords});
       S.truckCx=finalCx;
       S._lastRegistered=cn;
-      S.clientName='';S.totalDel=0;S.totalCol=0;S.clientSubStep='done';
+      S.clientName='';S.totalDel=0;S.totalCol=0;S.totalOcp=0;S.clientSubStep='done';
       S._fotoObrigatoria=false;S._clienteData=null;
       S.fotos.client_entrega=null;S.fotos.client_coleta=null;
       render();
@@ -1452,7 +1550,7 @@ function initDriver(name) {
 
   window.goSummary=function(){S.step='summary';render();};
   window.backToClient=function(){
-    S.clientName='';S.totalDel=0;S.totalCol=0;S.clientSubStep='name';
+    S.clientName='';S.totalDel=0;S.totalCol=0;S.totalOcp=0;S.clientSubStep='name';
     S._fotoObrigatoria=false;S._clienteData=null;
     S.step='client';render();
   };

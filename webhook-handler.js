@@ -103,9 +103,10 @@ let _qrAtual        = null;
 const MAX_TENTATIVAS = 15;
 
 // ── Estado de features por usuário
-const _pendingConfirm = new Map(); // chatId → {txs, empresaId, phone, expira}
-const _voiceUsers     = new Set(); // chatIds que querem resposta em áudio
-const _recentSaves    = new Map(); // chatId → [{desc, amount, ts}] para detecção de duplicados
+const _pendingConfirm  = new Map(); // chatId → {txs, empresaId, phone, expira}
+const _voiceUsers      = new Set(); // chatIds que querem resposta em áudio
+const _recentSaves     = new Map(); // chatId → [{desc, amount, ts}] para detecção de duplicados
+const _conversaHistory = new Map(); // chatId → [{role, content}] histórico de conversa
 const MONTHS_BR = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
 // Usa /data se o volume estiver montado (Fly.io), senão usa pasta local
@@ -117,11 +118,6 @@ console.log(`[Init] Sessão será salva em: ${SESSION_PATH}`);
 function criarWaClient() {
   return new Client({
     authStrategy: new LocalAuth({ clientId: 'lumin-bot', dataPath: SESSION_PATH }),
-    // Fixa uma versão conhecida do WhatsApp Web — evita problema de mensagens não chegando
-    webVersionCache: {
-      type: 'remote',
-      remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1015901470-alpha.html',
-    },
     puppeteer: {
       headless: true,
       // No Fly.io usa o Chromium instalado no container
@@ -376,7 +372,8 @@ async function processarMensagem(msg) {
       );
       return;
     }
-    console.log(`[WA] ✅ Empresa identificada: ${empresa.nome} (${empresa.id})`);
+    console.log(`[WA] ✅ Empresa identificada: ${empresa.nomeUsuario} (${empresa.id})`);
+    empresa.nomeUsuario = getNomeUsuario(empresa); // nome da pessoa, não da empresa
 
     // ── 2. Roteamento por tipo de mensagem
 
@@ -385,14 +382,14 @@ async function processarMensagem(msg) {
       await msg.reply('📸 Recebi a foto! Deixa eu ler aqui...');
       const txFoto = await processarFotoNota(msg);
       if (!txFoto || txFoto.length === 0) {
-        await msg.reply(`🤔 Não consegui identificar nenhuma transação na foto, ${empresa.nome}. Tenta uma foto mais nítida ou manda o valor no texto mesmo!`);
+        await msg.reply(`🤔 Não consegui identificar nenhuma transação na foto, ${empresa.nomeUsuario}. Tenta uma foto mais nítida ou manda o valor no texto mesmo!`);
         return;
       }
       const refs = await salvarTransacoes(txFoto, empresa.id, phone);
       if (refs.length === 1) {
-        await msg.reply(formatConfirmacao(refs[0].tx, empresa.nome, refs[0].ref.id) + `\n\n_📸 Extraído da foto_`);
+        await msg.reply(formatConfirmacao(refs[0].tx, empresa.nomeUsuario, refs[0].ref.id) + `\n\n_📸 Extraído da foto_`);
       } else {
-        await msg.reply(formatConfirmacaoMultipla(refs, empresa.nome) + `\n\n_📸 Extraído da foto_`);
+        await msg.reply(formatConfirmacaoMultipla(refs, empresa.nomeUsuario) + `\n\n_📸 Extraído da foto_`);
       }
       await verificarAlertas(refs, empresa, msg.from);
       return;
@@ -417,7 +414,7 @@ async function processarMensagem(msg) {
 
     // ── Comandos especiais
     if (/^(ajuda|help|oi|ola|olá|menu|oii|oiii)$/i.test(textoOriginal)) {
-      await enviarResposta(msg, formatAjuda(empresa.nome));
+      await enviarResposta(msg, formatAjuda(empresa.nomeUsuario));
       return;
     }
 
@@ -452,7 +449,7 @@ async function processarMensagem(msg) {
 
       let info = `Diagnóstico\n\n`;
       info += `Número: ${phone}\n`;
-      info += `Empresa: ${empresa.nome}\n`;
+      info += `Empresa: ${empresa.nomeUsuario}\n`;
       info += `ID: ${empresa.id}\n\n`;
       info += `Transações nessa empresa:\n`;
       info += `• Total: ${total}\n`;
@@ -463,18 +460,18 @@ async function processarMensagem(msg) {
         info += `\n\n⚠ CONFLITO DETECTADO\n`;
         info += `Seu número também está cadastrado em:\n`;
         conflitos.forEach(c => info += `• ${c}\n`);
-        info += `\nO bot está salvando em "${empresa.nome}". Se não é a empresa certa, peça pro admin remover seu número das outras.`;
+        info += `\nO bot está salvando em "${empresa.nomeUsuario}". Se não é a empresa certa, peça pro admin remover seu número das outras.`;
       }
 
       await msg.reply(info);
       return;
     }
     if (/^(resumo|relat[oó]rio|resumão|como\s*t[aá]|saldo|extrato)$/i.test(textoOriginal)) {
-      await enviarResposta(msg, await gerarResumoSemanal(empresa.id, empresa.nome));
+      await enviarResposta(msg, await gerarResumoSemanal(empresa.id, empresa.nomeUsuario));
       return;
     }
     if (/^(resumo\s*mensal|m[eê]s|esse\s*m[eê]s)$/i.test(textoOriginal)) {
-      await enviarResposta(msg, await gerarResumoMensal(empresa.id, empresa.nome));
+      await enviarResposta(msg, await gerarResumoMensal(empresa.id, empresa.nomeUsuario));
       return;
     }
     if (/^(últimos|ultimos|últimas|ultimas|\d+\s*últimos|\d+\s*lançamentos)$/i.test(textoOriginal)) {
@@ -486,9 +483,13 @@ async function processarMensagem(msg) {
       await enviarResposta(msg, ok ? `Última transação removida.` : `Não tem nada pra remover.`);
       return;
     }
-    if (/^(exportar?|pdf|relat[oó]rio\s*pdf|exportar?\s*pdf)$/i.test(textoOriginal)) {
+    if (
+      /^(exportar?|pdf|relat[oó]rio(\s*pdf)?|exportar?\s*pdf)$/i.test(textoOriginal) ||
+      /\b(export[ae]r?|gerar?|mand[ae]r?|quero|preciso|me\s*mand[ae])\b.{0,40}\b(pdf|relat[oó]rio|gastos?|lançamentos?|financeiro)\b/i.test(textoOriginal) ||
+      /\b(pdf|relat[oó]rio)\b.{0,30}\b(m[eê]s|mensal|gastos?|export)/i.test(textoOriginal)
+    ) {
       await msg.reply('⏳ Gerando o PDF do mês... já já tô mandando!');
-      await enviarPDFMes(empresa.id, empresa.nome, msg.from);
+      await enviarPDFMes(empresa.id, empresa.nomeUsuario, msg.from);
       return;
     }
 
@@ -498,8 +499,8 @@ async function processarMensagem(msg) {
       if (pend && Date.now() < pend.expira) {
         _pendingConfirm.delete(msg.from);
         const refs = await salvarTransacoes(pend.txs, empresa.id, phone);
-        if (refs.length === 1) { const {tx,ref}=refs[0]; await msg.reply(formatConfirmacao(tx, empresa.nome, ref.id)); }
-        else await msg.reply(formatConfirmacaoMultipla(refs, empresa.nome));
+        if (refs.length === 1) { const {tx,ref}=refs[0]; await msg.reply(formatConfirmacao(tx, empresa.nomeUsuario, ref.id)); }
+        else await msg.reply(formatConfirmacaoMultipla(refs, empresa.nomeUsuario));
         await verificarAlertas(refs, empresa, msg.from);
         return;
       }
@@ -514,23 +515,23 @@ async function processarMensagem(msg) {
 
     // ── Projeção do mês
     if (/projecao|projeção|como.*vai.*terminar|terminar.*m[eê]s|fechar.*m[eê]s|previs[aã]o.*m[eê]s/i.test(textoOriginal)) {
-      await enviarResposta(msg, await gerarProjecaoMes(empresa.id, empresa.nome));
+      await enviarResposta(msg, await gerarProjecaoMes(empresa.id, empresa.nomeUsuario));
       return;
     }
 
     // ── Metas financeiras
     if (/^meta\s+([\d.,]+)/i.test(textoOriginal)) {
       const val = parseFloat(textoOriginal.replace(/[^\d,.]/g,'').replace(',','.'));
-      if (val > 0) { await definirMeta(empresa.id, val, empresa.nome, msg.from); return; }
+      if (val > 0) { await definirMeta(empresa.id, val, empresa.nomeUsuario, msg.from); return; }
     }
     if (/^(minha\s+meta|ver\s+meta|qual.*meta|meta\?|como.*meta|bati.*meta)$/i.test(textoOriginal)) {
-      await enviarResposta(msg, await verMeta(empresa.id, empresa.nome));
+      await enviarResposta(msg, await verMeta(empresa.id, empresa.nomeUsuario));
       return;
     }
 
     // ── Lembretes customizados
     if (/me\s+lembra|criar?\s+lembrete|adiciona\s+lembrete/i.test(textoOriginal)) {
-      await criarLembrete(empresa.id, msg.from, textoOriginal, empresa.nome);
+      await criarLembrete(empresa.id, msg.from, textoOriginal, empresa.nomeUsuario);
       return;
     }
     if (/^(meus\s+lembretes|ver\s+lembretes|lembretes)$/i.test(textoOriginal)) {
@@ -570,7 +571,7 @@ async function processarMensagem(msg) {
     // 🧠 CONSULTORIA / CONSELHO DE NEGÓCIO
     if (eConsulta(textoOriginal)) {
       await msg.reply('🤔 Deixa eu analisar aqui com base nos seus dados...');
-      const partes = await responderConsultoria(textoOriginal, empresa.id, empresa.nome);
+      const partes = await responderConsultoria(textoOriginal, empresa.id, empresa.nomeUsuario);
       for (const parte of partes) {
         await new Promise(r => setTimeout(r, 3000));
         await msg.reply(parte);
@@ -580,7 +581,7 @@ async function processarMensagem(msg) {
 
     // 💬 PERGUNTA SOBRE DADOS (quanto gastei, saldo, etc.)
     if (await ePerguntaFinanceira(textoOriginal)) {
-      const partes = await responderPergunta(textoOriginal, empresa.id, empresa.nome);
+      const partes = await responderPergunta(textoOriginal, empresa.id, empresa.nomeUsuario);
       for (const parte of partes) {
         await new Promise(r => setTimeout(r, 3000));
         await msg.reply(parte);
@@ -592,14 +593,8 @@ async function processarMensagem(msg) {
     console.log(`[WA] 🤖 Enviando para Groq: "${textoOriginal}"`);
     const transacoes = await interpretarTransacoes(textoOriginal);
     if (!transacoes || transacoes.length === 0) {
-      console.log(`[WA] ⚠ Groq não identificou transação`);
-      await msg.reply(
-        `Não entendi. Tente assim:\n` +
-        `• Entrada 500 cliente João\n` +
-        `• Aluguel 1200\n` +
-        `• Almoço 45\n\n` +
-        `Digite *ajuda* pra ver tudo.`
-      );
+      console.log(`[WA] 💬 Groq não identificou transação — respondendo como Luminito`);
+      await responderComoLuminito(textoOriginal, empresa, msg);
       return;
     }
 
@@ -631,11 +626,11 @@ async function processarMensagem(msg) {
     // ── 5. Confirma no WhatsApp
     if (refs.length === 1) {
       const { tx, ref } = refs[0];
-      let msg_ = formatConfirmacao(tx, empresa.nome, ref.id);
+      let msg_ = formatConfirmacao(tx, empresa.nomeUsuario, ref.id);
       if (!tx.value || tx.value === 0) msg_ += `\n\n⚠ Valor não informado — entrei com R$ 0,00. Edita lá no app!`;
       await msg.reply(msg_);
     } else {
-      await msg.reply(formatConfirmacaoMultipla(refs, empresa.nome));
+      await msg.reply(formatConfirmacaoMultipla(refs, empresa.nomeUsuario));
     }
 
     // ── 5b. Registra salvamentos recentes para detecção de duplicados
@@ -702,10 +697,10 @@ cron.schedule('0 3 * * *', async () => {
   }
 }, { timezone: 'America/Sao_Paulo' });
 
-// ── Resumo semanal + PDF automático — toda segunda às 8h
+// ── Resumo semanal — toda segunda às 8h
+// (pdf_auto removido: PDF só é enviado quando o usuário pede manualmente)
 cron.schedule('0 8 * * 1', () => {
   dispararParaTodos('semanal');
-  dispararParaTodos('pdf_auto');
 }, { timezone: 'America/Sao_Paulo' });
 
 // ── Lembrete de contas fixas — todo dia 1 às 9h
@@ -843,15 +838,17 @@ async function listarUltimas(companyId, n = 5) {
   const fmt = v => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   const snap = await db.collection('transactions')
     .where('companyId', '==', companyId)
-    .orderBy('date', 'desc')
-    .limit(n)
     .get();
 
   if (snap.empty) return `📭 Nenhuma transação registrada ainda.`;
 
-  const linhas = [`🗒 *Últimos ${snap.size} lançamentos:*\n`];
-  snap.docs.forEach(d => {
-    const t = d.data();
+  const docs = snap.docs
+    .map(d => d.data())
+    .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+    .slice(0, n);
+
+  const linhas = [`🗒 *Últimos ${docs.length} lançamentos:*\n`];
+  docs.forEach(t => {
     const isIn = t.category === 'entrada';
     const emoji = isIn ? '💸' : '📤';
     const cat = CATS[t.category] || t.category;
@@ -864,12 +861,15 @@ async function listarUltimas(companyId, n = 5) {
 async function deletarUltima(companyId) {
   const snap = await db.collection('transactions')
     .where('companyId', '==', companyId)
-    .orderBy('createdAt', 'desc')
-    .limit(1)
     .get();
 
   if (snap.empty) return false;
-  await snap.docs[0].ref.delete();
+  const sorted = snap.docs.sort((a, b) => {
+    const ta = a.data().createdAt?.toMillis?.() || 0;
+    const tb = b.data().createdAt?.toMillis?.() || 0;
+    return tb - ta;
+  });
+  await sorted[0].ref.delete();
   return true;
 }
 
@@ -924,7 +924,7 @@ async function verificarAlertas(refs, empresa, chatId) {
 
     if (saida > entrada && saida > 0) {
       await waClient.sendMessage(chatId,
-        `🔴 *Atenção, ${empresa.nome}!*\n\n` +
+        `🔴 *Atenção, ${empresa.nomeUsuario}!*\n\n` +
         `Suas saídas (${fmt(saida)}) já passaram das entradas (${fmt(entrada)}) esse mês.\n` +
         `Saldo: *${fmt(entrada - saida)}* 📉\n\nBora ficar de olho! 👀`
       );
@@ -950,9 +950,9 @@ async function verificarAlertas(refs, empresa, chatId) {
       const entrada = snap.docs.map(d=>d.data()).filter(t=>(t.date||'')>=inicioMes && t.category==='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
       const pct = entrada / meta * 100;
       if (pct >= 100 && pct < 110) { // avisa só na primeira vez que bate
-        await waClient.sendMessage(chatId, `Meta batida 🎉\n\n${empresa.nome}, você chegou em ${fmt(entrada)} (meta era ${fmt(meta)}).`);
+        await waClient.sendMessage(chatId, `Meta batida 🎉\n\n${empresa.nomeUsuario}, você chegou em ${fmt(entrada)} (meta era ${fmt(meta)}).`);
       } else if (pct >= 80 && pct < 85) {
-        await waClient.sendMessage(chatId, `${empresa.nome}, você já está em ${Math.round(pct)}% da meta de ${fmt(meta)}.\nFaltam ${fmt(meta-entrada)}.`);
+        await waClient.sendMessage(chatId, `${empresa.nomeUsuario}, você já está em ${Math.round(pct)}% da meta de ${fmt(meta)}.\nFaltam ${fmt(meta-entrada)}.`);
       }
     }
   } catch(e) { console.error('[Alerta Meta]', e.message); }
@@ -1164,92 +1164,190 @@ async function gerarLembreteFixas(companyId, nome) {
 // ─── EXPORTAR PDF DO MÊS ───────────────────────────────────────
 async function enviarPDFMes(companyId, nomeEmpresa, chatId) {
   try {
-    const hoje  = new Date();
-    const ano   = hoje.getFullYear();
-    const mes   = hoje.getMonth() + 1;
-    const nomeMes = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][mes - 1];
+    const hoje    = new Date();
+    const ano     = hoje.getFullYear();
+    const mes     = hoje.getMonth() + 1;
+    const nomeMes = ['Janeiro','Fevereiro','Marco','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'][mes - 1];
     const inicio  = `${ano}-${String(mes).padStart(2, '0')}-01`;
 
     const snap = await db.collection('transactions')
       .where('companyId', '==', companyId)
-      .where('date', '>=', inicio)
-      .orderBy('date', 'asc')
       .get();
 
-    const txs = snap.docs.map(d => d.data());
+    const txs = snap.docs.map(d => d.data())
+      .filter(t => (t.date || '') >= inicio)
+      .sort((a, b) => (b.date || '').localeCompare(a.date || '')); // mais recentes primeiro
+
+    // Remove acentos — fontes embutidas do pdfkit não precisam, mas garante consistência
+    const N  = s => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\x00-\xFF]/g, '?');
     const fmt = v => `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-    const fD  = d => d?.split('-').reverse().join('/');
+    const fmtN = v => Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 });
+    const fD  = d => d?.split('-').reverse().join('/') || '';
+
+    if (txs.length === 0) {
+      await waClient.sendMessage(chatId, `Nenhum lancamento encontrado em ${nomeMes} ${ano}, ${N(nomeEmpresa)}. Registra suas entradas e saidas primeiro!`);
+      return;
+    }
 
     const totalEntrada = txs.filter(t => t.category === 'entrada').reduce((a, t) => a + Number(t.amount || 0), 0);
     const totalSaida   = txs.filter(t => t.category !== 'entrada').reduce((a, t) => a + Number(t.amount || 0), 0);
     const saldo        = totalEntrada - totalSaida;
 
-    // ── Gera o PDF
+    // ── Dimensões (pontos — 1mm = 2.8346pt)
+    const mm  = v => v * 2.8346;
+    const W   = 595.28;
+    const H   = 841.89;
+    const today = hoje.toLocaleDateString('pt-BR');
+
+    // ── Colunas da tabela
+    const TX    = mm(14);                        // x inicial da tabela
+    const TW    = W - 2 * mm(14);               // largura total
+    const C0    = mm(24);                        // Data
+    const C2    = mm(36);                        // Categoria
+    const C3    = mm(32);                        // Valor
+    const C1    = TW - C0 - C2 - C3;            // Descricao (auto)
+    const RH    = mm(9);                         // altura de cada linha
+    const THEAD = mm(119);                       // y onde começa a tabela (primeira página)
+
     const tmpPath = path.join(__dirname, `relatorio_${companyId}_${ano}${mes}.pdf`);
-    const doc     = new PDFDocument({ margin: 40, size: 'A4' });
+    const doc     = new PDFDocument({ margin: 0, size: 'A4' });
     const stream  = fs.createWriteStream(tmpPath);
     doc.pipe(stream);
 
-    // Cabeçalho
-    doc.fontSize(20).fillColor('#1a1a2e').text(`Lumin — Relatório Financeiro`, { align: 'center' });
-    doc.fontSize(13).fillColor('#555').text(`${nomeEmpresa} · ${nomeMes} ${ano}`, { align: 'center' });
-    doc.moveDown();
-    doc.moveTo(40, doc.y).lineTo(555, doc.y).strokeColor('#ddd').stroke();
-    doc.moveDown(0.5);
-
-    // Resumo
-    doc.fontSize(11).fillColor('#222');
-    doc.text(`Entradas:  ${fmt(totalEntrada)}`, 40);
-    doc.text(`Saídas:    ${fmt(totalSaida)}`);
-    doc.text(`Saldo:     ${fmt(saldo)}`, { continued: false });
-    doc.moveDown(0.5);
-    doc.moveTo(40, doc.y).lineTo(555, doc.y).strokeColor('#ddd').stroke();
-    doc.moveDown(0.5);
-
-    // Cabeçalho da tabela
-    doc.fontSize(10).fillColor('#888');
-    doc.text('Data',        40,  doc.y, { width: 70,  continued: true });
-    doc.text('Descrição',   110, doc.y, { width: 200, continued: true });
-    doc.text('Categoria',   310, doc.y, { width: 120, continued: true });
-    doc.text('Valor',       430, doc.y, { width: 80,  align: 'right' });
-    doc.moveDown(0.3);
-    doc.moveTo(40, doc.y).lineTo(555, doc.y).strokeColor('#ccc').stroke();
-
-    // Linhas
-    for (const t of txs) {
-      const isIn    = t.category === 'entrada';
-      const cor     = isIn ? '#1a7a4a' : '#b00020';
-      const catLabel= CATS[t.category] || t.category;
-      const yLinha  = doc.y + 4;
-
-      doc.fontSize(9).fillColor('#222');
-      doc.text(fD(t.date),        40,  yLinha, { width: 70,  continued: true });
-      doc.text(t.description||'', 110, yLinha, { width: 200, continued: true });
-      doc.text(catLabel,          310, yLinha, { width: 120, continued: true });
-      doc.fillColor(cor).text((isIn ? '+' : '-') + ' ' + fmt(t.amount), 430, yLinha, { width: 80, align: 'right' });
-      doc.fillColor('#222');
-
-      if (doc.y > 740) { doc.addPage(); }
+    // ── Helpers de desenho
+    function drawPageBackground() {
+      doc.rect(0, 0, W, H).fill('#050d12');
     }
 
-    doc.moveDown();
-    doc.moveTo(40, doc.y).lineTo(555, doc.y).strokeColor('#ddd').stroke();
-    doc.moveDown(0.5);
-    doc.fontSize(9).fillColor('#aaa').text(`Gerado por Lumin Bot em ${new Date().toLocaleDateString('pt-BR')}`, { align: 'center' });
+    function drawHeader() {
+      // Barra azul do topo
+      doc.rect(0, 0, W, mm(42)).fill('#00648c');
+      // Logo LUMIN
+      doc.font('Helvetica-Bold').fontSize(26).fillColor('#ffffff')
+         .text('LUMIN', mm(14), mm(10), { lineBreak: false });
+      // Subtitulo
+      doc.font('Helvetica').fontSize(9.5).fillColor('#b4e6ff')
+         .text(`Relatorio Financeiro - Mes Atual - ${N(nomeEmpresa)}`, mm(14), mm(24), { lineBreak: false });
+      doc.font('Helvetica').fontSize(9.5).fillColor('#b4e6ff')
+         .text(`Gerado em ${today}`, W - mm(14), mm(24), { align: 'right', lineBreak: false, width: mm(80) });
 
+      // Cards de resumo
+      const cards = [
+        { x: mm(14),  label: 'Total Entradas', val: 'R$ ' + fmtN(totalEntrada), bg: '#ebfcf5', tc: '#007846' },
+        { x: mm(80),  label: 'Total Saidas',   val: 'R$ ' + fmtN(totalSaida),   bg: '#ffebee', tc: '#a01e28' },
+        { x: mm(146), label: 'Saldo Liquido',  val: 'R$ ' + fmtN(saldo),        bg: saldo >= 0 ? '#ebfcf5' : '#ffebee', tc: saldo >= 0 ? '#007846' : '#a01e28' },
+      ];
+      for (const c of cards) {
+        doc.roundedRect(c.x, mm(48), mm(56), mm(22), 4).fill(c.bg);
+        doc.font('Helvetica').fontSize(7.5).fillColor('#505050')
+           .text(c.label, c.x + 4, mm(51), { lineBreak: false });
+        doc.font('Helvetica-Bold').fontSize(11).fillColor(c.tc)
+           .text(c.val, c.x + 4, mm(57), { lineBreak: false });
+      }
+    }
+
+    function drawTableHeader(y) {
+      doc.rect(TX, y, TW, RH).fill('#00648c');
+      doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#ffffff');
+      const ty = y + (RH - 8.5) / 2;
+      doc.text('Data',      TX,              ty, { width: C0,      lineBreak: false });
+      doc.text('Descricao', TX + C0,         ty, { width: C1 - 4,  lineBreak: false });
+      doc.text('Categoria', TX + C0 + C1,    ty, { width: C2,      lineBreak: false });
+      doc.text('Valor',     TX + C0+C1+C2,   ty, { width: C3 - 4,  align: 'right', lineBreak: false });
+    }
+
+    function drawRow(t, i, y) {
+      const isIn   = t.category === 'entrada';
+      const bg     = i % 2 === 0 ? '#ffffff' : '#f6fafd';
+      const valClr = isIn ? '#007846' : '#a01e28';
+      const cat    = N(CATS[t.category] || t.category);
+      const desc   = N(t.description || '-');
+      const val    = (isIn ? '+ ' : '- ') + 'R$ ' + fmtN(t.amount);
+
+      doc.rect(TX, y, TW, RH).fill(bg);
+      const ty = y + (RH - 9) / 2;
+      doc.font('Helvetica').fontSize(8.5).fillColor('#1a1a1a');
+      doc.text(fD(t.date),  TX,            ty, { width: C0,      lineBreak: false });
+      doc.text(desc,        TX + C0,       ty, { width: C1 - 4,  lineBreak: false });
+      doc.text(cat,         TX + C0 + C1,  ty, { width: C2,      lineBreak: false });
+      doc.font('Helvetica-Bold').fontSize(8.5).fillColor(valClr)
+         .text(val,         TX+C0+C1+C2,   ty, { width: C3 - 4,  align: 'right', lineBreak: false });
+    }
+
+    function drawFooterRow(label, val, y) {
+      doc.rect(TX, y, TW, RH).fill('#f0f8ff');
+      const ty = y + (RH - 9) / 2;
+      doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#005078');
+      doc.text('', TX, ty, { width: C0, lineBreak: false });
+      doc.text('', TX + C0, ty, { width: C1 - 4, lineBreak: false });
+      doc.text(label, TX + C0 + C1,  ty, { width: C2,     lineBreak: false });
+      doc.text(val,   TX+C0+C1+C2,   ty, { width: C3 - 4, align: 'right', lineBreak: false });
+    }
+
+    function drawPageFooter() {
+      doc.moveTo(mm(14), H - mm(12)).lineTo(W - mm(14), H - mm(12))
+         .strokeColor('#00648c').lineWidth(0.7).stroke();
+      doc.font('Helvetica').fontSize(8).fillColor('#505050')
+         .text(`Lumin - ${N(nomeEmpresa)}`, mm(14), H - mm(9), { lineBreak: false });
+      doc.text(today, W - mm(14), H - mm(9), { align: 'right', lineBreak: false, width: mm(80) });
+    }
+
+    // ── Renderiza primeira página
+    drawPageBackground();
+    drawHeader();
+
+    let y = THEAD;
+    drawTableHeader(y);
+    y += RH;
+
+    // ── Linhas de dados
+    for (let i = 0; i < txs.length; i++) {
+      // Nova página se não couber + footer (30pt) + 3 linhas de totais
+      if (y + RH > H - mm(30) - RH * 3) {
+        drawPageFooter();
+        doc.addPage();
+        drawPageBackground();
+        y = mm(20);
+        drawTableHeader(y);
+        y += RH;
+      }
+      drawRow(txs[i], i, y);
+      y += RH;
+    }
+
+    // ── Linhas de totais
+    const footerRows = [
+      { label: 'Entradas', val: 'R$ ' + fmtN(totalEntrada) },
+      { label: 'Saidas',   val: 'R$ ' + fmtN(totalSaida)   },
+      { label: 'Saldo',    val: 'R$ ' + fmtN(saldo)         },
+    ];
+    for (const fr of footerRows) {
+      if (y + RH > H - mm(30)) {
+        drawPageFooter();
+        doc.addPage();
+        drawPageBackground();
+        y = mm(20);
+      }
+      drawFooterRow(fr.label, fr.val, y);
+      y += RH;
+    }
+
+    drawPageFooter();
     doc.end();
 
     await new Promise(resolve => stream.on('finish', resolve));
 
-    // Envia via WhatsApp
+    // ── Envia via WhatsApp
     const media = MessageMedia.fromFilePath(tmpPath);
-    await waClient.sendMessage(chatId, media, { caption: `📊 *Relatório de ${nomeMes} ${ano}* — ${nomeEmpresa}\n${txs.length} lançamentos · Saldo: ${fmt(saldo)}` });
+    await waClient.sendMessage(chatId, media, {
+      caption: `📊 *Relatorio de ${nomeMes} ${ano}* — ${N(nomeEmpresa)}\n${txs.length} lancamentos · Saldo: ${fmt(saldo)}`
+    });
 
-    fs.unlinkSync(tmpPath);
+    try { fs.unlinkSync(tmpPath); } catch (_) {}
     console.log(`[PDF] ✅ Enviado para ${chatId}`);
   } catch (err) {
     console.error('[PDF] Erro:', err.message);
-    await waClient.sendMessage(chatId, `Não consegui gerar o PDF agora. Tenta de novo em alguns minutos.`);
+    await waClient.sendMessage(chatId, `Nao consegui gerar o PDF agora. Tenta de novo em alguns minutos.`);
   }
 }
 
@@ -1268,10 +1366,10 @@ async function tentarVerificacaoLid(msg, lidId) {
         companyId:    empresa.id,
         verifiedAt:   admin.firestore.FieldValue.serverTimestamp()
       });
-      console.log(`[WA] ✓ LID ${lidId} vinculado a ${digits} (${empresa.nome})`);
+      console.log(`[WA] ✓ LID ${lidId} vinculado a ${digits} (${empresa.nomeUsuario})`);
 
       await msg.reply(
-        `Olá, ${empresa.nome}. Conta verificada.\n\n` +
+        `Olá, ${empresa.nomeUsuario}. Conta verificada.\n\n` +
         `Pode mandar seus lançamentos por texto ou áudio. Exemplos:\n` +
         `• Entrada 500 cliente João\n` +
         `• Aluguel 1200\n` +
@@ -1325,6 +1423,25 @@ function normalizePhone(p) {
   // Remove 9 mobile inicial dos celulares brasileiros (DDD + 9 + 8 dígitos = 11 chars)
   if (digits.length === 11 && digits[2] === '9') digits = digits.slice(0,2) + digits.slice(3);
   return digits; // ex: 11984661175 → "11984661175" → após normalizar → "1184661175"
+}
+
+// Retorna o nome do usuário (pessoa), não da empresa
+// Prioridade: campo ownerName no Firebase > extração automática do nome da empresa
+function getNomeUsuario(empresa) {
+  if (empresa.ownerName?.trim()) return empresa.ownerName.trim();
+
+  // Tenta extrair o nome da pessoa do nome da empresa
+  // Ex: "Eco Mix Wallace" → "Wallace", "Pessoal Andre" → "Andre", "Pessoal Financeiro Luid" → "Luid"
+  const palavrasIgnoradas = new Set([
+    'pessoal','financeiro','financeira','controle','negocio','negócios',
+    'empresa','comercial','eco','mix','ltda','me','epp','eireli','sa','s/a'
+  ]);
+  const partes = (empresa.nome || '').split(/\s+/).filter(p => {
+    const lower = p.toLowerCase().replace(/[^a-záéíóúãõâêîôûàç]/gi,'');
+    return lower.length >= 3 && !palavrasIgnoradas.has(lower) && /^[A-ZÁÉÍÓÚÃÕÂÊÎÔÛ]/u.test(p);
+  });
+  if (partes.length > 0) return partes[partes.length - 1]; // última palavra que parece nome
+  return empresa.nome; // fallback: nome da empresa completo
 }
 
 // Gera todas variações possíveis do número pra match
@@ -1404,28 +1521,110 @@ async function buscarEmpresaPorTelefone(phone) {
   return null;
 }
 
+// ─── LUMINITO — CONVERSA NATURAL ──────────────────────────────
+async function responderComoLuminito(texto, empresa, msg) {
+  try {
+    const chatId = msg.from;
+
+    // Detecta pedido de PDF mesmo em linguagem natural — garante envio do arquivo
+    if (
+      /\b(export[ae]r?|gerar?|mand[ae]r?|quero|preciso|me\s*mand[ae])\b.{0,40}\b(pdf|relat[oó]rio|gastos?|lançamentos?|financeiro)\b/i.test(texto) ||
+      /\b(pdf|relat[oó]rio)\b.{0,30}\b(m[eê]s|mensal|gastos?|export)/i.test(texto) ||
+      /\b(pdf)\b/i.test(texto)
+    ) {
+      await msg.reply('⏳ Gerando o PDF do mês... já já tô mandando!');
+      await enviarPDFMes(empresa.id, empresa.nomeUsuario, msg.from);
+      return;
+    }
+
+    // Busca resumo financeiro rápido do mês pra dar contexto ao Luminito
+    let contextoFinanceiro = '';
+    try {
+      const hoje = new Date();
+      const inicioMes = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-01`;
+      const snap = await db.collection('transactions').where('companyId','==',empresa.id).get();
+      const txs = snap.docs.map(d => d.data()).filter(t => (t.date||'') >= inicioMes);
+      const entrada = txs.filter(t => t.category==='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
+      const saida   = txs.filter(t => t.category!=='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
+      const fmt = v => Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+      contextoFinanceiro = `Dados financeiros de ${empresa.nomeUsuario} este mês: entradas ${fmt(entrada)}, saídas ${fmt(saida)}, saldo ${fmt(entrada-saida)}.`;
+    } catch(_) {}
+
+    // Histórico de conversa (últimas 10 mensagens)
+    const historico = _conversaHistory.get(chatId) || [];
+
+    const messages = [
+      {
+        role: 'system',
+        content: `Você é o Luminito, assistente financeiro pessoal descolado e inteligente do WhatsApp.
+Você está conversando com ${empresa.nomeUsuario}.
+${contextoFinanceiro}
+
+Sua personalidade:
+- Descolado, direto, natural — fala como um amigo que entende de finanças
+- Respostas curtas e objetivas (máximo 3-4 linhas)
+- Usa emoji com moderação, só quando faz sentido
+- Pode falar sobre qualquer assunto, não só finanças
+- Quando o assunto for financeiro, usa os dados reais do usuário
+- Nunca fala que é uma IA ou que tem limitações — só responde naturalmente
+- Para registrar uma transação, o usuário deve mandar algo como "paguei 50 de almoço" ou "recebi 1000"
+- Se alguém perguntar o que você faz, explica de forma descolada que ajuda a controlar as finanças pelo WhatsApp`
+      },
+      ...historico,
+      { role: 'user', content: texto }
+    ];
+
+    const res = await groq.chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
+      messages,
+      temperature: 0.8,
+      max_tokens: 300
+    });
+
+    const resposta = res.choices[0].message.content.trim();
+
+    // Atualiza histórico (mantém últimas 10 mensagens = 5 trocas)
+    historico.push({ role: 'user', content: texto });
+    historico.push({ role: 'assistant', content: resposta });
+    if (historico.length > 10) historico.splice(0, historico.length - 10);
+    _conversaHistory.set(chatId, historico);
+
+    await enviarResposta(msg, resposta);
+    console.log(`[Luminito] 💬 Respondeu: "${resposta.slice(0,60)}..."`);
+  } catch(err) {
+    console.error('[Luminito] Erro:', err.message);
+    await msg.reply('Eita, travei aqui por um segundo. Manda de novo!');
+  }
+}
+
 // ─── TRANSCRIÇÃO DE ÁUDIO (Groq Whisper) ──────────────────────
 async function transcreverAudio(msg) {
+  const tmpPath = path.join(__dirname, `tmp_audio_${Date.now()}.ogg`);
   try {
     const media = await msg.downloadMedia();
-    if (!media?.data) return null;
+    if (!media?.data) {
+      console.error('[Whisper] downloadMedia retornou vazio — sem dados de mídia');
+      return null;
+    }
 
-    // Salva temporariamente
-    const ext     = media.mimetype?.includes('ogg') ? 'ogg' : 'mp4';
-    const tmpPath = path.join(__dirname, `tmp_audio_${Date.now()}.${ext}`);
-    fs.writeFileSync(tmpPath, Buffer.from(media.data, 'base64'));
+    const ext = media.mimetype?.includes('ogg') ? 'ogg' : 'mp4';
+    const finalPath = tmpPath.replace('.ogg', `.${ext}`);
+    fs.writeFileSync(finalPath, Buffer.from(media.data, 'base64'));
 
     const response = await groq.audio.transcriptions.create({
-      file:            fs.createReadStream(tmpPath),
+      file:            fs.createReadStream(finalPath),
       model:           'whisper-large-v3',
       language:        'pt',
       response_format: 'text'
     });
 
-    fs.unlinkSync(tmpPath); // remove arquivo temporário
-    return String(response).trim();
+    try { fs.unlinkSync(finalPath); } catch (_) {}
+    const texto = String(response).trim();
+    if (!texto) { console.error('[Whisper] Transcrição retornou vazia'); return null; }
+    return texto;
   } catch (err) {
     console.error('[Whisper] Erro:', err.message);
+    try { fs.unlinkSync(tmpPath); } catch (_) {}
     return null;
   }
 }
@@ -1766,9 +1965,14 @@ async function buscarPorTermo(texto, companyId) {
 
 // ─── EDITAR VALOR DA ÚLTIMA TRANSAÇÃO ─────────────────────────
 async function editarUltimaValor(companyId, novoValor) {
-  const snap = await db.collection('transactions').where('companyId','==',companyId).orderBy('createdAt','desc').limit(1).get();
+  const snap = await db.collection('transactions').where('companyId','==',companyId).get();
   if (snap.empty) return false;
-  await snap.docs[0].ref.update({ amount: novoValor, editadoEm: admin.firestore.FieldValue.serverTimestamp() });
+  const sorted = snap.docs.sort((a, b) => {
+    const ta = a.data().createdAt?.toMillis?.() || 0;
+    const tb = b.data().createdAt?.toMillis?.() || 0;
+    return tb - ta;
+  });
+  await sorted[0].ref.update({ amount: novoValor, editadoEm: admin.firestore.FieldValue.serverTimestamp() });
   return true;
 }
 
@@ -1866,7 +2070,7 @@ async function verificarSaldoNegativo(companyId, empresa, chatId) {
   const saida   = todos.filter(t=>t.category!=='entrada').reduce((a,t)=>a+Number(t.amount||0),0);
   if (saida > entrada) {
     await waClient.sendMessage(chatId,
-      `🔴 *${empresa.nome}, seu saldo acumulado ficou negativo!*\n\n` +
+      `🔴 *${empresa.nomeUsuario}, seu saldo acumulado ficou negativo!*\n\n` +
       `Total de entradas: ${fmt(entrada)}\nTotal de saídas: ${fmt(saida)}\n` +
       `Saldo: ${fmt(entrada-saida)}\n\nVale revisar os lançamentos do mês.`
     );
