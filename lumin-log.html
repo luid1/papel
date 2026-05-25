@@ -34,22 +34,37 @@ a{text-decoration:none;color:inherit}
 .glass-card{background:var(--glass);border:1px solid var(--border);
   backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:20px}
 
-/* ---- HOME CARDS ---- */
-.home-grid{display:flex;flex-direction:column;gap:14px;margin-bottom:14px;}
-.home-card{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;
-  padding:22px 20px;border-radius:20px;border:2px solid transparent;
-  background:rgba(255,255,255,.04);transition:transform .12s,background .15s;
+/* ---- HOME CARDS (premium) ---- */
+.home-grid{display:flex;flex-direction:column;gap:12px;margin-bottom:14px;}
+.home-card{display:flex;flex-direction:row;align-items:center;
+  padding:18px 20px;border-radius:22px;border:1.5px solid rgba(255,255,255,.07);
+  background:linear-gradient(135deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.015) 100%);
+  position:relative;overflow:hidden;
   user-select:none;-webkit-user-select:none;touch-action:manipulation;
-  cursor:pointer;min-height:88px;gap:18px;text-align:left;}
+  cursor:pointer;min-height:90px;gap:16px;text-align:left;
+  transition:transform .15s ease,border-color .2s ease,background .2s ease;}
+.home-card::before{content:'';position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(circle at -20% 50%,var(--cardGlow,transparent) 0%,transparent 65%);
+  opacity:.85;}
 .home-card:active{transform:scale(.97);}
-.home-card-icon{font-size:2.8rem;line-height:1;flex-shrink:0;}
-.home-card-text{display:flex;flex-direction:column;gap:5px;}
-.home-card-title{font-family:'Montserrat',sans-serif;font-size:1.2rem;font-weight:800;line-height:1.2;}
-.home-card-sub{font-size:.9rem;color:var(--muted);font-weight:500;line-height:1.3;}
-.home-card.cd   {border-color:rgba(0,212,255,.4);background:rgba(0,212,255,.08);}
-.home-card.route{border-color:rgba(0,229,160,.4);background:rgba(0,229,160,.07);}
-.home-card.ret  {border-color:rgba(255,179,71,.4);background:rgba(255,179,71,.07);}
-.home-card.sum  {border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.03);}
+.home-card-icon{font-size:1.8rem;line-height:1;flex-shrink:0;
+  width:56px;height:56px;border-radius:16px;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--iconBg,rgba(255,255,255,.05));
+  border:1px solid var(--iconBorder,rgba(255,255,255,.08));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06);
+  position:relative;z-index:1;}
+.home-card-text{display:flex;flex-direction:column;gap:3px;position:relative;z-index:1;flex:1;min-width:0;}
+.home-card-title{font-family:'Montserrat',sans-serif;font-size:1.12rem;
+  font-weight:800;line-height:1.2;letter-spacing:-.01em;}
+.home-card-sub{font-size:.85rem;color:var(--muted);font-weight:500;line-height:1.35;}
+.home-card-arrow{flex-shrink:0;opacity:.35;position:relative;z-index:1;
+  transition:opacity .2s,transform .2s;}
+.home-card:active .home-card-arrow{opacity:.7;transform:translateX(2px);}
+.home-card.cd   {--cardGlow:rgba(0,212,255,.13);--iconBg:rgba(0,212,255,.1);--iconBorder:rgba(0,212,255,.3);border-color:rgba(0,212,255,.22);}
+.home-card.route{--cardGlow:rgba(0,229,160,.12);--iconBg:rgba(0,229,160,.1);--iconBorder:rgba(0,229,160,.3);border-color:rgba(0,229,160,.22);}
+.home-card.ret  {--cardGlow:rgba(255,179,71,.12);--iconBg:rgba(255,179,71,.1);--iconBorder:rgba(255,179,71,.3);border-color:rgba(255,179,71,.22);}
+.home-card.sum  {--cardGlow:rgba(180,140,255,.1);--iconBg:rgba(255,255,255,.05);--iconBorder:rgba(255,255,255,.1);border-color:rgba(255,255,255,.1);}
 
 /* ---- TELA CLIENTE — 100vh fixo ---- */
 #client-screen{
@@ -277,15 +292,18 @@ body.is-offline .offline-pill{display:flex;}
 }
 /* ---- ANIMAÇÕES: SPLASH + CAMINHÃO ---- */
 @keyframes splashFade{from{opacity:0}to{opacity:1}}
-@keyframes splashSlide{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
-@keyframes splashTruck{from{transform:translateX(120vw)}to{transform:translateX(0)}}
+@keyframes splashSlide{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes splashTruck{from{transform:translateX(125vw)}to{transform:translateX(0)}}
 @keyframes splashBar{from{width:0}to{width:100%}}
-@keyframes trkDrive{0%{transform:translateX(115vw)}100%{transform:translateX(-135vw)}}
+@keyframes trkDrive{0%{transform:translateX(118vw)}100%{transform:translateX(-140vw)}}
 @keyframes trkRoad{from{transform:translateX(0)}to{transform:translateX(-50%)}}
-@keyframes trkMsg{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:translateY(0)}}
+@keyframes trkMsg{from{opacity:0;transform:translateY(28px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
 @keyframes trkFadeOut{from{opacity:1}to{opacity:0}}
-@keyframes nightStar{0%{opacity:.15}100%{opacity:.85}}
+@keyframes nightStar{0%{opacity:.18}100%{opacity:.95}}
 @keyframes wheelSpin{to{transform:rotate(360deg)}}
+@keyframes glowPulse{0%,100%{box-shadow:0 0 36px rgba(0,229,160,.3),0 0 80px rgba(0,229,160,.12)}50%{box-shadow:0 0 56px rgba(0,229,160,.5),0 0 120px rgba(0,229,160,.2)}}
+.trk-wheel{transform-origin:0 0;animation:wheelSpin .85s linear infinite;}
+.trk-wheel-fast{transform-origin:0 0;animation:wheelSpin .55s linear infinite;}
 /* Pulse no badge "caixas no caminhão" */
 @keyframes badgePulse{
   0%,100%{box-shadow:0 0 0 0 rgba(0,212,255,.4)}
@@ -475,80 +493,151 @@ function initDriver(name) {
   const _splashT0 = Date.now();
   const _splashGreet = (()=>{const h=new Date().getHours();return h<12?'Bom dia':h<18?'Boa tarde':'Boa noite';})();
 
-  // Caminhão CSS reutilizado no splash e na animação do final do dia
-  const _TRUCK_HTML = '<div style="position:relative;width:260px;height:62px;">'
-    // farol beam
-    +'<div style="position:absolute;left:-46px;top:19px;width:48px;height:16px;background:linear-gradient(270deg,rgba(255,248,200,.3),transparent);border-radius:8px 0 0 8px;filter:blur(5px);pointer-events:none;"></div>'
-    // farol dot
-    +'<div style="position:absolute;left:-1px;top:21px;width:7px;height:10px;background:#fff8c0;border-radius:2px;box-shadow:0 0 10px 5px rgba(255,248,160,.55);"></div>'
-    // cabine (frente = esquerda)
-    +'<div style="position:absolute;left:0;top:2px;width:80px;height:52px;background:linear-gradient(155deg,#183558,#0c1f38);border:1.5px solid rgba(0,212,255,.32);border-radius:10px 4px 4px 10px;overflow:hidden;">'
-      +'<div style="position:absolute;top:2px;left:5px;right:5px;height:2px;background:rgba(255,90,40,.55);border-radius:1px;"></div>'
-      +'<div style="position:absolute;top:7px;right:6px;width:26px;height:24px;background:rgba(0,212,255,.13);border-radius:2px 6px 2px 0;border:1px solid rgba(0,212,255,.3);"></div>'
-    +'</div>'
-    // carroceria (traseira = direita)
-    +'<div style="position:absolute;left:80px;top:9px;right:0;height:44px;background:linear-gradient(180deg,#0f2743,#081b30);border:1.5px solid rgba(0,212,255,.18);border-radius:0 4px 4px 0;display:flex;align-items:center;justify-content:center;">'
-      +'<span style="font-family:\'Montserrat\',sans-serif;font-size:.58rem;font-weight:900;color:rgba(0,212,255,.4);letter-spacing:.22em;text-transform:uppercase;">Hetros</span>'
-    +'</div>'
-    // luz traseira
-    +'<div style="position:absolute;right:2px;top:16px;width:5px;height:14px;background:rgba(255,38,38,.85);border-radius:2px;box-shadow:0 0 7px 3px rgba(255,38,38,.4);"></div>'
-    // rodas (4x, com raios)
-    +['left:11px','left:47px','left:112px','right:9px'].map((pos,i)=>'<div style="position:absolute;bottom:-14px;'+pos+';width:28px;height:28px;border-radius:50%;background:#050910;border:2.5px solid rgba(0,212,255,.45);animation:wheelSpin .4s '+(i*.07).toFixed(2)+'s linear infinite;display:flex;align-items:center;justify-content:center;">'
-      +'<div style="width:14px;height:2px;background:rgba(0,212,255,.58);position:absolute;"></div>'
-      +'<div style="width:2px;height:14px;background:rgba(0,212,255,.58);position:absolute;"></div>'
-    +'</div>').join('')
-  +'</div>';
+  // Caminhão SVG reutilizado no splash e nas animações do dia
+  const _wheelSvg = '<circle r="14.5" fill="#08080e" stroke="#1c1c28" stroke-width="2"/>'
+    +'<circle r="11" fill="#13131e" stroke="rgba(0,212,255,.45)" stroke-width="1.2"/>'
+    +'<circle r="3.5" fill="#202030" stroke="rgba(0,212,255,.6)" stroke-width=".9"/>'
+    +'<g stroke="rgba(0,212,255,.55)" stroke-width="1.4" stroke-linecap="round">'
+      +'<line x1="0" y1="-3.6" x2="0" y2="-9.8"/>'
+      +'<line x1="3.4" y1="-1.1" x2="9.3" y2="-3"/>'
+      +'<line x1="2.1" y1="2.9" x2="5.7" y2="7.9"/>'
+      +'<line x1="-2.1" y1="2.9" x2="-5.7" y2="7.9"/>'
+      +'<line x1="-3.4" y1="-1.1" x2="-9.3" y2="-3"/>'
+    +'</g>';
+
+  const _truckWheels = (cls) => [42, 92, 195, 275].map(x =>
+    '<g transform="translate('+x+',88)"><g class="'+cls+'">' + _wheelSvg + '</g></g>'
+  ).join('');
+
+  const _truckSvgInner = ''
+    // FAROL BEAM (extends left)
+    +'<ellipse cx="-22" cy="63" rx="60" ry="15" fill="url(#trkBeamG)"/>'
+    // TRAILER
+    +'<rect x="115" y="20" width="190" height="60" rx="3" fill="url(#trkBodyG)" stroke="rgba(0,212,255,.22)" stroke-width="1"/>'
+    +'<g stroke="rgba(0,212,255,.1)" stroke-width=".8">'
+      +'<line x1="150" y1="22" x2="150" y2="78"/><line x1="190" y1="22" x2="190" y2="78"/>'
+      +'<line x1="230" y1="22" x2="230" y2="78"/><line x1="270" y1="22" x2="270" y2="78"/>'
+    +'</g>'
+    +'<line x1="115" y1="22" x2="305" y2="22" stroke="rgba(0,212,255,.32)" stroke-width=".7"/>'
+    // Hetros badge
+    +'<rect x="173" y="35" width="74" height="22" rx="3" fill="rgba(0,212,255,.06)" stroke="rgba(0,212,255,.28)" stroke-width=".7"/>'
+    +'<text x="210" y="50" fill="rgba(0,212,255,.82)" font-family="Montserrat,sans-serif" font-size="10.5" font-weight="900" letter-spacing="2.4" text-anchor="middle">HETROS</text>'
+    // Bottom rail
+    +'<rect x="113" y="78" width="194" height="3" fill="#030610"/>'
+    // Kingpin (connector)
+    +'<rect x="105" y="73" width="12" height="7" rx="1" fill="#0a1822"/>'
+    // Tail lights
+    +'<rect x="299" y="50" width="5" height="22" rx="1" fill="rgba(255,40,40,.88)" stroke="rgba(255,80,80,.5)" stroke-width=".5"/>'
+    +'<rect x="299" y="38" width="5" height="7" rx="1" fill="rgba(255,170,50,.75)"/>'
+    // CAB BODY (sloped front)
+    +'<path d="M 12 32 L 22 18 L 88 18 L 105 32 L 105 80 L 12 80 Z" fill="url(#trkCabG)" stroke="rgba(0,212,255,.34)" stroke-width="1.1"/>'
+    // Roof highlight
+    +'<path d="M 22 19 L 88 19 L 104 31" stroke="rgba(150,220,255,.32)" stroke-width=".7" fill="none"/>'
+    // Marker lights (top)
+    +'<g fill="rgba(255,180,60,.88)">'
+      +'<circle cx="32" cy="20" r="1.1"/><circle cx="45" cy="19.5" r="1.1"/>'
+      +'<circle cx="58" cy="19.3" r="1.1"/><circle cx="71" cy="19.5" r="1.1"/>'
+    +'</g>'
+    // WINDSHIELD
+    +'<path d="M 28 26 L 82 26 L 96 36 L 96 50 L 28 50 Z" fill="url(#trkGlassG)" stroke="rgba(150,220,255,.42)" stroke-width=".8"/>'
+    +'<path d="M 30 28 L 56 28 L 64 33.5 L 32 33.5 Z" fill="rgba(255,255,255,.14)"/>'
+    // Door
+    +'<line x1="68" y1="50" x2="68" y2="78" stroke="rgba(0,150,200,.35)" stroke-width=".7"/>'
+    +'<rect x="72" y="62" width="7" height="2.5" rx="1" fill="rgba(180,220,240,.6)"/>'
+    // Side mirror
+    +'<rect x="22" y="36" width="7" height="13" rx="1.5" fill="#0a1822" stroke="rgba(0,212,255,.45)" stroke-width=".6"/>'
+    +'<rect x="14" y="38" width="9" height="9" rx="1" fill="rgba(140,200,240,.38)" stroke="rgba(180,220,250,.4)" stroke-width=".4"/>'
+    // Grille
+    +'<rect x="13" y="56" width="7" height="17" rx="1" fill="#040810" stroke="rgba(0,212,255,.4)" stroke-width=".5"/>'
+    +'<g stroke="rgba(0,212,255,.5)" stroke-width=".55">'
+      +'<line x1="14" y1="59" x2="19" y2="59"/><line x1="14" y1="62.5" x2="19" y2="62.5"/>'
+      +'<line x1="14" y1="66" x2="19" y2="66"/><line x1="14" y1="69.5" x2="19" y2="69.5"/>'
+    +'</g>'
+    // Front fender + headlight
+    +'<path d="M 6 60 Q 6 51 16 51 L 16 60 Z" fill="#0a1822"/>'
+    +'<circle cx="10" cy="52" r="4.2" fill="#fff8c0" stroke="rgba(180,150,80,.7)" stroke-width=".7"/>'
+    +'<circle cx="10" cy="52" r="1.8" fill="#ffffea"/>'
+    // Bumper
+    +'<rect x="5" y="72" width="15" height="6" rx="1.5" fill="#0d1825" stroke="rgba(0,212,255,.28)" stroke-width=".5"/>';
+
+  const _truckDefs = '<defs>'
+    +'<linearGradient id="trkCabG" x1="0" y1="0" x2="0" y2="1">'
+      +'<stop offset="0%" stop-color="#2d5183"/><stop offset="55%" stop-color="#15304f"/><stop offset="100%" stop-color="#091a2c"/>'
+    +'</linearGradient>'
+    +'<linearGradient id="trkBodyG" x1="0" y1="0" x2="0" y2="1">'
+      +'<stop offset="0%" stop-color="#1b3858"/><stop offset="100%" stop-color="#081a2c"/>'
+    +'</linearGradient>'
+    +'<linearGradient id="trkGlassG" x1="0" y1="0" x2="0" y2="1">'
+      +'<stop offset="0%" stop-color="rgba(150,210,255,.42)"/><stop offset="100%" stop-color="rgba(80,130,180,.15)"/>'
+    +'</linearGradient>'
+    +'<radialGradient id="trkBeamG" cx=".5" cy=".5" r=".5">'
+      +'<stop offset="0%" stop-color="rgba(255,250,200,.65)"/><stop offset="50%" stop-color="rgba(255,240,160,.3)"/><stop offset="100%" stop-color="rgba(255,240,160,0)"/>'
+    +'</radialGradient>'
+  +'</defs>';
+
+  // Versão normal (rodas a 0.85s)
+  const _TRUCK_HTML = '<svg viewBox="0 0 320 110" width="320" height="110" style="display:block;overflow:visible;">'
+    + _truckDefs + _truckSvgInner + _truckWheels('trk-wheel') + '</svg>';
+
+  // Versão "rápida" (rodas a 0.55s, usada quando o caminhão atravessa a tela)
+  const _TRUCK_HTML_FAST = '<svg viewBox="0 0 320 110" width="320" height="110" style="display:block;overflow:visible;">'
+    + _truckDefs + _truckSvgInner + _truckWheels('trk-wheel-fast') + '</svg>';
 
   const _dashRow = Array.from({length:30},()=>'<div style="flex-shrink:0;width:50px;height:4px;border-radius:2px;margin-right:34px;background:rgba(0,212,255,.2);"></div>').join('');
 
   $('app').innerHTML=`
 <div style="position:fixed;inset:0;overflow:hidden;
-  background:linear-gradient(160deg,#020910 0%,#061420 52%,#0a1c2e 100%);
+  background:linear-gradient(165deg,#020910 0%,#051320 50%,#091a2c 100%);
   display:flex;flex-direction:column;">
 
   <!-- orb decorativo -->
-  <div style="position:absolute;top:13%;left:50%;transform:translateX(-50%);
-    width:260px;height:260px;border-radius:50%;
-    background:radial-gradient(circle,rgba(0,212,255,.055) 0%,transparent 70%);
-    pointer-events:none;"></div>
+  <div style="position:absolute;top:14%;left:50%;transform:translateX(-50%);
+    width:320px;height:320px;border-radius:50%;
+    background:radial-gradient(circle,rgba(0,212,255,.06) 0%,transparent 65%);
+    pointer-events:none;animation:splashFade 1.2s ease both;"></div>
 
   <!-- topo: logo + nome -->
   <div style="flex:1;display:flex;flex-direction:column;align-items:center;
-    justify-content:center;text-align:center;padding:28px 24px;
+    justify-content:center;text-align:center;padding:32px 24px;
     position:relative;z-index:2;">
     <img src="${LOGO_SRC}" alt="Hetros"
-      style="width:148px;max-width:56vw;
-        filter:drop-shadow(0 4px 22px rgba(0,0,0,.55));
-        animation:splashFade .7s ease .1s both;
-        margin-bottom:22px;"/>
-    <div style="width:40px;height:1px;
-      background:linear-gradient(90deg,transparent,rgba(0,212,255,.55),transparent);
-      margin-bottom:15px;animation:splashFade .5s ease .5s both;"></div>
-    <div style="font-size:.78rem;color:rgba(255,255,255,.38);
-      letter-spacing:.16em;text-transform:uppercase;
+      style="width:152px;max-width:56vw;
+        filter:drop-shadow(0 6px 28px rgba(0,0,0,.55));
+        animation:splashFade .9s cubic-bezier(.22,1,.36,1) .15s both;
+        margin-bottom:24px;"/>
+    <div style="width:44px;height:1px;
+      background:linear-gradient(90deg,transparent,rgba(0,212,255,.6),transparent);
+      margin-bottom:16px;animation:splashFade .7s ease .7s both;"></div>
+    <div style="font-size:.78rem;color:rgba(255,255,255,.4);
+      letter-spacing:.18em;text-transform:uppercase;
       font-family:'Montserrat',sans-serif;
-      animation:splashFade .5s ease .65s both;">${_splashGreet}</div>
-    <div style="font-family:'Montserrat',sans-serif;font-size:2.2rem;
-      font-weight:900;color:#fff;letter-spacing:-.02em;margin-top:6px;
-      animation:splashSlide .6s cubic-bezier(.22,1,.36,1) .78s both;
-      text-shadow:0 0 50px rgba(0,212,255,.2);">${name}</div>
+      animation:splashFade .65s ease .9s both;">${_splashGreet}</div>
+    <div style="font-family:'Montserrat',sans-serif;font-size:2.25rem;
+      font-weight:900;color:#fff;letter-spacing:-.02em;margin-top:7px;
+      animation:splashSlide .75s cubic-bezier(.22,1,.36,1) 1.05s both;
+      text-shadow:0 0 60px rgba(0,212,255,.22);">${name}</div>
   </div>
 
-  <!-- estrada: caminhão chega da direita e para -->
-  <div style="position:relative;width:100%;flex-shrink:0;height:36%;
-    background:linear-gradient(180deg,#0d1e2e 0%,#07111a 100%);
-    border-top:1px solid rgba(0,212,255,.07);overflow:hidden;">
+  <!-- estrada: caminhão chega da direita e estaciona -->
+  <div style="position:relative;width:100%;flex-shrink:0;height:38%;
+    background:linear-gradient(180deg,#0c1c2c 0%,#06101a 100%);
+    border-top:1px solid rgba(0,212,255,.08);overflow:hidden;">
+
+    <!-- gradient sutil de iluminação na estrada -->
+    <div style="position:absolute;inset:0;pointer-events:none;
+      background:radial-gradient(ellipse at center 70%,rgba(0,212,255,.04) 0%,transparent 60%);"></div>
 
     <!-- faixas da pista rolando -->
-    <div style="position:absolute;top:44%;left:0;height:4px;width:200%;
-      display:flex;animation:trkRoad .85s linear infinite;">
+    <div style="position:absolute;top:62%;left:0;height:4px;width:200%;
+      display:flex;animation:trkRoad 1.2s linear infinite;">
       ${_dashRow}
     </div>
 
-    <!-- caminhão entrando da direita e parando no centro -->
-    <div style="position:absolute;top:50%;margin-top:-44px;
-      left:calc(50% - 130px);width:260px;height:62px;
-      animation:splashTruck 2.1s cubic-bezier(.14,1,.28,1) .5s both;">
+    <!-- caminhão chega da direita (3s deceleração) -->
+    <div style="position:absolute;top:50%;margin-top:-65px;
+      left:calc(50% - 160px);width:320px;height:110px;
+      animation:splashTruck 3s cubic-bezier(.12,1,.25,1) .6s both;
+      filter:drop-shadow(0 8px 18px rgba(0,0,0,.55));">
       ${_TRUCK_HTML}
     </div>
   </div>
@@ -557,8 +646,9 @@ function initDriver(name) {
   <div style="position:absolute;bottom:0;left:0;right:0;height:3px;
     background:rgba(0,212,255,.06);">
     <div style="height:3px;border-radius:0 2px 2px 0;
-      background:linear-gradient(90deg,rgba(0,212,255,.45),rgba(0,212,255,.9));
-      animation:splashBar 2.8s ease-out .4s both;"></div>
+      background:linear-gradient(90deg,rgba(0,212,255,.4),rgba(0,212,255,1));
+      box-shadow:0 0 8px rgba(0,212,255,.5);
+      animation:splashBar 3.6s cubic-bezier(.4,0,.4,1) .35s both;"></div>
   </div>
 </div>`;
 
@@ -603,7 +693,7 @@ function initDriver(name) {
     S.dailyRoute = d.dailyRoute || null;
     if (_firstLoad) {
       _firstLoad = false;
-      const _minDelay = 3000;
+      const _minDelay = 4000;
       Promise.all([_loadClients(), _loadWeekTotal()]).then(()=>{
         const wait = Math.max(0, _minDelay - (Date.now()-_splashT0));
         setTimeout(render, wait);
@@ -671,131 +761,155 @@ function initDriver(name) {
     setTimeout(() => { ov.remove(); if(cb) cb(); }, 700);
   }
 
-  // Animação de caminhão ao finalizar o dia (~3.8s)
+  // Animação de caminhão ao finalizar o dia (~5.2s)
   function showTruckAnim(cb) {
-    // Estrelas em posições fixas (sem Math.random)
+    // Estrelas em posições fixas (28 estrelas com tamanhos e tempos variados)
     const _starData = [
-      [7,6,4],[22,11,2],[38,4,3],[54,18,2],[68,7,3],
-      [83,13,2],[94,5,4],[12,28,2],[29,34,3],[46,21,2],
-      [62,30,4],[78,23,2],[91,32,3],[5,44,2],[19,51,2],
-      [37,47,3],[55,54,2],[72,48,3],[88,43,2],[44,58,2]
+      [4,5,3],[12,11,2],[22,4,4],[32,9,2],[40,14,3],
+      [50,3,2],[58,12,4],[66,6,2],[74,15,3],[82,4,2],
+      [90,11,3],[96,7,2],[8,22,2],[18,29,3],[28,24,2],
+      [38,32,4],[48,27,2],[58,33,3],[70,28,2],[80,30,4],
+      [88,26,2],[15,42,2],[34,46,3],[52,44,2],[68,48,3],
+      [84,45,2],[26,53,2],[78,55,3]
     ];
     const _stars = _starData.map(([x,y,s],i)=>
       '<div style="position:absolute;left:'+x+'%;top:'+y+'%;width:'+s+'px;height:'+s+'px;'
       +'border-radius:50%;background:#fff;opacity:.6;'
-      +'animation:nightStar '+(1.3+i*.22).toFixed(2)+'s '+(i*.18).toFixed(2)+'s ease-in-out infinite alternate;">'
+      +'box-shadow:0 0 '+(s*1.5).toFixed(0)+'px rgba(255,255,255,.5);'
+      +'animation:nightStar '+(1.4+i*.18).toFixed(2)+'s '+(i*.15).toFixed(2)+'s ease-in-out infinite alternate;">'
       +'</div>'
     ).join('');
 
-    const _dashes = Array.from({length:32},()=>
-      '<div style="flex-shrink:0;width:52px;height:4px;border-radius:2px;margin-right:36px;background:rgba(0,212,255,.24);"></div>'
+    const _dashes = Array.from({length:34},()=>
+      '<div style="flex-shrink:0;width:55px;height:4px;border-radius:2px;margin-right:38px;background:rgba(0,212,255,.26);box-shadow:0 0 6px rgba(0,212,255,.2);"></div>'
     ).join('');
 
     const ov = document.createElement('div');
     ov.style.cssText = 'position:fixed;inset:0;z-index:9999;overflow:hidden;'
-      +'background:linear-gradient(180deg,#020810 0%,#061525 50%,#0a1e32 80%,#0d2440 100%);';
+      +'background:linear-gradient(180deg,#01060c 0%,#04101e 40%,#08182a 75%,#0c2238 100%);';
 
-    ov.innerHTML = `
-      <!-- Céu / estrelas -->
-      <div style="position:absolute;inset:0;overflow:hidden;pointer-events:none;">
-        ${_stars}
-      </div>
+    ov.innerHTML = ''
+      // Lua sutil
+      +'<div style="position:absolute;top:11%;right:14%;width:46px;height:46px;border-radius:50%;'
+        +'background:radial-gradient(circle at 38% 35%,#fff4c2,#e8c043);'
+        +'box-shadow:0 0 30px rgba(245,197,32,.45),0 0 70px rgba(245,197,32,.15);'
+        +'animation:splashFade 1.3s ease both;"></div>'
 
-      <!-- Mensagem (aparece em 2.2s) -->
-      <div style="position:absolute;top:20%;left:0;right:0;text-align:center;
-        animation:trkMsg .65s cubic-bezier(.22,1,.36,1) 2.2s both;pointer-events:none;">
-        <div style="font-size:1.95rem;font-weight:900;color:#fff;
-          font-family:'Montserrat',sans-serif;letter-spacing:.01em;
-          text-shadow:0 2px 30px rgba(0,212,255,.35);">
-          Dia encerrado! 🎉
-        </div>
-        <div style="font-size:.98rem;color:rgba(0,212,255,.78);margin-top:10px;
-          font-family:'Montserrat',sans-serif;font-weight:600;">
-          Bom descanso, ${name}! 🌙
-        </div>
-      </div>
+      // Céu / estrelas
+      +'<div style="position:absolute;inset:0;overflow:hidden;pointer-events:none;'
+        +'animation:splashFade 1.5s ease both;">'+_stars+'</div>'
 
-      <!-- Estrada -->
-      <div style="position:absolute;bottom:0;left:0;right:0;height:36%;
-        background:linear-gradient(180deg,#0d1e2e 0%,#07111a 100%);
-        border-top:1px solid rgba(0,212,255,.08);overflow:hidden;">
+      // Mensagem (aparece em 2.8s)
+      +'<div style="position:absolute;top:22%;left:0;right:0;text-align:center;pointer-events:none;'
+        +'animation:trkMsg .85s cubic-bezier(.22,1,.36,1) 2.8s both;">'
+        +'<div style="font-size:2.1rem;font-weight:900;color:#fff;'
+          +'font-family:\'Montserrat\',sans-serif;letter-spacing:.005em;'
+          +'text-shadow:0 2px 36px rgba(0,212,255,.4),0 0 90px rgba(0,212,255,.15);">'
+          +'Dia encerrado'
+        +'</div>'
+        +'<div style="font-size:1rem;color:rgba(0,212,255,.78);margin-top:12px;'
+          +'font-family:\'Montserrat\',sans-serif;font-weight:600;letter-spacing:.02em;">'
+          +'Bom descanso, '+name+' 🌙'
+        +'</div>'
+      +'</div>'
 
-        <!-- Faixas rolando -->
-        <div style="position:absolute;top:44%;left:0;height:4px;width:200%;
-          display:flex;animation:trkRoad .85s linear infinite;">
-          ${_dashes}
-        </div>
+      // Estrada
+      +'<div style="position:absolute;bottom:0;left:0;right:0;height:36%;'
+        +'background:linear-gradient(180deg,#0a1b2c 0%,#050d18 100%);'
+        +'border-top:1px solid rgba(0,212,255,.08);overflow:hidden;">'
 
-        <!-- Wrapper que percorre a tela (trkDrive) -->
-        <div style="position:absolute;inset:0;
-          animation:trkDrive 3.5s cubic-bezier(.2,0,.35,1) forwards;">
-          <!-- Caminhão CSS centralizado no wrapper -->
-          <div style="position:absolute;bottom:14px;left:50%;margin-left:-130px;">
-            ${_TRUCK_HTML}
-          </div>
-        </div>
+        // sutil glow no chão
+        +'<div style="position:absolute;inset:0;pointer-events:none;'
+          +'background:radial-gradient(ellipse at center 75%,rgba(0,212,255,.05) 0%,transparent 60%);"></div>'
 
-      </div>`;
+        // Faixas rolando (mais lentas, ~1.1s)
+        +'<div style="position:absolute;top:62%;left:0;height:4px;width:200%;'
+          +'display:flex;animation:trkRoad 1.1s linear infinite;">'+_dashes+'</div>'
+
+        // Wrapper que percorre a tela (4.5s — bem mais cinematográfico)
+        +'<div style="position:absolute;inset:0;'
+          +'animation:trkDrive 4.5s cubic-bezier(.25,0,.35,1) .3s forwards;">'
+          +'<div style="position:absolute;bottom:6px;left:50%;margin-left:-160px;'
+            +'filter:drop-shadow(0 8px 22px rgba(0,0,0,.65));">'
+            +_TRUCK_HTML_FAST
+          +'</div>'
+        +'</div>'
+
+      +'</div>';
 
     document.body.appendChild(ov);
 
     setTimeout(() => {
-      ov.style.transition = 'opacity .45s ease';
+      ov.style.transition = 'opacity .55s ease';
       ov.style.opacity = '0';
-      setTimeout(() => { ov.remove(); if(cb) cb(); }, 450);
-    }, 3650);
+      setTimeout(() => { ov.remove(); if (cb) cb(); }, 550);
+    }, 5000);
   }
 
-  // Animação de retirada do CD — número conta de 0 até total (~2.2s)
+  // Animação de retirada do CD — número conta de 0 até total (~3.8s)
   function showDepartureAnim(total, cb) {
     const ov = document.createElement('div');
     ov.style.cssText = 'position:fixed;inset:0;z-index:9999;overflow:hidden;'
-      +'background:linear-gradient(160deg,#020d08 0%,#071a10 50%,#0a2218 100%);'
+      +'background:linear-gradient(165deg,#020d08 0%,#06180f 50%,#091f17 100%);'
       +'display:flex;flex-direction:column;align-items:center;justify-content:center;';
 
-    ov.innerHTML = '<div style="position:absolute;top:32%;left:50%;transform:translate(-50%,-50%);'
-      +'width:300px;height:300px;border-radius:50%;pointer-events:none;'
-      +'background:radial-gradient(circle,rgba(0,229,160,.07) 0%,transparent 70%);"></div>'
+    ov.innerHTML = ''
+      // Glow verde de fundo
+      +'<div style="position:absolute;top:34%;left:50%;transform:translate(-50%,-50%);'
+        +'width:380px;height:380px;border-radius:50%;pointer-events:none;'
+        +'background:radial-gradient(circle,rgba(0,229,160,.08) 0%,transparent 65%);'
+        +'animation:splashFade 1s ease both;"></div>'
 
+      // Número + label
       +'<div style="text-align:center;position:relative;z-index:2;">'
         +'<div id="_depAnimNum" style="font-family:\'Montserrat\',sans-serif;'
-          +'font-size:5.8rem;font-weight:900;line-height:1;color:#00e5a0;'
-          +'text-shadow:0 0 50px rgba(0,229,160,.55),0 0 90px rgba(0,229,160,.2);'
-          +'animation:splashFade .2s ease both;">0</div>'
-        +'<div style="font-size:.92rem;color:rgba(255,255,255,.5);margin-top:5px;'
-          +'font-family:\'Montserrat\',sans-serif;font-weight:600;letter-spacing:.05em;'
-          +'animation:splashFade .3s ease .1s both;">caixas no caminhão</div>'
+          +'font-size:6rem;font-weight:900;line-height:1;color:#00e5a0;'
+          +'text-shadow:0 0 60px rgba(0,229,160,.55),0 0 110px rgba(0,229,160,.22);'
+          +'animation:splashFade .5s ease .15s both;">0</div>'
+        +'<div style="font-size:.88rem;color:rgba(255,255,255,.45);margin-top:8px;'
+          +'font-family:\'Montserrat\',sans-serif;font-weight:600;letter-spacing:.16em;'
+          +'text-transform:uppercase;'
+          +'animation:splashFade .55s ease .25s both;">caixas no caminhão</div>'
       +'</div>'
 
-      +'<div style="margin-top:26px;filter:drop-shadow(0 0 20px rgba(0,229,160,.42));'
-        +'animation:splashSlide .5s cubic-bezier(.22,1,.36,1) .2s both;">'
+      // Caminhão SVG com glow verde
+      +'<div style="margin-top:34px;filter:drop-shadow(0 0 24px rgba(0,229,160,.42)) drop-shadow(0 8px 20px rgba(0,0,0,.5));'
+        +'animation:splashSlide .8s cubic-bezier(.22,1,.36,1) .35s both;">'
         +_TRUCK_HTML
       +'</div>'
 
-      +'<div style="margin-top:22px;font-family:\'Montserrat\',sans-serif;font-size:1.1rem;'
-        +'font-weight:800;color:rgba(0,229,160,.82);letter-spacing:.04em;'
-        +'animation:trkMsg .5s cubic-bezier(.22,1,.36,1) 1.5s both;">'
+      // CTA final
+      +'<div style="margin-top:30px;font-family:\'Montserrat\',sans-serif;font-size:1.18rem;'
+        +'font-weight:800;color:rgba(0,229,160,.9);letter-spacing:.03em;'
+        +'animation:trkMsg .65s cubic-bezier(.22,1,.36,1) 2.4s both;">'
         +'Bora para a rota! 🚀'
       +'</div>';
 
     document.body.appendChild(ov);
 
-    // Conta de 0 até total em ~1.1 s
+    // Conta de 0 até total em ~1.8s (mais cinematográfico)
     const el = ov.querySelector('#_depAnimNum');
-    const steps = Math.min(total, 40);
+    const steps = Math.min(Math.max(total, 8), 50);
     const inc = total / steps;
     let cur = 0;
-    const iv = setInterval(() => {
-      cur = Math.min(cur + inc, total);
-      if (el) el.textContent = Math.round(cur);
-      if (cur >= total) clearInterval(iv);
-    }, Math.round(1100 / steps));
+    setTimeout(() => {
+      const iv = setInterval(() => {
+        cur = Math.min(cur + inc, total);
+        if (el) {
+          el.textContent = Math.round(cur);
+          el.classList.remove('num-pop');
+          void el.offsetWidth;
+          if (cur >= total) el.classList.add('num-pop');
+        }
+        if (cur >= total) clearInterval(iv);
+      }, Math.round(1800 / steps));
+    }, 550); // começa após o número aparecer
 
     setTimeout(() => {
-      ov.style.transition = 'opacity .4s ease';
+      ov.style.transition = 'opacity .5s ease';
       ov.style.opacity = '0';
-      setTimeout(() => { ov.remove(); if (cb) cb(); }, 400);
-    }, 2200);
+      setTimeout(() => { ov.remove(); if (cb) cb(); }, 500);
+    }, 3700);
   }
 
   // Ripple delegado em todos os .btn-giant
@@ -1074,15 +1188,31 @@ function initDriver(name) {
       </div>
 
       <!-- BADGE caixas no caminhão -->
-      <div style="margin:12px 0 18px;padding:16px 24px;
-        background:linear-gradient(135deg,rgba(74,154,74,.15),rgba(0,212,255,.08));
-        border:1.5px solid rgba(74,154,74,.35);border-radius:20px;
-        display:flex;align-items:center;justify-content:center;gap:16px;">
-        <div style="font-size:2.6rem;">🚛</div>
-        <div>
-          <div style="font-family:'Montserrat',sans-serif;font-size:2.8rem;font-weight:900;
-            color:var(--text);line-height:1;">${S.truckCx}</div>
-          <div style="font-size:.82rem;color:var(--muted);margin-top:2px;">caixas no caminhão</div>
+      <div style="margin:14px 0 20px;padding:20px 22px;position:relative;overflow:hidden;
+        background:linear-gradient(135deg,rgba(0,212,255,.1) 0%,rgba(0,229,160,.06) 100%);
+        border:1.5px solid rgba(0,212,255,.22);border-radius:22px;
+        display:flex;align-items:center;gap:18px;
+        box-shadow:0 8px 32px rgba(0,212,255,.08),inset 0 1px 0 rgba(255,255,255,.05);">
+        <div style="position:absolute;top:0;right:-20px;width:140px;height:140px;border-radius:50%;
+          background:radial-gradient(circle,rgba(0,229,160,.1) 0%,transparent 65%);
+          pointer-events:none;"></div>
+        <div style="width:64px;height:64px;border-radius:18px;flex-shrink:0;position:relative;z-index:1;
+          background:linear-gradient(135deg,rgba(0,212,255,.18),rgba(0,229,160,.1));
+          border:1px solid rgba(0,212,255,.35);
+          display:flex;align-items:center;justify-content:center;
+          box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 4px 14px rgba(0,212,255,.18);">
+          <span style="font-size:2.1rem;line-height:1;">🚛</span>
+        </div>
+        <div style="position:relative;z-index:1;flex:1;">
+          <div style="display:flex;align-items:baseline;gap:8px;">
+            <div style="font-family:'Montserrat',sans-serif;font-size:2.6rem;font-weight:900;
+              color:#fff;line-height:1;letter-spacing:-.02em;
+              text-shadow:0 0 30px rgba(0,212,255,.25);">${S.truckCx}</div>
+            <div style="font-size:.85rem;color:var(--accent);font-weight:700;letter-spacing:.04em;">cx</div>
+          </div>
+          <div style="font-size:.78rem;color:var(--muted);margin-top:3px;
+            font-family:'Montserrat',sans-serif;font-weight:600;
+            text-transform:uppercase;letter-spacing:.12em;">no caminhão</div>
         </div>
       </div>
 
@@ -1110,6 +1240,7 @@ function initDriver(name) {
             <span class="home-card-title" style="color:var(--accent);">Retirar do CD</span>
             <span class="home-card-sub">Busquei caixas no depósito</span>
           </div>
+          <svg class="home-card-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
         </button>
         <button class="home-card route anim-stagger" style="--d:130ms" onclick="window.escolherModo('client')">
           <span class="home-card-icon">🚚</span>
@@ -1117,6 +1248,7 @@ function initDriver(name) {
             <span class="home-card-title" style="color:var(--success);">Estou no Cliente</span>
             <span class="home-card-sub">Cheguei para entregar ou coletar</span>
           </div>
+          <svg class="home-card-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
         </button>
         <button class="home-card ret anim-stagger" style="--d:200ms" onclick="window.escolherModo('cd_return')">
           <span class="home-card-icon">🏠</span>
@@ -1124,14 +1256,16 @@ function initDriver(name) {
             <span class="home-card-title" style="color:var(--warning);">Deixar no CD</span>
             <span class="home-card-sub">Vou devolver caixas ao depósito</span>
           </div>
+          <svg class="home-card-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
         </button>
       </div>
-      <button class="home-card sum anim-stagger" style="--d:270ms;width:100%;justify-content:flex-start;" onclick="window.goSummary()">
-        <span class="home-card-icon" style="font-size:1.8rem;">📋</span>
+      <button class="home-card sum anim-stagger" style="--d:270ms;min-height:74px;" onclick="window.goSummary()">
+        <span class="home-card-icon" style="font-size:1.4rem;width:48px;height:48px;border-radius:14px;">📋</span>
         <div class="home-card-text">
           <span class="home-card-title" style="font-size:1rem;">Resumo do dia</span>
           <span class="home-card-sub">${S.transactions.length} cliente(s) registrado(s)</span>
         </div>
+        <svg class="home-card-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
       </button>
     </div>`;
   }
