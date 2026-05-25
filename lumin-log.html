@@ -64,6 +64,7 @@ a{text-decoration:none;color:inherit}
 .home-card.cd   {--cardGlow:rgba(0,212,255,.13);--iconBg:rgba(0,212,255,.1);--iconBorder:rgba(0,212,255,.3);border-color:rgba(0,212,255,.22);}
 .home-card.route{--cardGlow:rgba(0,229,160,.12);--iconBg:rgba(0,229,160,.1);--iconBorder:rgba(0,229,160,.3);border-color:rgba(0,229,160,.22);}
 .home-card.ret  {--cardGlow:rgba(255,179,71,.12);--iconBg:rgba(255,179,71,.1);--iconBorder:rgba(255,179,71,.3);border-color:rgba(255,179,71,.22);}
+.home-card.final{--cardGlow:rgba(255,91,112,.14);--iconBg:rgba(255,91,112,.12);--iconBorder:rgba(255,91,112,.32);border-color:rgba(255,91,112,.25);}
 .home-card.sum  {--cardGlow:rgba(180,140,255,.1);--iconBg:rgba(255,255,255,.05);--iconBorder:rgba(255,255,255,.1);border-color:rgba(255,255,255,.1);}
 
 /* ---- TELA CLIENTE — 100vh fixo ---- */
@@ -919,7 +920,7 @@ function initDriver(name) {
   }, true);
 
   function render() {
-    ({choose:vChoose,departure:vDeparture,client:vClient,cd_return:vCdReturn,summary:vSummary,done:vDone}[S.step]||vChoose)();
+    ({choose:vChoose,departure:vDeparture,client:vClient,cd_return:vCdReturn,finalize:vFinalize,summary:vSummary,done:vDone}[S.step]||vChoose)();
   }
 
   async function _loadWeekTotal() {
@@ -1250,11 +1251,11 @@ function initDriver(name) {
           </div>
           <svg class="home-card-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
         </button>
-        <button class="home-card ret anim-stagger" style="--d:200ms" onclick="window.escolherModo('cd_return')">
-          <span class="home-card-icon">🏠</span>
+        <button class="home-card final anim-stagger" style="--d:200ms" onclick="window.escolherModo('finalize')">
+          <span class="home-card-icon">🏁</span>
           <div class="home-card-text">
-            <span class="home-card-title" style="color:var(--warning);">Deixar no CD</span>
-            <span class="home-card-sub">Vou devolver caixas ao depósito</span>
+            <span class="home-card-title" style="color:var(--alert);">Finalizar o Dia</span>
+            <span class="home-card-sub">Revisar e devolver as caixas ao CD</span>
           </div>
           <svg class="home-card-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
         </button>
@@ -1352,6 +1353,84 @@ function initDriver(name) {
       <button id="retBtn" onclick="window.confirmCdReturn()" class="btn-giant"
         style="background:linear-gradient(135deg,#ffb347,#e08010);box-shadow:0 6px 28px rgba(255,179,71,.35);">
         ✅ Confirmar Devolução
+      </button>
+    </div>`;
+  }
+
+  /* ════ FINALIZAR O DIA — REVISÃO ════ */
+  function vFinalize() {
+    const totalClientes = S.transactions.length;
+    const totalDel = S.transactions.reduce((s,t)=>s + (nn(t.totalDel) || (nn(t.delBlack)+nn(t.delWhite))),0);
+    const totalCol = S.transactions.reduce((s,t)=>s + (nn(t.totalCol) || (nn(t.colBlack)+nn(t.colWhite))),0);
+    const fotoOk = !!S.fotos.cd_return;
+
+    $('app').innerHTML=`<div id="driver-wrap" class="fade-in">
+
+      <!-- Header -->
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:22px;">
+        <button onclick="window.voltarEscolha()" style="padding:10px 16px;border-radius:12px;
+          background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+          font-size:.95rem;font-weight:700;color:rgba(228,240,246,.65);flex-shrink:0;">← Voltar</button>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:1.8rem;">🏁</span>
+          <span style="font-family:'Montserrat',sans-serif;font-size:1.3rem;font-weight:900;">Finalizar o Dia</span>
+        </div>
+      </div>
+
+      <!-- Hero: caixas a deixar no CD -->
+      <div style="position:relative;overflow:hidden;
+        background:linear-gradient(135deg,rgba(255,91,112,.12) 0%,rgba(255,91,112,.04) 100%);
+        border:1.5px solid rgba(255,91,112,.32);border-radius:22px;
+        padding:24px 22px;margin-bottom:16px;text-align:center;">
+        <div style="position:absolute;top:-30px;right:-30px;width:160px;height:160px;border-radius:50%;
+          background:radial-gradient(circle,rgba(255,91,112,.15) 0%,transparent 65%);pointer-events:none;"></div>
+        <div style="position:relative;z-index:1;">
+          <div style="font-size:.76rem;color:rgba(255,255,255,.5);font-weight:700;letter-spacing:.16em;text-transform:uppercase;margin-bottom:10px;">📦 Deixando no CD</div>
+          <div style="font-family:'Montserrat',sans-serif;font-size:3.6rem;font-weight:900;color:#fff;line-height:1;
+            text-shadow:0 0 40px rgba(255,91,112,.3);">${S.truckCx}</div>
+          <div style="font-size:.82rem;color:rgba(228,240,246,.55);font-weight:700;margin-top:6px;letter-spacing:.05em;">caixas no caminhão</div>
+        </div>
+      </div>
+
+      <!-- Stats do dia -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:18px;">
+        <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+          border-radius:14px;padding:14px 10px;text-align:center;">
+          <div style="font-family:'Montserrat',sans-serif;font-size:1.55rem;font-weight:900;color:var(--accent);line-height:1;">${totalClientes}</div>
+          <div style="font-size:.7rem;color:var(--muted);font-weight:700;margin-top:4px;letter-spacing:.06em;text-transform:uppercase;">Clientes</div>
+        </div>
+        <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+          border-radius:14px;padding:14px 10px;text-align:center;">
+          <div style="font-family:'Montserrat',sans-serif;font-size:1.55rem;font-weight:900;color:var(--alert);line-height:1;">${totalDel}</div>
+          <div style="font-size:.7rem;color:var(--muted);font-weight:700;margin-top:4px;letter-spacing:.06em;text-transform:uppercase;">Entregues</div>
+        </div>
+        <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+          border-radius:14px;padding:14px 10px;text-align:center;">
+          <div style="font-family:'Montserrat',sans-serif;font-size:1.55rem;font-weight:900;color:var(--success);line-height:1;">${totalCol}</div>
+          <div style="font-size:.7rem;color:var(--muted);font-weight:700;margin-top:4px;letter-spacing:.06em;text-transform:uppercase;">Coletadas</div>
+        </div>
+      </div>
+
+      <!-- Editar quantidade (caso queira ajustar) -->
+      <div style="margin-bottom:14px;">
+        <div style="font-size:.75rem;font-weight:800;color:var(--muted);letter-spacing:.12em;
+          text-transform:uppercase;margin-bottom:10px;padding-left:4px;">Confirme a quantidade</div>
+        <div class="glass-card" style="padding:18px 22px;">
+          ${cBlock('Caixas a deixar','retCx','c-rB')}
+        </div>
+      </div>
+
+      <!-- Foto opcional -->
+      <button id="foto-fin-btn" class="foto-grande-btn ${fotoOk?'done':''}"
+        style="margin-bottom:18px;"
+        onclick="window.tirarFotoMini('cd_return','foto-fin-btn')">
+        ${fotoOk?'✅ &nbsp; Foto salva!':'📷 &nbsp; Foto da devolução (opcional)'}
+      </button>
+
+      <!-- Confirmar -->
+      <button id="finBtn" onclick="window.confirmFinalize()" class="btn-giant"
+        style="background:linear-gradient(135deg,#ff5b70,#c8324a);box-shadow:0 8px 32px rgba(255,91,112,.4);">
+        🏁 Confirmar e Finalizar
       </button>
     </div>`;
   }
@@ -1677,20 +1756,20 @@ function initDriver(name) {
           ➕ &nbsp; Mais um cliente
         </button>
 
-        <button onclick="window.escolherModo('cd_return')"
-          style="width:100%;min-height:72px;border-radius:18px;
-          background:rgba(255,179,71,.08);border:2px solid rgba(255,179,71,.35);
-          color:var(--warning);font-family:'Montserrat',sans-serif;font-size:1.1rem;font-weight:900;
-          display:flex;align-items:center;justify-content:center;gap:14px;">
-          🏠 &nbsp; Deixar no CD
-        </button>
-
         <button onclick="window.goSummary()"
           style="width:100%;min-height:72px;border-radius:18px;
           background:rgba(0,229,160,.08);border:2px solid rgba(0,229,160,.35);
           color:var(--success);font-family:'Montserrat',sans-serif;font-size:1.1rem;font-weight:900;
           display:flex;align-items:center;justify-content:center;gap:14px;">
-          📋 &nbsp; Ver resumo / Finalizar dia
+          📋 &nbsp; Ver resumo do dia
+        </button>
+
+        <button onclick="window.escolherModo('finalize')"
+          style="width:100%;min-height:72px;border-radius:18px;
+          background:rgba(255,91,112,.09);border:2px solid rgba(255,91,112,.38);
+          color:var(--alert);font-family:'Montserrat',sans-serif;font-size:1.1rem;font-weight:900;
+          display:flex;align-items:center;justify-content:center;gap:14px;">
+          🏁 &nbsp; Finalizar o Dia
         </button>
 
       </div>
@@ -1815,7 +1894,7 @@ function initDriver(name) {
         </div>
         <div style="max-height:260px;overflow-y:auto;">${txHtml}</div>
       </div>
-      <button id="finalBtn" onclick="finalize()" class="btn-giant" style="margin-bottom:10px;">✅ Finalizar o Dia</button>
+      <button onclick="window.escolherModo('finalize')" class="btn-giant" style="margin-bottom:10px;background:linear-gradient(135deg,#ff5b70,#c8324a);box-shadow:0 6px 28px rgba(255,91,112,.35);">🏁 Finalizar o Dia</button>
       <button onclick="backToClient()" class="btn-sec">← Adicionar Mais</button>
     </div>`;
   }
@@ -1905,6 +1984,7 @@ function initDriver(name) {
     if(mode==='cd'){S.depTotal=0;S.step='departure';}
     else if(mode==='client') S.step='client';
     else if(mode==='cd_return'){S.retCx=S.truckCx;S.step='cd_return';}
+    else if(mode==='finalize'){S.retCx=S.truckCx;S.step='finalize';S.fotos.cd_return=null;}
     render();
   };
 
@@ -2078,6 +2158,54 @@ function initDriver(name) {
     }catch(e){
       toast('Erro ao finalizar. Tente novamente.');
       if(btn){btn.disabled=false;btn.textContent='✅ Finalizar o Dia';}
+    }finally{S.saving=false;}
+  };
+
+  /* ════ CONFIRMAR FINALIZAÇÃO (tela de revisão) ════ */
+  window.confirmFinalize=async function(){
+    if(S.saving) return;
+    S.saving=true;
+    const btn=$('finBtn');
+    if(btn){btn.disabled=true;btn.textContent='Salvando...';}
+    try{
+      const today=new Date().toISOString().split('T')[0];
+      const retCx=Math.max(0, nn(S.retCx));
+      const batch=db.batch();
+
+      // 1) Devolução ao CD (mesmo se retCx === 0, gravamos um cd_return de 0 só se truckCx > 0)
+      if(S.truckCx>0 || retCx>0){
+        batch.update(db.collection('ll_drivers').doc(name),
+          {truckCx:0,lastUpdated:TS()});
+        const ev={type:'cd_return',driverName:name,retCx,
+          truckBefore:S.truckCx,truckAfter:0,
+          fromFinalize:true,timestamp:TS()};
+        if(S.fotos.cd_return) ev.fotoUrl=S.fotos.cd_return;
+        batch.set(db.collection('ll_events').doc(),ev);
+        if(retCx>0){
+          batch.set(db.collection('controle_caixas').doc(),{
+            tipo:'SAÍDA',data:today,
+            cliente:'Hetros — Devolução CD',fornecedor:name,motorista:name,
+            quantidadeCx:retCx,status:'OK',origem:'motorista_finalize',createdAt:TS()
+          });
+        }
+      }
+
+      // 2) Evento de encerramento do dia
+      batch.set(db.collection('ll_events').doc(),{
+        type:'day_finalized',driverName:name,
+        truckCx:S.truckCx,retCx,
+        totalClients:S.transactions.length,
+        transactions:S.transactions,
+        timestamp:TS()
+      });
+
+      await batch.commit();
+      S.truckCx=0; S.retCx=0; S.fotos.cd_return=null;
+      showTruckAnim(()=>{ S.step='done'; render(); });
+    }catch(e){
+      console.warn('[finalize]', e);
+      toast('Erro ao finalizar. Tente novamente.');
+      if(btn){btn.disabled=false;btn.textContent='🏁 Confirmar e Finalizar';}
     }finally{S.saving=false;}
   };
 
