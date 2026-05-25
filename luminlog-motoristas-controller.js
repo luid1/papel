@@ -469,6 +469,93 @@ window.llmReprovarAlerta = async function(alertId) {
 };
 
 // ═══════════════════════════════════════════════════════════════
+// MAPA AO VIVO (Leaflet — localização dos motoristas)
+// ═══════════════════════════════════════════════════════════════
+let _leafMap      = null;
+let _leafMarkers  = {};     // driverId → L.marker
+
+function refreshMap() {
+  const mapEl    = document.getElementById('ll-map');
+  const emptyEl  = document.getElementById('ll-map-empty');
+  const countEl  = document.getElementById('ll-map-count');
+  if (!mapEl || typeof L === 'undefined') return;
+
+  // Motoristas com localização válida (máx 2h de idade)
+  const agora = Date.now();
+  const comLoc = _drivers.filter(d => {
+    const loc = d.currentLocation;
+    if (!loc?.lat || !loc?.lng) return false;
+    // Aceita se não tem timestamp OU se tem e é recente (< 2h)
+    if (loc.ts?.toMillis) return (agora - loc.ts.toMillis()) < 2 * 60 * 60 * 1000;
+    return true;
+  });
+
+  if (countEl) countEl.textContent = comLoc.length;
+  if (emptyEl) emptyEl.style.display = comLoc.length ? 'none' : 'flex';
+
+  if (!comLoc.length) return;
+
+  // Inicializa mapa na 1ª vez
+  if (!_leafMap) {
+    _leafMap = L.map('ll-map', { zoomControl: true, attributionControl: false });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 18, attribution: '© OSM'
+    }).addTo(_leafMap);
+    document.getElementById('ll-map-fit')?.addEventListener('click', () => {
+      if (Object.keys(_leafMarkers).length) {
+        const grp = L.featureGroup(Object.values(_leafMarkers));
+        _leafMap.fitBounds(grp.getBounds().pad(0.2));
+      }
+    });
+  }
+
+  // Ícone personalizado
+  const mkIcon = name => L.divIcon({
+    className: '',
+    html: `<div style="
+      background:var(--accent,#00d4ff);color:#021824;font-weight:800;
+      font-size:10px;padding:4px 7px;border-radius:20px;white-space:nowrap;
+      box-shadow:0 2px 8px rgba(0,0,0,.5);font-family:'Inter',sans-serif;
+      border:2px solid rgba(255,255,255,.3);">${esc(name.split(' ')[0])}</div>`,
+    iconAnchor: [0, 0],
+  });
+
+  // Atualiza / cria markers
+  const idsAtivos = new Set(comLoc.map(d => d.id));
+
+  // Remove markers de drivers que saíram
+  Object.keys(_leafMarkers).forEach(id => {
+    if (!idsAtivos.has(id)) {
+      _leafMarkers[id].remove();
+      delete _leafMarkers[id];
+    }
+  });
+
+  comLoc.forEach(d => {
+    const { lat, lng } = d.currentLocation;
+    const label = d.name || d.id;
+    if (_leafMarkers[d.id]) {
+      _leafMarkers[d.id].setLatLng([lat, lng]);
+      _leafMarkers[d.id].setIcon(mkIcon(label));
+    } else {
+      _leafMarkers[d.id] = L.marker([lat, lng], { icon: mkIcon(label) })
+        .addTo(_leafMap)
+        .bindPopup(`<b>${esc(label)}</b>`);
+    }
+  });
+
+  // Centraliza automaticamente na 1ª vez que há dados
+  if (comLoc.length && !_leafMap._lumCentered) {
+    _leafMap._lumCentered = true;
+    const grp = L.featureGroup(Object.values(_leafMarkers));
+    _leafMap.fitBounds(grp.getBounds().pad(0.25));
+  }
+}
+
+// Expõe para outros módulos (luminlog-controller pode chamar também)
+window.llmRefreshMap = refreshMap;
+
+// ═══════════════════════════════════════════════════════════════
 // LISTENERS FIRESTORE
 // ═══════════════════════════════════════════════════════════════
 function startListeners() {
@@ -477,6 +564,7 @@ function startListeners() {
     snap => {
       _drivers = snap.docs.map(d => ({ id: d.id, ...d.data() }));
       renderDrivers();
+      refreshMap();          // ← atualiza mapa toda vez que um driver muda
     },
     err => console.error('[LLM-Motoristas] Drivers:', err)
   );

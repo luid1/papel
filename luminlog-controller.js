@@ -812,6 +812,8 @@ window.llRenderCharts = function() {
   _renderChartDaily();
   _renderChartDrivers();
   _renderChartClients();
+  // Atualiza mapa se o módulo de motoristas já inicializou
+  if (typeof window.llmRefreshMap === 'function') window.llmRefreshMap();
 };
 
 function _renderChartDaily() {
@@ -883,9 +885,8 @@ function _renderChartDaily() {
 }
 
 function _renderChartDrivers() {
-  const wrap   = document.getElementById('ll-chart-drivers-wrap');
-  const canvas = document.getElementById('ll-chart-drivers');
-  if (!canvas || !wrap) return;
+  const wrap = document.getElementById('ll-chart-drivers-wrap');
+  if (!wrap) return;
 
   const saldo = calcCaixasNoCaminhao();
   const motoristas = Object.entries(saldo)
@@ -893,11 +894,13 @@ function _renderChartDrivers() {
     .sort((a, b) => b[1].total - a[1].total);
 
   if (!motoristas.length) {
+    // Destrói chart existente antes de limpar o DOM
+    if (_chartDrivers) { try { _chartDrivers.destroy(); } catch(_) {} _chartDrivers = null; }
     wrap.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:rgba(228,240,246,.35);font-size:12px;">Nenhuma caixa em trânsito</div>`;
     return;
   }
 
-  // Garantir que o canvas existe (pode ter sido substituído pelo innerHTML acima)
+  // Garante que o canvas existe (pode ter sido destruído pelo estado vazio anterior)
   let c = document.getElementById('ll-chart-drivers');
   if (!c) {
     wrap.innerHTML = `<canvas id="ll-chart-drivers" style="width:100%;height:100%;"></canvas>`;
