@@ -406,15 +406,22 @@ function initDriver(name) {
     <style>@keyframes sd{from{opacity:.2;transform:scale(.7)}to{opacity:.9;transform:scale(1)}}</style>`;
 
   // Listener em tempo real: admin zera → driver atualiza imediatamente
-  let _firstLoad = true;
+  let _firstLoad    = true;
+  let _resetChecked = null; // data (YYYY-MM-DD) do último reset checado nesta sessão
+
   db.collection('ll_drivers').doc(name).onSnapshot(async doc => {
     if (!doc.exists) return;
     const d = doc.data();
     const oldCx = S.truckCx;
-    const today = new Date().toISOString().split('T')[0];
+    // Usa data local (Brasil) para não zerar à meia-noite UTC (21h horário local)
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
 
-    // Auto-reset diário: ao abrir num dia novo, zera caminhão e avisa admin se havia caixas
-    if (_firstLoad && d.lastAutoReset !== today) {
+    // Auto-reset diário: roda mesmo se a aba ficou aberta overnight.
+    // Condição: hoje ainda não foi verificado NESTA sessão E o Firestore
+    // ainda não registrou reset hoje → evita loop duplo.
+    if (_resetChecked !== today && d.lastAutoReset !== today) {
+      _resetChecked = today; // marca como verificado para não repetir no mesmo dia
       const cxEsquecidas = nn(d.truckCx) || (nn(d.truckBlack)+nn(d.truckWhite));
       try {
         if (cxEsquecidas > 0) {
@@ -429,6 +436,7 @@ function initDriver(name) {
           d.truckCx = 0; d.truckBlack = 0; d.truckWhite = 0;
           setTimeout(() => toast('⚠️ Caminhão zerado — não esqueça de deixar as caixas no CD!', 5000), 3200);
         } else {
+          // Nenhuma cx esquecida — só marca o reset do dia
           await db.collection('ll_drivers').doc(name).update({ lastAutoReset: today, lastUpdated: TS() });
         }
       } catch(e) { console.warn('[auto-reset]', e); }
