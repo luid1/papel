@@ -1569,6 +1569,11 @@ function initDriver(name) {
           color:var(--accent);display:flex;align-items:center;justify-content:center;">+</button>
       </div>
 
+      <button id="foto-del-mini-btn" class="foto-mini-btn" style="width:100%;justify-content:center;margin-bottom:20px;"
+        onclick="window.tirarFotoMini('client_entrega','foto-del-mini-btn')">
+        📷 &nbsp; Tirar foto da entrega
+      </button>
+
       <button onclick="window._vcNextCollect()" class="btn-giant" style="margin-bottom:12px;">
         Próximo →
       </button>
@@ -1578,6 +1583,7 @@ function initDriver(name) {
         color:rgba(228,240,246,.45);">Não entregou nada — Pular</button>
 
     </div>`;
+    if(S.fotos.client_entrega){const b=$('foto-del-mini-btn');if(b){b.className='foto-mini-btn done';b.innerHTML='✅ &nbsp; Foto salva!';}}
   }
 
   function _vcCollect() {
@@ -1652,6 +1658,11 @@ function initDriver(name) {
           color:var(--warning);display:flex;align-items:center;justify-content:center;">+</button>
       </div>
 
+      <button id="foto-col-mini-btn" class="foto-mini-btn" style="width:100%;justify-content:center;margin-bottom:20px;border-color:rgba(0,229,160,.35);color:var(--success);background:rgba(0,229,160,.03);"
+        onclick="window.tirarFotoMini('client_coleta','foto-col-mini-btn')">
+        📷 &nbsp; Tirar foto da coleta
+      </button>
+
       <button onclick="window._vcNextPhoto()" class="btn-giant" style="background:var(--success);margin-bottom:12px;">
         Próximo →
       </button>
@@ -1661,6 +1672,7 @@ function initDriver(name) {
         color:rgba(228,240,246,.45);">Não coletou nada — Pular</button>
 
     </div>`;
+    if(S.fotos.client_coleta){const b=$('foto-col-mini-btn');if(b){b.className='foto-mini-btn done';b.innerHTML='✅ &nbsp; Foto salva!';}}
   }
 
   function _vcPhoto() {
