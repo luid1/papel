@@ -1432,9 +1432,10 @@ function initDriver(name) {
   function _stepBar(active) {
     const icons  = ['👤','📤','📥','📷'];
     const labels = ['Cliente','Entrega','Coleta','Foto'];
+    const subs   = ['name','deliver','collect','photo'];
     return `<div style="display:flex;justify-content:center;align-items:center;gap:0;margin-bottom:28px;">
       ${icons.map((icon,i)=>`
-        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;">
+        <div onclick="window._vcGoStep('${subs[i]}')" style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;cursor:pointer;user-select:none;">
           <div style="width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.1rem;
             background:${i===active?'var(--accent)':i<active?'rgba(0,229,160,.3)':'rgba(255,255,255,.07)'};
             border:2px solid ${i===active?'var(--accent)':i<active?'var(--success)':'rgba(255,255,255,.13)'};
@@ -1445,6 +1446,13 @@ function initDriver(name) {
       `).join('')}
     </div>`;
   }
+
+  window._vcGoStep = function(sub) {
+    if(sub !== 'name' && !S.clientName) { toast('Escolha um cliente primeiro'); return; }
+    S.clientSubStep = sub;
+    vibe(15);
+    render();
+  };
 
   function vClient() {
     _capturaGeo();
