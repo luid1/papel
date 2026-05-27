@@ -2271,13 +2271,13 @@ document.addEventListener("DOMContentLoaded", () => {
     const sbBtn = document.querySelector(`.adm-sb-hetros-item[data-llm-tab="${tab}"]`);
     if (sbBtn) sbBtn.classList.add("active");
 
-    // Limpa display inline (deixa CSS controlar)
+    // Define display inline diretamente — esconde os inativos e mostra o ativo
     ['dashboard','registros','motoristas','clientes'].forEach(p => {
       const el = document.getElementById('llm-panel-' + p);
-      if (el) el.style.display = '';
+      if (el) el.style.display = (p === tab) ? 'block' : 'none';
     });
 
-    // Define classe no body — CSS faz o resto
+    // Define classe no body — CSS controla também
     document.body.classList.remove('llm-sub-dashboard','llm-sub-registros','llm-sub-motoristas','llm-sub-clientes');
     document.body.classList.add('llm-sub-' + tab);
 
