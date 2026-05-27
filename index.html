@@ -27,10 +27,12 @@
   <link rel="stylesheet" href="style.css">
   <!-- CSS crítico inline — garante troca de sub-aba Hetros mesmo com cache antigo -->
   <style>
-    body[class*="llm-sub-"] #llm-panel-dashboard,
-    body[class*="llm-sub-"] #llm-panel-registros,
-    body[class*="llm-sub-"] #llm-panel-motoristas,
-    body[class*="llm-sub-"] #llm-panel-clientes { display: none !important; }
+    /* Esconde todos os painéis Hetros por padrão (sem classe llm-sub-* ou fora da aba) */
+    #llm-panel-dashboard,
+    #llm-panel-registros,
+    #llm-panel-motoristas,
+    #llm-panel-clientes { display: none !important; }
+    /* Só mostra o painel da sub-aba ativa */
     body.llm-sub-dashboard  #llm-panel-dashboard  { display: block !important; }
     body.llm-sub-registros  #llm-panel-registros  { display: block !important; }
     body.llm-sub-motoristas #llm-panel-motoristas { display: block !important; }
