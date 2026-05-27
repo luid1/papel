@@ -1,0 +1,2217 @@
+﻿<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#050d12">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Controle Hetros — Motorista</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Montserrat:wght@700;800;900&family=Comfortaa:wght@700&display=swap" rel="stylesheet">
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<style>
+:root {
+  --bg:#050d12; --bg2:#08141d;
+  --accent:#00d4ff; --accent2:#008fb5;
+  --success:#00e5a0; --alert:#ff5b70; --warning:#ffb347;
+  --text:#e4f0f6; --muted:rgba(228,240,246,.45);
+  --glass:rgba(255,255,255,.04); --border:rgba(255,255,255,.08);
+  --ease:cubic-bezier(.4,0,.2,1);
+  --het-green:#4a9a4a; --het-red:#d44d1a;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{font-size:100%;-webkit-text-size-adjust:100%}
+body{font-family:'Inter',sans-serif;font-size:1.15rem;line-height:1.55;background:var(--bg);
+  color:var(--text);min-height:100svh;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+button{cursor:pointer;border:none;background:transparent;font-family:inherit;color:inherit}
+a{text-decoration:none;color:inherit}
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-thumb{background:rgba(0,212,255,.18);border-radius:4px}
+.orb{position:fixed;border-radius:50%;filter:blur(130px);z-index:0;opacity:.1;pointer-events:none}
+.glass-card{background:var(--glass);border:1px solid var(--border);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-radius:20px}
+
+/* ---- HOME CARDS (premium) ---- */
+.home-grid{display:flex;flex-direction:column;gap:12px;margin-bottom:14px;}
+.home-card{display:flex;flex-direction:row;align-items:center;
+  padding:18px 20px;border-radius:22px;border:1.5px solid rgba(255,255,255,.07);
+  background:linear-gradient(135deg,rgba(255,255,255,.045) 0%,rgba(255,255,255,.015) 100%);
+  position:relative;overflow:hidden;
+  user-select:none;-webkit-user-select:none;touch-action:manipulation;
+  cursor:pointer;min-height:90px;gap:16px;text-align:left;
+  transition:transform .15s ease,border-color .2s ease,background .2s ease;}
+.home-card::before{content:'';position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(circle at -20% 50%,var(--cardGlow,transparent) 0%,transparent 65%);
+  opacity:.85;}
+.home-card:active{transform:scale(.97);}
+.home-card-icon{font-size:1.8rem;line-height:1;flex-shrink:0;
+  width:56px;height:56px;border-radius:16px;
+  display:flex;align-items:center;justify-content:center;
+  background:var(--iconBg,rgba(255,255,255,.05));
+  border:1px solid var(--iconBorder,rgba(255,255,255,.08));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06);
+  position:relative;z-index:1;}
+.home-card-text{display:flex;flex-direction:column;gap:3px;position:relative;z-index:1;flex:1;min-width:0;}
+.home-card-title{font-family:'Montserrat',sans-serif;font-size:1.12rem;
+  font-weight:800;line-height:1.2;letter-spacing:-.01em;}
+.home-card-sub{font-size:.85rem;color:var(--muted);font-weight:500;line-height:1.35;}
+.home-card-arrow{flex-shrink:0;opacity:.35;position:relative;z-index:1;
+  transition:opacity .2s,transform .2s;}
+.home-card:active .home-card-arrow{opacity:.7;transform:translateX(2px);}
+.home-card.cd   {--cardGlow:rgba(0,212,255,.13);--iconBg:rgba(0,212,255,.1);--iconBorder:rgba(0,212,255,.3);border-color:rgba(0,212,255,.22);}
+.home-card.route{--cardGlow:rgba(0,229,160,.12);--iconBg:rgba(0,229,160,.1);--iconBorder:rgba(0,229,160,.3);border-color:rgba(0,229,160,.22);}
+.home-card.ret  {--cardGlow:rgba(255,179,71,.12);--iconBg:rgba(255,179,71,.1);--iconBorder:rgba(255,179,71,.3);border-color:rgba(255,179,71,.22);}
+.home-card.final{--cardGlow:rgba(255,91,112,.14);--iconBg:rgba(255,91,112,.12);--iconBorder:rgba(255,91,112,.32);border-color:rgba(255,91,112,.25);}
+.home-card.sum  {--cardGlow:rgba(180,140,255,.1);--iconBg:rgba(255,255,255,.05);--iconBorder:rgba(255,255,255,.1);border-color:rgba(255,255,255,.1);}
+
+/* ---- TELA CLIENTE — 100vh fixo ---- */
+#client-screen{
+  display:flex;flex-direction:column;
+  height:100svh;padding:0;overflow:hidden;
+  max-width:540px;margin:0 auto;position:relative;z-index:1;
+}
+#cs-header{flex-shrink:0;padding:9px 14px 8px;
+  background:rgba(5,13,18,.96);border-bottom:1px solid var(--border);}
+#cs-client-area{flex-shrink:0;padding:6px 14px 4px;}
+#cs-counters{flex:1;overflow-y:auto;padding:2px 14px 4px;}
+#cs-footer{flex-shrink:0;padding:7px 14px 10px;
+  background:rgba(5,13,18,.96);border-top:1px solid var(--border);}
+
+/* ---- Mini contadores ---- */
+.mini-cblock{display:flex;align-items:center;justify-content:space-between;
+  padding:14px 16px;border-radius:13px;background:rgba(255,255,255,.04);
+  border:1px solid var(--border);margin-bottom:10px;}
+.mini-cb-label{font-size:1rem;font-weight:700;color:var(--text);flex:1;}
+.mini-cb-ctrl{display:flex;align-items:center;gap:12px;}
+.mini-cb-btn{width:48px;height:48px;border-radius:12px;font-size:1.7rem;font-weight:900;
+  display:flex;align-items:center;justify-content:center;
+  user-select:none;touch-action:manipulation;transition:transform .07s,opacity .1s;}
+.mini-cb-btn:active{transform:scale(.88);opacity:.7;}
+.mini-cb-minus{background:rgba(255,255,255,.08);border:1.5px solid var(--border);color:var(--text);}
+.mini-cb-plus{background:linear-gradient(135deg,var(--accent),var(--accent2));color:var(--bg);}
+.mini-cb-plus.warn{background:linear-gradient(135deg,#ffb347,#e08010);}
+.mini-cb-val{font-family:'Montserrat',sans-serif;font-size:1.7rem;font-weight:900;
+  min-width:38px;text-align:center;color:var(--text);}
+.cs-sec-label{font-size:.82rem;font-weight:800;text-transform:uppercase;letter-spacing:.15em;
+  color:var(--muted);padding:8px 0 4px;}
+.cs-sec-div{height:1px;background:var(--border);margin:8px 0 12px;}
+
+/* ---- Autocomplete ---- */
+#client-sugg-wrap{position:relative;}
+#client-sugg{position:absolute;left:0;right:0;top:calc(100% + 3px);
+  background:#0b1a23;border:1.5px solid rgba(0,212,255,.3);border-radius:12px;
+  z-index:99;max-height:160px;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.6);}
+#client-sugg .sugg-item{padding:10px 14px;font-size:.92rem;font-weight:600;
+  cursor:pointer;border-bottom:1px solid rgba(255,255,255,.05);}
+#client-sugg .sugg-item:last-child{border-bottom:none;}
+#client-sugg .sugg-item:active{background:rgba(0,212,255,.12);}
+#recent-chips{display:flex;gap:8px;flex-wrap:wrap;padding:6px 0 4px;scrollbar-width:none;}
+#recent-chips::-webkit-scrollbar{display:none;}
+.r-chip{display:inline-flex;align-items:center;
+  background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.2);
+  border-radius:100px;padding:8px 16px;font-size:.88rem;font-weight:700;
+  color:var(--accent);white-space:nowrap;cursor:pointer;flex-shrink:0;
+  transition:background .12s;}
+.r-chip:active{background:rgba(0,212,255,.2);}
+
+/* ---- Banners de info do cliente ---- */
+.alert-banner{background:rgba(255,91,112,.08);border:1.5px solid rgba(255,91,112,.3);
+  border-radius:10px;padding:9px 13px;font-size:.78rem;font-weight:700;
+  color:var(--alert);margin-top:5px;display:none;}
+.history-banner{background:rgba(0,212,255,.06);border:1px solid rgba(0,212,255,.2);
+  border-radius:10px;padding:8px 13px;font-size:.78rem;
+  color:rgba(228,240,246,.75);margin-top:4px;display:none;
+  display:none;flex-direction:column;gap:5px;}
+.repeat-btn{display:flex;align-items:center;gap:6px;padding:6px 12px;
+  border-radius:8px;background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.25);
+  color:var(--accent);font-size:.75rem;font-weight:800;cursor:pointer;
+  width:fit-content;transition:background .12s;}
+.repeat-btn:active{background:rgba(0,212,255,.2);}
+.foto-req{display:none;align-items:center;gap:5px;
+  background:rgba(255,179,71,.1);border:1px solid rgba(255,179,71,.3);
+  border-radius:8px;padding:5px 11px;font-size:.72rem;font-weight:800;
+  color:var(--warning);margin-top:4px;}
+.geo-dot{width:7px;height:7px;border-radius:50%;background:rgba(228,240,246,.2);
+  display:inline-block;margin-right:4px;transition:background .4s;}
+.geo-dot.ok{background:var(--success);}
+.geo-dot.err{background:var(--alert);}
+
+/* ---- Offline badge ---- */
+.offline-pill{display:none;align-items:center;gap:5px;
+  background:rgba(255,179,71,.12);border:1px solid rgba(255,179,71,.3);
+  border-radius:100px;padding:3px 10px;font-size:.7rem;font-weight:800;
+  color:var(--warning);}
+body.is-offline .offline-pill{display:flex;}
+
+/* ---- WhatsApp button ---- */
+.whatsapp-btn{width:100%;min-height:52px;background:#25D366;color:#fff;
+  border-radius:14px;font-family:'Montserrat',sans-serif;font-size:1rem;font-weight:800;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  border:none;cursor:pointer;transition:opacity .15s;margin-top:10px;}
+.whatsapp-btn:active{opacity:.8;}
+
+/* ---- BOTOES ---- */
+.btn-giant{width:100%;min-height:88px;background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:var(--bg);font-family:'Montserrat',sans-serif;font-size:1.4rem;font-weight:900;
+  letter-spacing:.02em;border-radius:22px;display:flex;align-items:center;justify-content:center;
+  gap:14px;box-shadow:0 6px 32px rgba(0,212,255,.35);
+  transition:transform .12s var(--ease),box-shadow .12s,opacity .12s;padding:0 28px;user-select:none}
+.btn-giant:active{transform:scale(.965);opacity:.88}
+.btn-giant:disabled{opacity:.35;cursor:not-allowed;transform:none}
+.btn-giant.compact{min-height:52px;font-size:.98rem;border-radius:13px;padding:0 16px;
+  box-shadow:0 4px 18px rgba(0,212,255,.25);}
+.btn-sec{width:100%;min-height:68px;background:rgba(255,255,255,.06);
+  border:1.5px solid var(--border);color:var(--text);
+  font-family:'Montserrat',sans-serif;font-size:1.2rem;font-weight:700;
+  border-radius:18px;display:flex;align-items:center;justify-content:center;gap:10px;
+  transition:background .15s,transform .1s;user-select:none}
+.btn-sec:active{background:rgba(255,255,255,.1);transform:scale(.98)}
+.btn-sec.compact{min-height:44px;font-size:.86rem;border-radius:12px;}
+
+/* ---- Contadores grandes (CD) ---- */
+.counter-wrap{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px}
+.counter-btn{min-height:88px;border-radius:18px;display:flex;align-items:center;
+  justify-content:center;font-size:3rem;font-weight:900;
+  transition:transform .08s,opacity .12s;user-select:none;touch-action:manipulation;}
+.counter-btn:active{transform:scale(.92);opacity:.8}
+.counter-minus{background:rgba(255,255,255,.07);border:1.5px solid var(--border);color:var(--text)}
+.counter-plus{background:linear-gradient(135deg,var(--accent),var(--accent2));color:var(--bg);
+  box-shadow:0 4px 22px rgba(0,212,255,.3)}
+.counter-num-input{font-family:'Montserrat',sans-serif;font-size:4.2rem;font-weight:900;
+  color:var(--text);text-align:center;min-width:88px;line-height:1;width:100%;max-width:120px;
+  background:transparent;border:none;outline:none;-webkit-appearance:none;appearance:none;
+  -moz-appearance:textfield;}
+
+/* ---- Input ---- */
+.input-field{width:100%;background:rgba(255,255,255,.05);border:1.5px solid var(--border);
+  border-radius:13px;padding:0 14px;color:var(--text);font-family:'Inter',sans-serif;
+  font-size:.98rem;font-weight:500;outline:none;min-height:48px;
+  transition:border-color .2s,box-shadow .2s;-webkit-appearance:none}
+.input-field:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,212,255,.12)}
+.input-field::placeholder{color:rgba(228,240,246,.28)}
+
+/* ---- Utilitários ---- */
+.label-section{font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.2em;color:var(--muted)}
+.wordmark{font-family:'Comfortaa',cursive;font-size:1.45rem;font-weight:700;color:var(--text);letter-spacing:-.02em}
+.sep{height:1px;background:var(--border);margin:20px 0}
+.truck-badge{display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,.06);
+  border:1px solid var(--border);border-radius:100px;padding:4px 10px;
+  font-size:.78rem;font-weight:700;color:var(--text)}
+.truck-badge b{color:var(--accent);font-weight:900}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+  background:rgba(5,13,18,.96);border:1px solid var(--border);backdrop-filter:blur(20px);
+  color:var(--text);font-size:1rem;font-weight:600;padding:12px 26px;
+  border-radius:100px;z-index:9999;white-space:nowrap;transition:opacity .35s;
+  box-shadow:0 8px 32px rgba(0,0,0,.55);pointer-events:none}
+.toast.hide{opacity:0}
+.tx-item{background:rgba(255,255,255,.03);border:1px solid var(--border);
+  border-radius:13px;padding:14px 16px;margin-bottom:8px}
+.tx-client{font-size:1.1rem;font-weight:700;margin-bottom:8px}
+.tx-chips{display:flex;flex-wrap:wrap;gap:6px}
+.tx-chip{display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,.07);
+  border:1px solid var(--border);border-radius:100px;padding:5px 13px;font-size:.85rem;font-weight:700}
+.tx-chip.del{border-color:rgba(0,212,255,.3);color:var(--accent)}
+.tx-chip.col{border-color:rgba(0,229,160,.3);color:var(--success)}
+.tx-chip.ocp{border-color:rgba(255,179,71,.3);color:var(--warning)}
+.big-num{font-family:'Montserrat',sans-serif;font-size:3rem;font-weight:900;line-height:1}
+.big-num-label{font-size:.88rem;color:var(--muted);margin-top:4px}
+#driver-wrap{max-width:540px;margin:0 auto;padding:24px 20px 70px;position:relative;z-index:1}
+.empty{color:var(--muted);font-size:.9rem;padding:6px 0}
+
+/* ── ANIMAÇÕES PRINCIPAIS ─────────────────────────────────── */
+/* Entrada padrão: slide-up suave */
+.fade-in{animation:slideUp .32s cubic-bezier(.22,1,.36,1) both}
+@keyframes slideUp{
+  from{opacity:0;transform:translateY(22px)}
+  to{opacity:1;transform:translateY(0)}
+}
+/* Entrada rápida (sub-elementos) */
+.fade-in-fast{animation:slideUp .2s cubic-bezier(.22,1,.36,1) both}
+
+/* Stagger para cards do home (usa --d como delay) */
+.anim-stagger{animation:slideUp .38s cubic-bezier(.22,1,.36,1) both;
+  animation-delay:var(--d,0ms)}
+
+/* Número "pop" quando muda */
+@keyframes numPop{
+  0%  {transform:scale(1)}
+  35% {transform:scale(1.35)}
+  65% {transform:scale(.92)}
+  85% {transform:scale(1.06)}
+  100%{transform:scale(1)}
+}
+.num-pop{animation:numPop .38s cubic-bezier(.34,1.56,.64,1)}
+
+/* Flash de cor no badge do caminhão quando cx muda */
+@keyframes truckFlash{
+  0%  {background:rgba(0,212,255,.35);border-color:rgba(0,212,255,.8)}
+  100%{background:rgba(74,154,74,.15);border-color:rgba(74,154,74,.35)}
+}
+.truck-flash{animation:truckFlash .6s ease}
+
+/* Sucesso: check + burst */
+@keyframes checkDraw{
+  from{stroke-dashoffset:60}
+  to{stroke-dashoffset:0}
+}
+@keyframes burstRing{
+  from{transform:scale(.4);opacity:1}
+  to{transform:scale(1.8);opacity:0}
+}
+@keyframes confettiFall{
+  0%  {opacity:1;transform:translateY(0) rotate(0deg)}
+  100%{opacity:0;transform:translateY(80px) rotate(720deg)}
+}
+.success-overlay{
+  position:fixed;inset:0;z-index:8000;display:flex;align-items:center;
+  justify-content:center;pointer-events:none;
+}
+.success-circle{
+  width:110px;height:110px;border-radius:50%;
+  background:rgba(0,229,160,.15);border:3px solid rgba(0,229,160,.5);
+  display:flex;align-items:center;justify-content:center;position:relative;
+  animation:burstRing .55s ease-out 0s 1 forwards;
+}
+.success-check{
+  stroke-dasharray:60;stroke-dashoffset:60;
+  animation:checkDraw .35s ease-out .08s forwards;
+}
+/* Ripple no botão gigante */
+@keyframes ripple{
+  from{transform:scale(0);opacity:.4}
+  to{transform:scale(2.5);opacity:0}
+}
+.btn-giant{position:relative;overflow:hidden}
+.btn-ripple{
+  position:absolute;border-radius:50%;
+  background:rgba(255,255,255,.35);
+  animation:ripple .5s ease-out;
+  pointer-events:none;
+}
+/* ---- ANIMAÇÕES: SPLASH + CAMINHÃO ---- */
+@keyframes splashFade{from{opacity:0}to{opacity:1}}
+@keyframes splashSlide{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes splashTruck{from{transform:translateX(125vw)}to{transform:translateX(0)}}
+@keyframes splashBar{from{width:0}to{width:100%}}
+@keyframes trkDrive{0%{transform:translateX(118vw)}100%{transform:translateX(-140vw)}}
+@keyframes trkRoad{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@keyframes trkMsg{from{opacity:0;transform:translateY(28px) scale(.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes trkFadeOut{from{opacity:1}to{opacity:0}}
+@keyframes nightStar{0%{opacity:.18}100%{opacity:.95}}
+@keyframes wheelSpin{to{transform:rotate(360deg)}}
+@keyframes glowPulse{0%,100%{box-shadow:0 0 36px rgba(0,229,160,.3),0 0 80px rgba(0,229,160,.12)}50%{box-shadow:0 0 56px rgba(0,229,160,.5),0 0 120px rgba(0,229,160,.2)}}
+.trk-wheel{transform-origin:0 0;animation:wheelSpin .85s linear infinite;}
+.trk-wheel-fast{transform-origin:0 0;animation:wheelSpin .55s linear infinite;}
+/* Pulse no badge "caixas no caminhão" */
+@keyframes badgePulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(0,212,255,.4)}
+  50%{box-shadow:0 0 0 12px rgba(0,212,255,0)}
+}
+.badge-pulse{animation:badgePulse .7s ease-out}
+.foto-mini-btn{display:flex;align-items:center;gap:7px;padding:8px 14px;border-radius:10px;
+  border:1.5px dashed rgba(0,212,255,.3);background:rgba(0,212,255,.03);
+  color:var(--accent);font-size:.78rem;font-weight:700;cursor:pointer;transition:background .15s;}
+.foto-mini-btn:active{background:rgba(0,212,255,.1);}
+.foto-mini-btn.done{border-color:rgba(0,229,160,.4);color:var(--success);background:rgba(0,229,160,.04);}
+.foto-grande-btn{width:100%;min-height:72px;border-radius:18px;
+  border:2.5px solid rgba(0,212,255,.4);background:rgba(0,212,255,.07);
+  color:var(--accent);font-family:'Montserrat',sans-serif;font-size:1.1rem;font-weight:800;
+  display:flex;align-items:center;justify-content:center;gap:14px;cursor:pointer;
+  transition:background .15s;user-select:none;touch-action:manipulation;letter-spacing:.01em;}
+.foto-grande-btn:active{background:rgba(0,212,255,.18);}
+.foto-grande-btn.done{border-color:rgba(0,229,160,.45);border-style:solid;
+  color:var(--success);background:rgba(0,229,160,.07);}
+</style>
+</head>
+<body>
+<div class="orb" style="width:520px;height:520px;background:#00d4ff;top:-200px;left:30px;"></div>
+<div class="orb" style="width:400px;height:400px;background:#b085f5;bottom:-130px;right:-60px;"></div>
+<div id="app"></div>
+<script>
+const LOGO_SRC='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAN4AAABOCAYAAABPAaj0AAABLmlDQ1BBZG9iZSBSR0IgKDE5OTgpAAB4nGNgYDJwdHFyZRJgYMjNKykKcndSiIiMUmC/wMDBwM0gzGDMYJ2YXFzgGBDgwwAEefl5qQwY4Ns1BkYQfVkXZBamPF7AlVxQVAKk/wCxUUpqcTIDA6MBkJ1dXlIAFGecA2SLJGWD2RtA7KKQIGcg+wiQzZcOYV8BsZMg7CcgdhHQE0D2F5D6dDCbiQNsDoQtA2KXpFaA7GVwzi+oLMpMzyhRMDIwMFBwTMlPSlUIriwuSc0tVvDMS84vKsgvSixJTQGqhbgPDAQhCkEhpmFoaWmhSaK/CQJQPEBYnwPB4csodgYhhgDJpUVlUCYjkzFhPsKMORIMDP5LGRhY/iDETHoZGBboMDDwT0WIqRkyMAjoMzDsmwMAw69Qb2L0O6kAAAAJcEhZcwAACxIAAAsSAdLdfvwAACAASURBVHic7V0JfBXF/f/N7DsSEuQqt1a0SPKSv7ai2GouDFcOb7HhqKWtd6vYVkXUShI8sFKPtha1HvWCEKSKSg4EgSSPq9arliQcXghy1XAESPLe253/7/fePti8t/uuvCSA+/183tvdmdmZ2dn5zfx+v/nNby1CCDBhwkTXwtLdFTBh4rsIk/BMmOgGnHCEV1TEJUvaRWfNL3Y2dnddTJiIFcc94fFSzidBxkgGkCsYy7KkZ2Zi8EH8nd7ddTNhIlYcl4R3dWnmAJuAQs75+MmQOQ4Y9KNwpsYLgNZurJ4JEx3GcUN4uaVnJgyGIRMF8F8kAB8NHCRvBNMkEiDjtcQEtHRHHU2YiBe6nfDyZpyb1C+p5+8GwanTkaj6M71EAr7Fv6VIhVPwSsJ0u7u4miZMxBXdSniTSjInING9gIQ01IDgWjDuaSHEdsbYQ3hu9QWDqVgxcUKj2whvakn2HRLnj+IpD4oUcACJ7FkFxJsM2B2Ms99ro5lQ3uuqepow0RnoFsKbUpJ1CxLTn3SivhECnpA9cplk4TdxYCsxLDEgzf4jLeytLqimCROdhi4nvKnF2elIdE+0CxSwQ4B4UIb9r0nQ61eSRfqIobynm4EQpW8+UtfcFXU1YaKz0PUzngQP4r/de05aSoAnPbCvhEHvbAv0+TeymCmG9wp4x1O/5q9dU1ETJjoPXUp4U0qzhjDGLvNeCNgtACbJIP/Hwnq/gJLbT0PeLMR8z0HlhvJyRe6Kupow0ZnoUsJjwPKAlClCfOYCNt6qiKEWSfoEw04NcdtWIZR7FhQ7F3dRNU2Y6HR0Nav5I5zldsmye5xVspzHOH8N/GynFgLagIllioCXlfo1b5mznImTDV1KeIJmNln8lEtSOmO8rF35ArbglLgchLLcAwdWlM/69FBX1s2Eia5ElxKeIpRnGffs5mCrEAL2MRCVSHEr2kBevbh43faurIsJE92JLiW8hSXOZZNLMi8XTM5bCOvWK8WK0pXlmzBxvKDLlxPKSpzexe8FXV2wCRPHETqd8GpyuYVbR5zFGEsREhsOwPogi3mKEIwzgCMo1zWDENuEwj5nkqchs2LT3s6ukwkT3Y1OIbxVBWkpFmBXMiYulhIdF2JQTwo/ZgjNgGmtovGCeTcBWYSzMH2LAHAicVa1yPurxlV/c7gz6mjCRHciboT33ChudfRPKcKJ7DdWxn7iC9XdcxAKdMMI/BuBp79KlPocqitMXyTA81R2xaaP4lVXEya6Gx0mPM45W53vuNYxwFGCl2dETWqhkYz5/YqB5Zc4E1Z5FPeM0VWbN8a3CBMmuh4dIrzV+SPSa/NSn8PTC+NUHyMQPRegsDjeWZD2p11fNxZP/FRxdXKZJkx0GmImvNqC9F9bmPUxJIkENWgHgNddw6C41EwfKDqymYO+78hdMSHtyrHL6r/paIbOAsc5wPhtII4+BwgUMBFV2ZX1ZeHur8tLz8annsYE2I6FCg/+LcysrF+me09h2nhMPxnHk5jbn+qIh/eyKja+7A+rLUy7lAu4GlSJOR7wliOUmqzKhhf8YTX5jjyJsaJI6o/3uzCHQ8DEHqGILbKbb7h4xcavOlqvt7PSevbuCZfgiDwa+0QaHodicA/w2mlAsxDwFfbND4UMK4SrYVXOSsUTa1nvjR/ey26xXor9JAcvz8bfYPBtV1OwtGZ6NjxuxuuPMGDdnupNH05UQltbRf3iSZZLHeB4hjP4FV3jA24UinKXcLV9xBMT/s6AXRrDs0WLCxIsbO2qsek5HX6JjNOMfYFWHKVTxtjPanLPxBf2+a6Qt0uwCA8D24uz3osiZMOTFEVp56qbWPPafMebmKRHh6rtO1xbl+eozapu+GLx2dyGA9I//bv04wVvOYxfWzchdW3WssYGupQ4J7vZpMjv9/2RHpvbabBL/1CAMq9x76ZXbnhfcUdTn5Xj0vtZrTCr7ynsegDDNhzEGJyFx7H4fmZAomOHszDtj7uqGueFIwi9suxWu3FZDN89sOF4vAivfsHxZFC+owkH9NszKxteM8o7KsJbnHF6oqM/dhqACfjz4FD4sNLaNJcn9L2TJya+DhG+jDjhdItd/LMml/+kI6MZGL88xm32wE240dyfuMi3u17vRXeI6LRQgHvbvH//ATTjxpXotJAZ19Y5wTBhJGAwEknweceA1NtRXJkcqdxem5+aZbNJ1M8GRlkizobsL4PyUicjpzQxEk7JOcGRYbN5B5hYOLi+WN4YPHac8HD0TxjUO/kdPKUMd+LAUSQUaJYS+67FQs7WuWUvsmsrcOagF3Z51FWPADiGnsdsKePwtKoz8ncpIs66IhPtwc5Gub3WWZiSlVmxqT5Uytr8tIs5kyqhI0TP2IUJFqjFGTcrs3LjTsOyChyjuIWTmBDzRKIwtipUfESEt5hzCadPknfG4Cz3ARPsUg48DyzsbxDsmmE3MqAP7dp/+Pn+PXucLnEobr9oF18g+/L9Tsv8OAey+XvA1eK1cd3cvKfNkdjvCMRxNtUWxZjnQCfkS+grwLKglPORxYq+CeGqsalDrXbvTGdEdOTguBp5+i/xaMfedj4eifXT63g/wNBy7NMX67Gd1YUp9mSsD4QgOqSBb3DQ3+o7h15YyPCA9Eqb7Ko2up8QEeENzE/9Ix6uwF/lYZAnY8UeBM5uC0hGrOef9x2E0r49xRkDeyeVY+UKQc+ZUfyAHUKu68T8uxotslDGR5KQC6Y0Hz7SUFD75X66JlmppjB9DBekcBD6yhXGbsX/ZN04IcgdR1vwPUTfijOnavPWCKqF8pqY4r9QBL4ewfoxDmMxoyvBoC9gx/3h6AkjcvF0hV68xS6R14F+utUGsbS5+cjPsR32acPr8tMuwkH5DdBnS7MG5afciMenAyN6AJ+KFRpu8Hzbsbzrcqoal2tldxw0+OhxqSO5xPJwjhmNaT4eV71lj0EevmcKFUmoLUibzBm7A1v/dZen7YZkq/0VrFg71pEULLIipiky+7LvKfA4NuUvGYCxZk3AVsyDZsqh4coPBXzyuVlhWJQTDHJOZYMz1ptzKjaux8N6o3hnYfo0MCC8Q0wuyavYdDDWsr0QIGdW1uttWH7GmZ9+CZLdEjDoF9h3kTiDCa9mQtr5ksVLtMHFYb9TWluvQaIL8iyeVVW/1pmXcjlIljX6ZfJ7nxvFnw9U7jDQL4sge8SVOcvq/x04Lasz9b/V34NG92sRkvDq8kecxrn1GT/R2a12UqxcHJDs6d0HDt0x6JTkMWADkgEHG2RHD7hIKGIeNQqtASJ//wHobYSNBAL+lFPdMNPc3hAfWN1yp8qzmVUblzoL0l7DWXeaXjx2+B/ohUsS/MYoT5TA789Z+bmhO//M6k0bsMzXscxJOtGnpn4vpQCP7TzWYT3SDbLbRkRnVFa0CEl4jFmfwoOz+dDhm3r2TFqK55lHIwW04oPfrLQ0zB/Y28uK/l43E0oH8Hck3MecKz7fPmZ8ymU48r6HREcEHMvL3iGE+HVWZf3b8SE6+jLncaNDOW4q0ikQUINPqEt4+BaCvpDqM0N06M9AAg5s2tuwNDtckUx5lYGkR3g46bGrIIDwIFhn4c+pBxn8d1CDfhSGhFeXn3oB49LgI8qhvFN6JpeDluh8GssrcJqvlxIdJESO0asptuWrCpPvu7hqy47VeamTxuQ77sdwR4x1JVnmiRZ532PHmeH0CfNJXXwfOFZ2H20LDv0MS2fi88CglP6O87G6vQzuWB/JGuBhEM5kWnXRkS+xLXJ0biHZTGcJgX2PJzhKkCW+P3BtNhYYz3hMGiWD56oeLIk0l+M0MdvcQoy3crlJSkgkj84jA2/18t4Mrs+pqF9P6yE1+alLSPUfYx0/wx4zT25teRHZiv0x5mGim0Ga8YH5jp8ZxSuCvo3RHhzEqBBMwOZIyiW51VmQvgOzOU0n+vTK7GF9tIoZ7LtOxuAcvbww/L7afEdWbX5aSXZVfcjlgnAwJLyV1Q1Pj8lLvTuAP97uBk+ucFv2g81Siw+TFnAb8W1zDzPPLJQZEpClfA4s/DoWPQtFdpiVKKs/t7Jqc7WRmrmzYbNKJc7CtDBqdNaxxeT2sNTlp90cNhUTboUpy3IqNp0Q7jJIRT8oz0ED+A8NkizXVSoxlmqUp2Ai8g/XMKAFcz3Cg1N62EfgYYP/GrvaXyWJk8bTiDayOWcrsW//F2vx9za365Ux726NeqnFkPByxzsyscJaDc0+4ZHHH246vLPXgF400wUS3X4klKlZFY2VWKkcsFrIhjCaj0cS0W7Av1c9bijPXb7xWwrMiiKDeANHi2s7Inb1Hx18M7Ep2D5Gt9gZZ0Eqbr2aScDJVG5YzJXrGPRZLYYDR2H6b49eCmEVwIYlM8vl9GEag7z+0yK7jGbCIcY1YNFwP03G2fB2bGVOdUOjsyDtQST6kjB5/h9Zw9it9jl1BWnzhQeeyn63/tNIK6RLeMvzhiQlSn1egmN8MS01FmUva2zATkMLmT8JuOVzJMpLcpZvbqwtSJ+BjfyQUd462IKP/5KQRRnZHEZacQJ9lpk7Mn7PGbsFLwegALPKJdy3fEccJ4XyRdpdsOBIc8w9PwspUdKa37NyS9M941buMvIo19foZsGUKL6RKI4YDqCc9w4Myq5unF2b50jCW+6E8CNvEmPsRmaFG+sK05YywYozKzd+GK5GusSRKPUmA+gzjlYbxNzs6vrlyHbdhvWYGJC80d0mj/129+a9KMu9hNc/D1co+JYWaHHz6eyqhtpYhVVLeiaVd3S0xBa6xA7WoSgAnxcPAfi7BItH6QqtC+36qEF6XC6D/EoErHKIpSYeuXZRYH8zeDrs20FlqH1nBhLSChw6aCAJ5O50gWkvwb98lCmfOMQ8f0D5MtggQYXBrMSu0Fx8sXv/4VLnuPQRYGNzAxJ+Ibe0XHy42XVw0GmOt8FnPB0KbchKPktLC8gXb6OASIU3+mJsf2XIudhUh8pL1/imdCHkIHM0BudO+kPGmUBKmZMYZB3R3XWIATg5sNNpiWnv16EtOwiCTB4N4rgQkVtEMWaYliyAjOKyKurfXcz5OQMmpFyNg/l0DMqIoDT6cOqdySCNQs6x0EgDb8QOail8zsQ1X7UgFf8F2o9ALtkjX7V375dNg77vIONVvSUFLcrdbXB3LNt4ppRm3ToYTp2Nj9THd5395sJS59U/Lc5YJIHOupBwxWWTLA58U4VPMDeExBhp4+KzKwM7pAwiP1wySRbu3YeOhGVnugE0U5BRBO2UII6pp06aM7BjPoZ95noczK/IXL7RWDspRKuRna+IzvDCZhylGC7AE1R7Ttr6tchr9MGs07D+KPuH27XAclBcoz2MumuIRoTnr6irzd22qC7Pkcsk3m42wwd/LWdZ48dIkA9ACKIjg1KU367Prm6IaQcBEt1sHCXv14bhu7iyqDjjxzhU6RHF/xY8sOHrWMoKhMzlDRdXbAo5c6LMGz/38gzknIr61XHLr+vhyqzYOIpO1H2bU5BsnsTLIDkKaD3XBitrcs8833jPIzP2OMd0idoIpxhFyAL+F2km6valGTW5/F6e4LgM++FMvB4V4pYiZFdfpJkzMMKI8GjDYwYSzRekKsXOlRmUQoi3vLsW8hyBxtLHkoBY6naxX+Qur/829CPpY1JpVgHOKH/Qz5slMyESg3h3AWtiKctEfKEubr9cMyH1E0mSVhsshA/lCYnESel/KYqJr411G0z/+4n6+J5RhAA56kFatV55o5TzJbkTUm5jnD8GBjaoKPddh4fICA9Fy7s4g5fwJq/KVghlRyCbjGH7+o8eZjXYSa3QhyZXVjWWxroGV3Tfef0le9ILoN/yLmywDznw63Ti3p5akn2TYKLfguK6h8OXxEwlTCeCuKLawrRrOXi/4hv0LnHWmOjMS/kx2VUG3SxEvRGryUDo2nYGgnYOjMl3nGkQ7W7lLJJdF7pQ+/afnYVpCi0tGCTTnRF1CS+7cuM6PBz9QKTSuq9cSux3N56edTQRl85AFqGuriB9FrbNA/68sBevx6aaidNrTaxrcBxba5I98zVmxEcLUVZevKZpamn21e3DoaUFDr2RwJPp2+mji4ozV5WXOtfFWI3uwElpq5ldUf8Ock20x22qTjQDyUL9J3g7lCzWGi9K6W6+DsLoCcOJ6PS3QgF8FErzGCl2bWt8FmVWslfWs/PUnW0jWmvLWbnr0Mpxw7NsNhvKWowoeKf36z6IrMqNjzgLU14QCjujTeHb4+GAaDJkzga9F+HDIeFx3V9UmnGBhUk/1kbgLLuAe3r0YhbIoi6MbCptNYmZ8PhJtgOddePs3uaWZ9mtUhHo97lx5NYhu6qx3d5K77pwvoOUcXqGGCPqJpx1VtayLVtClctBKjSOFbrOqKIFebzDgYWUNHqEp6u8idj1Q+7yrWSic6tenOp2PS6u1yeXZE3lnN1rFC8ElJLyZGpp1ssBUR4B7kdtFtstXsMOAouft62THYejW8czImDDPMa82/h5XWHaAiR+3XVezqUSCFDS0XoaclSvkY2kbmGSjUy77jIqk3YTSImO6w2ihfAoYb3IRYLagvQLUTTro1uIwbJWp307Adm8Cy2c4YzEDuJMVI3yVtiZcEpp1njOmJFcR1i/C5xPogw3GThrty+QtKz7Drft6JdsveHY7cp/O/gYnQXquCfVbBoJhGDPIBEZGVjkkqvErOqNtdrANlnMS7Aw2nIWPJswuN1ZkLZCz42iV7bLczwOXtMuXVT5vaZp4d14K7Fnsc8exALew0qv3L298d9Gflxr8lPHSlx6yaAMkkWX64XHlfAKb0+x9+o7YDKOatMtEj/3aOGCtaE8VjK/uPYRo3unFmfkMC69gTXVX58R0OyS3T/vL5/bB2wasyRfXJsb4IF+PZKnY2l91bAWubVN96GPY/RAliUadrAJFJhGm0w7rUZxBOkO8Pmos+tuDUP+pBgCZj0SXZwF6XOwX8zWucWKXE0F5vkPRVbeUJi8jSncyizSOWPyUm/Ge4wcLbsVt5ipF8EtQLPoSNXYjXx2PoDyG61jN2DQ5/hyDjKfEX9f7GMjkeiM3EQQWoTieU4vIi6EN6X0omHALDf06jvwBhzRgtW8PmKaM6Uke++CktoXAqMnlWaPlSSJtF6GjnoUUG58ffa6LUjAS3y+DNvl/0dZHGoClnyXJuyf5XPe7ywHPcdAGzgN5q7NzfobvuKIvlg2yU0nBOH5IF7Dl/OQQWQu+UohDwXaQLm1YY6UmDoG9JuTxInrucSv52Ra7Fe+h3KwJWCmkUEza78Fzg9atqLtbyOD3aeGKEZR7smq2qy7XBEz4RXdM6oXT0i8HHnbaxmzkKMaHpZ5YoKsTNoR3pSSzGslzp+HkNYF4smyYufCKSVZv2OctXcVKMRnO2HHnMFw6iNwjM8WivA8EZzPSYju3NkaA9xtbL7V7tWC65txcbgH/9s5RaZ1s/fGD7/cbrWTa5EOblgRc5A1fVwvpqYgbZjE2LCO5a+WAvBwVlXDn43ioyI8UvMXQcYVSGzTLAmJEwzZQgMwxnb4z2lngSU940HGOS1TGHYecqUu16+5U2VF/xgQrWCKGwcrQxz4wjSKH/GO2+3eiTLjkHCypfC67ugcjOh54uxO7yqQyaCzMG0FvnJdrTV5pqvJc6TS9hxtOBlyLD6bjx10muN+TEScTbS+enYpQpmeXdnwulGCNnH4YA+WTFY0HfkMwTac6aYj0QW6lGiHiAnvmtLsMydD5gJ8aJ8KP/reuk0ID41mUHR/xlBLWsarmEmg46R2wF774QHwTEpOyRiODAXtZrAGJHjCAwecFt5n7VFNJvLfHg/MsFsT7xYCiJ0IYm0DSsEGYucEPhH5D23hLAKrBrEEb9WxF4UKI/8c+FxLsDBDb1ZRwK0IURF5cvEm1jVIM42D2+pLnNv2R2HpQGVeERgofOFhobjhTm71ehzTXdiWOKPlg8bAcFXBcT/KW/NowMU3Rt+JIOWJUW8k65n1WGLZ/j3NL1/y/vYjoeo1vuqrpuV5Q4YnQq9xwHku5krb32jzZDhfpaRArBEKLNyzvXFxJB/UiYjwrpl14Vk2yVoXJFtFAuF9+Oc9IP+hvHhtE2kkLVb+1FEliPF9W5jbU5DMeE+LlZERdkB68fH+pj339e43oBQvtG4lnpQkuQ1lzpuwMfQWbNshq6K+GNmYxy0e5ajWzGWTlAnvfrY3kq1FyLb84t38039vb5M0rLLdk7OywdAGMKti41Xkl1+SWzrkct1la22Oxv9MZkX9bZXZw2YlWfjR2UJKtMo51Vv+F802qsyKjVcG1l+WEt3+zcvhQPIV53z4ijGOvoFt0JJoPZJXGdrNoOoFmt57KbZ930RIop3qgxkT3neIA24zPs5X4HY1hvJCpge1PZeoP692NHfC8KFIKqcJzgZyoSQJZL0YTZAgmjwCvvq2unFrNN9kIIQlPGIJbWmZ5VETnQAZ7ylzye7ZpBQh4p0yO7uMcVoYDztdbvZ45FwZ3Nxu8fp1CRwZ/+fxuK/q1XcACttshia8cafYXjyYDZ2P5UuK60hEzm7VrfvtFDHR2LnRSBlFci8i7aTxRqDjV0IsNn0drb9K6B1uA7Xt14ZNGCNUs7Cv1V/cEJbwJEfmZbTHLYo8D+GQM18B9+Nls9ZvJrZy6uzsv9ksVlrIDKFA8QFHq09c7pZ8YHab3ZZIDk7bq2txBsU3do2CU5oF2EI4JqS7PEKeNlAMQdmTXYV1frH8oQ/M76mbOC4RntXkkBdpZigr/E2G/TPLiz89NHnWRQ6c4Z61WCVaMI3MIZAQy+XW1mukhIQzLIyRBivQvYFAAfkmF4P6BMlaq9FiktH2XeBq/YLbkt72EqcsIjCQNmGiexCW8JgI/PZbqMRsoEX0uRVnuMu5xRLolyUUaDfDw3L9mhKelnE5Z4zMwQINW8ltwHSX2/N2gt22EjRG3IhXdsHaeYNtGZU+llg8tWB23Um9A53AGCP5iDgCMuc7Imjj6Hcc2CYkvw4DHxt7ANskqu/vdRUi+KKn2BnpUhGmmoh/gT5ZwgIb52mXu3UeypJzGYPfQrAQ6EFW+0ZFFu8m2K3Efh7zeyigZn/T7hsH9c14Elt9HLKqe2VQiqOtwwkKMli/AHyDEGmMv/OEBz7Hy6SJJIULOSs6MQmPKWIpcBbe12MHgKPUb1Ce0/eRL+BblOkmcgEHuFWiD3KcqonbcKRFXNqr38CZSKm++4W4rbxkTVTKDiyfvvcwEQeAv6rXtPm2Ca/n+euHh354PVu9JnmVZnQSvO/G8H1qOG3o9KvZH8PwD9TwS/BAFibUCR7C8M8wjBaCiQ0nxRF5US7G8G8wnHZWk+3haLx2qffTQPQo/sgqaCuGP+h7VLEWo8igYBmeH3V3h2G0AD1Vrd/fMC5oczCmoXdP7PyX+HNimvk6aehZrgHfZ7AexTRfYBitv5HoUKHmfbOaljZE01Yd0u7NwPBmNZye0e+9YA6G/1cNp3wL1TrSs3/NfLtJijRtMhPDv8Vw2lrzhtomino/LR/RQjhtsN2I4XPVNnlPbZO38Pzo8oFaHrlsJ6XO4xgX9B0ETEM71X+NcY+o17TcNUVTn/swbg+Gk+0omb1RHf6MYZ9o8iDRLB/Dbg/MX4uwhFc2e23l5JLMf4FvZO1yYCt9jN3ul0Br99pFUyFWtcDhqxITk+5hvtGe8MqCkrryGIohpY920ZT8hQxTOzz9zof2FvnkI5JezjDw+t6Ev6gEQ+eXga9jkuW7nwgH4O8f+KMlBtq8ey++GNK41uF98/H8Bk3e9CEN8kNCNot+dxlESDQQ3KV2Di9U4iFtMxH2EjWMnuU3aj4U/4YaHwjqNN9gnreEaBfK+2lMo3U2S1pmUmrR82oJmr5TOAt8AxJ18hdVgrkM75+otg+1gZ8josHuabUe1G4P04dM8bhCp02oTanjk7Mhv6aaBrnPMN1fAtqElhTomtp+mRpGYguttVI7Jqj11/tYKrXXUV+emDd5i16lUx96VrL1JBeDizG+kOQgNY7yTaB6YJChC8KwhEdq32tmXfgzm2TdAAZbHzoT2PV9RrNa5lPAOo/svi5BSnoGH7DIGyTgk6bDzb+OU7HUiLSPj9gWIvbV+Au0E6R1RbLf87uooxFwvfoCWrBeMv64f4QGX0egDhH4ed7A9TOaUcgyowSOER4ZLSzyJhZCu8Y1Wq3bj7GsJIyjNSjamf2xWq4Lw5uo4+F1oO9KKvd8jJuDxzKM/49BW9xMsxzGz1LLp+f6J/jYOO1gTPkRof0If35HTCQSONX7mln7bVqUngiUBrxAJ76BbUJtP1Mt00941CZP6bQJza40G+fRIKRyDcR2btC8G2oXiZ7F4JkDobfGyWhGxXzI6JsW/L9UBz3qL0vVeiwxyjCiBXRah5tSmjUJZT1iTcIuCXQ6GIyyWGyfgZ8cBXwNnrZLqx/9KNaPmeht06GZghZpqSHvAF8n16anEZQ4gYVqGMlX2raxwLEXRsePwDdiB32cww91tKaOS4PJKJrR8OWS9csR0DeRoh34pFih2YRmuNd16kEjvFEHIxeBZLAcyjksKboC18l+pJbbXz36QbP5++BjYUGti3aBPLC/EbtHXtW+NCoc24BYSfJ6R8+aQVyISkBGbULsJBEDtQmxrpUQ3CZ03hFzPu299M787UuTBNWXFF5kUdMxwiMsKK57d0pp5lQcxMuiua+ToC3/GwVcY8vi5FlMBTUsjaLkts9DswULtnYn3l7rmo4+kPkIpqMvlxIrckTDfhDIjyjJqL/EXzuvaRrQbPcq/ugLTPRCaaQn1o5G0N9i3uTl6jzMtpb5nODQbEGOdqhz0yxJhPcl/lIwnuJoVraGYnlUUHvqEae//sw/e+ORZGxiQUmGuVc9+tPOJTlVcz/NfPfhPbQ1hjiCwAVzwUbYoAAAA3NJREFU8hxOsxaxmkZbxkgOpPtJk01tSzMdtSP5cb0V86ZZcCSx7uqMk6S2A816xAER4ZH52Xkq60v1b9VwIoHPa8d05BXtiF/GNkAypiNXKMNIPlXDiM2kgYz6zo80M24QoiKgBcXOxSjvuTnj83F+iI8vyY5AwBZ8qrzXi9cbziIRghpKO6qTrEEvhuw8/ZpCracocszTzgKEZiZsaJoZi9X8tMoiIph9mGYLpgmsa6Dbw1cwHbGHL4HqKIeEd7wmVnM1/v6kpqNO9ALGeZ31YHyNmlbgOTlfnanW/SaDZ6aZdLdaXyIQvd3YNEuTLEUDwt/B627fS0CkJNmK5XyimZWJpWzHztLyBsaT/E3KIJJvp2uiabYl0y/qtIGbVbVtQnkvUAc/2sWSqua9Hq8Hqm3iX7MlWfpZTZusU9N6VIUIscv0bozk2iNqPO14p4+w+vtE4Dui/kHvl5zyar/78C8s60O1bGovGvy26RUU9cxVVuJ8q6g4O8fCcVRhx9y8dz1E5cE29rN3Hq4NMoGKOiefRnCp5tqvoFmrCSvTnOv66sBwYnGm64T/S3P+j4C4+ZrztzTnZHVTqUlKL/Abf91IuxZQ55c158SG/xZCQB3xZ4RJQ2zj+wFhyzXnL2rO3wEdqLKjnmG21pwvVJss0pzT7pYdmqTUJl9h+JtqPMnb2zXptW1Cs17QuwkolxwfBbmSCNT4Cp9hepBBeEB7hPyMV0wsY3lp7QdF94w615KYSGyC4TfPOgUCDgtQ7l1Yuvav37HvIxBRF3V3JY4zkBo/rCH88YiYZTV1d/e1U0sz/wGM06ZT3Y/5xRH0hdkyl0fcu/gB51cLvitL5CrUGcpcINdAbZMOu+frDnRYSTK/2LmSl/JzJ0Mmrc/QJ7pi/fKrEZDHF28g1c1dUFwXt4+/mzDRnYiLdlIp9m6d8H7YQfV3OQ1ZwiuRCAfHmifObv9lgpULT9vL8foWggkTxwvivixQXryGFAn/wlnwtmtExjlcsBzOaaFZpIFg9KUYUnFrdfMKUtk+DNmEaeoxzToPyLWYT8yutU2YON7Raetx6iz4sfo7iqLSs20WSDilFew8AdqUnfDB/pXF+i4STJg4WdHlC+HlxZ/SgmLEn0YyYeJkRHdboJgw8Z2ESXgmTHQDTMIzYaIbYBKeCRPdgP8HH8kkHMAzNU8AAAAASUVORK5CYII=';
+/* ═══════════ FIREBASE ═══════════ */
+firebase.initializeApp({
+  apiKey:"AIzaSyAeAOjFZSHy28uZFgH1PyoJaxPRyS-N1Kw",
+  authDomain:"luminmkt.shop",
+  projectId:"lumin-a5b29",
+  storageBucket:"lumin-a5b29.firebasestorage.app",
+  messagingSenderId:"413860601418",
+  appId:"1:413860601418:web:0b5cce923491e50fdf50b3"
+});
+const db = firebase.firestore();
+const TS = () => firebase.firestore.FieldValue.serverTimestamp();
+const nn = v => Math.max(0, v||0);
+const $  = id => document.getElementById(id);
+
+/* ── Offline persistence (Firebase cuida da fila automaticamente) ── */
+db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
+
+/* ── Monitor online/offline ── */
+function _checkOnline() {
+  document.body.classList.toggle('is-offline', !navigator.onLine);
+}
+window.addEventListener('online',  _checkOnline);
+window.addEventListener('offline', _checkOnline);
+_checkOnline();
+
+/* ── Vibração ── */
+const vibe = (ms=22) => navigator.vibrate && navigator.vibrate(ms);
+
+/* ═══════════ CLIENTES ═══════════ */
+let _clientesList   = [];
+let _recentClientes = [];
+
+function _normStr(s) {
+  return (s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
+}
+
+async function _loadClients() {
+  try {
+    const [snap1, snap2] = await Promise.all([
+      db.collection('ll_clients').orderBy('lastUpdated','desc').limit(300).get().catch(()=>({docs:[]})),
+      db.collection('luminlog_frequentes').doc('index').get().catch(()=>({exists:false}))
+    ]);
+    const set = new Set();
+    snap1.docs.forEach(d => { if(d.id) set.add(d.id); });
+    if(snap2.exists && Array.isArray(snap2.data().nomes))
+      snap2.data().nomes.forEach(n => { if(n) set.add(n.toUpperCase()); });
+    _clientesList   = Array.from(set).sort();
+    _recentClientes = snap1.docs.slice(0,8).map(d=>d.id).filter(Boolean);
+  } catch(e){ _clientesList=[]; }
+}
+
+window._buscarClientes = function(query) {
+  // Usa só clientes da rota do dia se existir
+  const rotaClientes = (window._S?.dailyRoute?.clients || []).map(c => c.toUpperCase());
+  const lista = rotaClientes.length ? rotaClientes : [];
+  if(!query || query.length < 1) return lista.slice(0, 8);
+  const words = _normStr(query).split(/\s+/).filter(Boolean);
+  return lista.filter(nome => {
+    const n = _normStr(nome);
+    return words.every(w => n.includes(w));
+  }).slice(0, 8);
+};
+
+function _fecharSugg() {
+  const s = $('client-sugg'); if(s){ s.innerHTML=''; s.style.display='none'; }
+}
+
+function toast(msg, ms=2800) {
+  document.querySelectorAll('.toast').forEach(e=>e.remove());
+  const el=document.createElement('div'); el.className='toast'; el.textContent=msg;
+  document.body.appendChild(el);
+  setTimeout(()=>{ el.classList.add('hide'); setTimeout(()=>el.remove(),400); }, ms);
+}
+
+/* ═══════════ ROTEAMENTO ═══════════ */
+const params     = new URLSearchParams(location.search);
+const driverName = params.get('user') ? decodeURIComponent(params.get('user')) : null;
+
+if(!driverName) {
+  $('app').innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;
+    justify-content:center;min-height:100svh;padding:40px 20px;text-align:center;">
+    <img src="${LOGO_SRC}" alt="Hetros" style="width:160px;margin-bottom:24px;opacity:.9;filter:drop-shadow(0 4px 18px rgba(0,0,0,.4));"/>
+    <p style="color:var(--muted);font-size:1rem;max-width:300px;line-height:1.7;">
+      Este link é exclusivo para motoristas.<br>Acesse pelo link do administrador.
+    </p></div>`;
+} else { initDriver(driverName); }
+
+/* ═══════════ FOTO ═══════════ */
+function tirarFoto() {
+  return new Promise(resolve => {
+    const inp=document.createElement('input');
+    inp.type='file';inp.accept='image/*';inp.capture='environment';inp.style.display='none';
+    document.body.appendChild(inp);
+    let done=false;
+    const finish=v=>{ if(done)return;done=true;try{document.body.removeChild(inp);}catch(_){}resolve(v);};
+    inp.onchange=()=>{
+      const file=inp.files[0];if(!file){finish(null);return;}
+      const reader=new FileReader();
+      reader.onload=e=>{
+        const img=new Image();
+        img.onload=()=>{
+          try {
+            const maxW=480,maxH=480;let{width:w,height:h}=img;
+            if(w>maxW||h>maxH){const r=Math.min(maxW/w,maxH/h);w=Math.round(w*r);h=Math.round(h*r);}
+            const cv=document.createElement('canvas');cv.width=w;cv.height=h;
+            cv.getContext('2d').drawImage(img,0,0,w,h);
+            let data=cv.toDataURL('image/jpeg',.40);
+            if(data.length>400000) data=cv.toDataURL('image/jpeg',.20);
+            finish(data);
+          } catch(err){ toast('Erro ao processar foto. Tente novamente.',4000); finish(null); }
+        };
+        img.onerror=()=>{ toast('Não foi possível ler a foto.',3000); finish(null); };
+        img.src=e.target.result;
+      };
+      reader.onerror=()=>{ toast('Erro ao acessar a foto. Verifique o armazenamento do aparelho.',4000); finish(null); };
+      reader.readAsDataURL(file);
+    };
+    window.addEventListener('focus',function onF(){
+      window.removeEventListener('focus',onF);setTimeout(()=>{if(!done)finish(null);},800);
+    });
+    inp.click();
+  });
+}
+
+window.tirarFotoMini = async function(key, btnId) {
+  const btn=$(btnId); if(btn){btn.disabled=true;btn.textContent='⏳ Abrindo câmera...';}
+  const data=await tirarFoto();
+  if(data){
+    window._S.fotos[key]=data;
+    const isGrande = btn && btn.classList.contains('foto-grande-btn');
+    if(btn){btn.disabled=false;btn.className=(isGrande?'foto-grande-btn':'foto-mini-btn')+' done';btn.innerHTML='✅ &nbsp; Foto salva!';}
+    toast('📸 Foto salva!');
+    _atualizarBotaoRegistrar();
+  } else { if(btn){btn.disabled=false;} }
+};
+
+/* ═══════════════════════════════════════════════════
+   DRIVER
+═══════════════════════════════════════════════════ */
+function initDriver(name) {
+  const S = {
+    step:'choose', mode:null,
+    truckCx:0,
+    clientName:'',
+    clientSubStep:'name',
+    totalDel:0, totalCol:0,
+    totalOcp:0,
+    depTotal:0,
+    retCx:0,
+    transactions:[], saving:false, fotos:{},
+    geoCoords:null,
+    _fotoObrigatoria:false,
+    _clienteData:null,
+    _lastRegistered:'',
+    _weekTotal:null,
+  };
+  window._S=S;
+
+  /* ── Splash imediato ── */
+  const _splashT0 = Date.now();
+  const _splashGreet = (()=>{const h=new Date().getHours();return h<12?'Bom dia':h<18?'Boa tarde':'Boa noite';})();
+
+  // Caminhão SVG reutilizado no splash e nas animações do dia
+  const _wheelSvg = '<circle r="14.5" fill="#08080e" stroke="#1c1c28" stroke-width="2"/>'
+    +'<circle r="11" fill="#13131e" stroke="rgba(0,212,255,.45)" stroke-width="1.2"/>'
+    +'<circle r="3.5" fill="#202030" stroke="rgba(0,212,255,.6)" stroke-width=".9"/>'
+    +'<g stroke="rgba(0,212,255,.55)" stroke-width="1.4" stroke-linecap="round">'
+      +'<line x1="0" y1="-3.6" x2="0" y2="-9.8"/>'
+      +'<line x1="3.4" y1="-1.1" x2="9.3" y2="-3"/>'
+      +'<line x1="2.1" y1="2.9" x2="5.7" y2="7.9"/>'
+      +'<line x1="-2.1" y1="2.9" x2="-5.7" y2="7.9"/>'
+      +'<line x1="-3.4" y1="-1.1" x2="-9.3" y2="-3"/>'
+    +'</g>';
+
+  const _truckWheels = (cls) => [42, 92, 195, 275].map(x =>
+    '<g transform="translate('+x+',88)"><g class="'+cls+'">' + _wheelSvg + '</g></g>'
+  ).join('');
+
+  const _truckSvgInner = ''
+    // FAROL BEAM (extends left)
+    +'<ellipse cx="-22" cy="63" rx="60" ry="15" fill="url(#trkBeamG)"/>'
+    // TRAILER
+    +'<rect x="115" y="20" width="190" height="60" rx="3" fill="url(#trkBodyG)" stroke="rgba(0,212,255,.22)" stroke-width="1"/>'
+    +'<g stroke="rgba(0,212,255,.1)" stroke-width=".8">'
+      +'<line x1="150" y1="22" x2="150" y2="78"/><line x1="190" y1="22" x2="190" y2="78"/>'
+      +'<line x1="230" y1="22" x2="230" y2="78"/><line x1="270" y1="22" x2="270" y2="78"/>'
+    +'</g>'
+    +'<line x1="115" y1="22" x2="305" y2="22" stroke="rgba(0,212,255,.32)" stroke-width=".7"/>'
+    // Hetros badge
+    +'<rect x="173" y="35" width="74" height="22" rx="3" fill="rgba(0,212,255,.06)" stroke="rgba(0,212,255,.28)" stroke-width=".7"/>'
+    +'<text x="210" y="50" fill="rgba(0,212,255,.82)" font-family="Montserrat,sans-serif" font-size="10.5" font-weight="900" letter-spacing="2.4" text-anchor="middle">HETROS</text>'
+    // Bottom rail
+    +'<rect x="113" y="78" width="194" height="3" fill="#030610"/>'
+    // Kingpin (connector)
+    +'<rect x="105" y="73" width="12" height="7" rx="1" fill="#0a1822"/>'
+    // Tail lights
+    +'<rect x="299" y="50" width="5" height="22" rx="1" fill="rgba(255,40,40,.88)" stroke="rgba(255,80,80,.5)" stroke-width=".5"/>'
+    +'<rect x="299" y="38" width="5" height="7" rx="1" fill="rgba(255,170,50,.75)"/>'
+    // CAB BODY (sloped front)
+    +'<path d="M 12 32 L 22 18 L 88 18 L 105 32 L 105 80 L 12 80 Z" fill="url(#trkCabG)" stroke="rgba(0,212,255,.34)" stroke-width="1.1"/>'
+    // Roof highlight
+    +'<path d="M 22 19 L 88 19 L 104 31" stroke="rgba(150,220,255,.32)" stroke-width=".7" fill="none"/>'
+    // Marker lights (top)
+    +'<g fill="rgba(255,180,60,.88)">'
+      +'<circle cx="32" cy="20" r="1.1"/><circle cx="45" cy="19.5" r="1.1"/>'
+      +'<circle cx="58" cy="19.3" r="1.1"/><circle cx="71" cy="19.5" r="1.1"/>'
+    +'</g>'
+    // WINDSHIELD
+    +'<path d="M 28 26 L 82 26 L 96 36 L 96 50 L 28 50 Z" fill="url(#trkGlassG)" stroke="rgba(150,220,255,.42)" stroke-width=".8"/>'
+    +'<path d="M 30 28 L 56 28 L 64 33.5 L 32 33.5 Z" fill="rgba(255,255,255,.14)"/>'
+    // Door
+    +'<line x1="68" y1="50" x2="68" y2="78" stroke="rgba(0,150,200,.35)" stroke-width=".7"/>'
+    +'<rect x="72" y="62" width="7" height="2.5" rx="1" fill="rgba(180,220,240,.6)"/>'
+    // Side mirror
+    +'<rect x="22" y="36" width="7" height="13" rx="1.5" fill="#0a1822" stroke="rgba(0,212,255,.45)" stroke-width=".6"/>'
+    +'<rect x="14" y="38" width="9" height="9" rx="1" fill="rgba(140,200,240,.38)" stroke="rgba(180,220,250,.4)" stroke-width=".4"/>'
+    // Grille
+    +'<rect x="13" y="56" width="7" height="17" rx="1" fill="#040810" stroke="rgba(0,212,255,.4)" stroke-width=".5"/>'
+    +'<g stroke="rgba(0,212,255,.5)" stroke-width=".55">'
+      +'<line x1="14" y1="59" x2="19" y2="59"/><line x1="14" y1="62.5" x2="19" y2="62.5"/>'
+      +'<line x1="14" y1="66" x2="19" y2="66"/><line x1="14" y1="69.5" x2="19" y2="69.5"/>'
+    +'</g>'
+    // Front fender + headlight
+    +'<path d="M 6 60 Q 6 51 16 51 L 16 60 Z" fill="#0a1822"/>'
+    +'<circle cx="10" cy="52" r="4.2" fill="#fff8c0" stroke="rgba(180,150,80,.7)" stroke-width=".7"/>'
+    +'<circle cx="10" cy="52" r="1.8" fill="#ffffea"/>'
+    // Bumper
+    +'<rect x="5" y="72" width="15" height="6" rx="1.5" fill="#0d1825" stroke="rgba(0,212,255,.28)" stroke-width=".5"/>';
+
+  const _truckDefs = '<defs>'
+    +'<linearGradient id="trkCabG" x1="0" y1="0" x2="0" y2="1">'
+      +'<stop offset="0%" stop-color="#2d5183"/><stop offset="55%" stop-color="#15304f"/><stop offset="100%" stop-color="#091a2c"/>'
+    +'</linearGradient>'
+    +'<linearGradient id="trkBodyG" x1="0" y1="0" x2="0" y2="1">'
+      +'<stop offset="0%" stop-color="#1b3858"/><stop offset="100%" stop-color="#081a2c"/>'
+    +'</linearGradient>'
+    +'<linearGradient id="trkGlassG" x1="0" y1="0" x2="0" y2="1">'
+      +'<stop offset="0%" stop-color="rgba(150,210,255,.42)"/><stop offset="100%" stop-color="rgba(80,130,180,.15)"/>'
+    +'</linearGradient>'
+    +'<radialGradient id="trkBeamG" cx=".5" cy=".5" r=".5">'
+      +'<stop offset="0%" stop-color="rgba(255,250,200,.65)"/><stop offset="50%" stop-color="rgba(255,240,160,.3)"/><stop offset="100%" stop-color="rgba(255,240,160,0)"/>'
+    +'</radialGradient>'
+  +'</defs>';
+
+  // Versão normal (rodas a 0.85s)
+  const _TRUCK_HTML = '<svg viewBox="0 0 320 110" width="320" height="110" style="display:block;overflow:visible;">'
+    + _truckDefs + _truckSvgInner + _truckWheels('trk-wheel') + '</svg>';
+
+  // Versão "rápida" (rodas a 0.55s, usada quando o caminhão atravessa a tela)
+  const _TRUCK_HTML_FAST = '<svg viewBox="0 0 320 110" width="320" height="110" style="display:block;overflow:visible;">'
+    + _truckDefs + _truckSvgInner + _truckWheels('trk-wheel-fast') + '</svg>';
+
+  const _dashRow = Array.from({length:30},()=>'<div style="flex-shrink:0;width:50px;height:4px;border-radius:2px;margin-right:34px;background:rgba(0,212,255,.2);"></div>').join('');
+
+  $('app').innerHTML=`
+<div style="position:fixed;inset:0;overflow:hidden;
+  background:linear-gradient(165deg,#020910 0%,#051320 50%,#091a2c 100%);
+  display:flex;flex-direction:column;">
+
+  <!-- orb decorativo -->
+  <div style="position:absolute;top:14%;left:50%;transform:translateX(-50%);
+    width:320px;height:320px;border-radius:50%;
+    background:radial-gradient(circle,rgba(0,212,255,.06) 0%,transparent 65%);
+    pointer-events:none;animation:splashFade 1.2s ease both;"></div>
+
+  <!-- topo: logo + nome -->
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;text-align:center;padding:32px 24px;
+    position:relative;z-index:2;">
+    <img src="${LOGO_SRC}" alt="Hetros"
+      style="width:152px;max-width:56vw;
+        filter:drop-shadow(0 6px 28px rgba(0,0,0,.55));
+        animation:splashFade .9s cubic-bezier(.22,1,.36,1) .15s both;
+        margin-bottom:24px;"/>
+    <div style="width:44px;height:1px;
+      background:linear-gradient(90deg,transparent,rgba(0,212,255,.6),transparent);
+      margin-bottom:16px;animation:splashFade .7s ease .7s both;"></div>
+    <div style="font-size:.78rem;color:rgba(255,255,255,.4);
+      letter-spacing:.18em;text-transform:uppercase;
+      font-family:'Montserrat',sans-serif;
+      animation:splashFade .65s ease .9s both;">${_splashGreet}</div>
+    <div style="font-family:'Montserrat',sans-serif;font-size:2.25rem;
+      font-weight:900;color:#fff;letter-spacing:-.02em;margin-top:7px;
+      animation:splashSlide .75s cubic-bezier(.22,1,.36,1) 1.05s both;
+      text-shadow:0 0 60px rgba(0,212,255,.22);">${name}</div>
+  </div>
+
+  <!-- estrada: caminhão chega da direita e estaciona -->
+  <div style="position:relative;width:100%;flex-shrink:0;height:38%;
+    background:linear-gradient(180deg,#0c1c2c 0%,#06101a 100%);
+    border-top:1px solid rgba(0,212,255,.08);overflow:hidden;">
+
+    <!-- gradient sutil de iluminação na estrada -->
+    <div style="position:absolute;inset:0;pointer-events:none;
+      background:radial-gradient(ellipse at center 70%,rgba(0,212,255,.04) 0%,transparent 60%);"></div>
+
+    <!-- faixas da pista rolando -->
+    <div style="position:absolute;top:62%;left:0;height:4px;width:200%;
+      display:flex;animation:trkRoad 1.2s linear infinite;">
+      ${_dashRow}
+    </div>
+
+    <!-- caminhão chega da direita (3s deceleração) -->
+    <div style="position:absolute;top:50%;margin-top:-65px;
+      left:calc(50% - 160px);width:320px;height:110px;
+      animation:splashTruck 3s cubic-bezier(.12,1,.25,1) .6s both;
+      filter:drop-shadow(0 8px 18px rgba(0,0,0,.55));">
+      ${_TRUCK_HTML}
+    </div>
+  </div>
+
+  <!-- barra de progresso -->
+  <div style="position:absolute;bottom:0;left:0;right:0;height:3px;
+    background:rgba(0,212,255,.06);">
+    <div style="height:3px;border-radius:0 2px 2px 0;
+      background:linear-gradient(90deg,rgba(0,212,255,.4),rgba(0,212,255,1));
+      box-shadow:0 0 8px rgba(0,212,255,.5);
+      animation:splashBar 3.6s cubic-bezier(.4,0,.4,1) .35s both;"></div>
+  </div>
+</div>`;
+
+  // Listener em tempo real: admin zera → driver atualiza imediatamente
+  let _firstLoad    = true;
+  let _resetChecked = null; // data (YYYY-MM-DD) do último reset checado nesta sessão
+
+  db.collection('ll_drivers').doc(name).onSnapshot(async doc => {
+    if (!doc.exists) return;
+    const d = doc.data();
+    const oldCx = S.truckCx;
+    // Usa data local (Brasil) para não zerar à meia-noite UTC (21h horário local)
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+
+    // Auto-reset diário: roda mesmo se a aba ficou aberta overnight.
+    // Condição: hoje ainda não foi verificado NESTA sessão E o Firestore
+    // ainda não registrou reset hoje → evita loop duplo.
+    if (_resetChecked !== today && d.lastAutoReset !== today) {
+      _resetChecked = today; // marca como verificado para não repetir no mesmo dia
+      const cxEsquecidas = nn(d.truckCx) || (nn(d.truckBlack)+nn(d.truckWhite));
+      try {
+        if (cxEsquecidas > 0) {
+          const batch = db.batch();
+          batch.update(db.collection('ll_drivers').doc(name),
+            { truckCx: 0, lastAutoReset: today, lastUpdated: TS() });
+          batch.set(db.collection('ll_events').doc(), {
+            type: 'driver_forgot_cd', driverName: name,
+            cxEsquecidas, date: today, status: 'pending', timestamp: TS()
+          });
+          await batch.commit();
+          d.truckCx = 0; d.truckBlack = 0; d.truckWhite = 0;
+          setTimeout(() => toast('⚠️ Caminhão zerado — não esqueça de deixar as caixas no CD!', 5000), 3200);
+        } else {
+          // Nenhuma cx esquecida — só marca o reset do dia
+          await db.collection('ll_drivers').doc(name).update({ lastAutoReset: today, lastUpdated: TS() });
+        }
+      } catch(e) { console.warn('[auto-reset]', e); }
+    }
+
+    S.truckCx = nn(d.truckCx) || (nn(d.truckBlack)+nn(d.truckWhite));
+    S.dailyRoute = d.dailyRoute || null;
+    if (_firstLoad) {
+      _firstLoad = false;
+      const _minDelay = 4000;
+      Promise.all([_loadClients(), _loadWeekTotal()]).then(()=>{
+        const wait = Math.max(0, _minDelay - (Date.now()-_splashT0));
+        setTimeout(render, wait);
+      }).catch(render);
+    } else {
+      if (oldCx !== S.truckCx && !S.saving) {
+        if (oldCx > S.truckCx) toast('🔄 Caixas zeradas pelo admin');
+        render();
+      } else if (S.step === 'choose') {
+        render();
+      }
+    }
+  }, () => { _loadClients().then(render).catch(render); });
+
+  // ── Helpers de animação ──────────────────────────────────────
+  // Transição de tela: fade-out rápido → substitui → slide-up
+  let _rendering = false;
+  function animTransition(renderFn) {
+    if (_rendering) { renderFn(); return; }
+    const wrap = document.getElementById('driver-wrap');
+    if (!wrap) { renderFn(); return; }
+    _rendering = true;
+    wrap.style.transition = 'opacity .12s ease, transform .12s ease';
+    wrap.style.opacity = '0';
+    wrap.style.transform = 'translateY(10px)';
+    setTimeout(() => { renderFn(); _rendering = false; }, 130);
+  }
+
+  // Pop de número (chama em qualquer elemento)
+  function numPop(el) {
+    if (!el) return;
+    el.classList.remove('num-pop');
+    void el.offsetWidth; // reflow
+    el.classList.add('num-pop');
+    el.addEventListener('animationend', () => el.classList.remove('num-pop'), {once:true});
+  }
+
+  // Ripple no botão
+  function addRipple(btn, e) {
+    const r = btn.getBoundingClientRect();
+    const size = Math.max(r.width, r.height);
+    const x = (e.clientX - r.left) - size/2;
+    const y = (e.clientY - r.top)  - size/2;
+    const rip = document.createElement('span');
+    rip.className = 'btn-ripple';
+    rip.style.cssText = `width:${size}px;height:${size}px;left:${x}px;top:${y}px;`;
+    btn.appendChild(rip);
+    rip.addEventListener('animationend', () => rip.remove(), {once:true});
+  }
+
+  // Animação de sucesso (checkmark + burst, dura ~700ms)
+  function showSuccess(cb) {
+    const ov = document.createElement('div');
+    ov.className = 'success-overlay';
+    ov.innerHTML = `
+      <div class="success-circle">
+        <svg width="52" height="52" viewBox="0 0 52 52" fill="none">
+          <polyline class="success-check" points="14,28 22,36 38,18"
+            stroke="var(--success)" stroke-width="4.5"
+            stroke-linecap="round" stroke-linejoin="round"
+            fill="none" stroke-dasharray="60" stroke-dashoffset="60"/>
+        </svg>
+      </div>`;
+    document.body.appendChild(ov);
+    setTimeout(() => { ov.remove(); if(cb) cb(); }, 700);
+  }
+
+  // Animação de caminhão ao finalizar o dia (~5.2s)
+  function showTruckAnim(cb) {
+    // Estrelas em posições fixas (28 estrelas com tamanhos e tempos variados)
+    const _starData = [
+      [4,5,3],[12,11,2],[22,4,4],[32,9,2],[40,14,3],
+      [50,3,2],[58,12,4],[66,6,2],[74,15,3],[82,4,2],
+      [90,11,3],[96,7,2],[8,22,2],[18,29,3],[28,24,2],
+      [38,32,4],[48,27,2],[58,33,3],[70,28,2],[80,30,4],
+      [88,26,2],[15,42,2],[34,46,3],[52,44,2],[68,48,3],
+      [84,45,2],[26,53,2],[78,55,3]
+    ];
+    const _stars = _starData.map(([x,y,s],i)=>
+      '<div style="position:absolute;left:'+x+'%;top:'+y+'%;width:'+s+'px;height:'+s+'px;'
+      +'border-radius:50%;background:#fff;opacity:.6;'
+      +'box-shadow:0 0 '+(s*1.5).toFixed(0)+'px rgba(255,255,255,.5);'
+      +'animation:nightStar '+(1.4+i*.18).toFixed(2)+'s '+(i*.15).toFixed(2)+'s ease-in-out infinite alternate;">'
+      +'</div>'
+    ).join('');
+
+    const _dashes = Array.from({length:34},()=>
+      '<div style="flex-shrink:0;width:55px;height:4px;border-radius:2px;margin-right:38px;background:rgba(0,212,255,.26);box-shadow:0 0 6px rgba(0,212,255,.2);"></div>'
+    ).join('');
+
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9999;overflow:hidden;'
+      +'background:linear-gradient(180deg,#01060c 0%,#04101e 40%,#08182a 75%,#0c2238 100%);';
+
+    ov.innerHTML = ''
+      // Lua sutil
+      +'<div style="position:absolute;top:11%;right:14%;width:46px;height:46px;border-radius:50%;'
+        +'background:radial-gradient(circle at 38% 35%,#fff4c2,#e8c043);'
+        +'box-shadow:0 0 30px rgba(245,197,32,.45),0 0 70px rgba(245,197,32,.15);'
+        +'animation:splashFade 1.3s ease both;"></div>'
+
+      // Céu / estrelas
+      +'<div style="position:absolute;inset:0;overflow:hidden;pointer-events:none;'
+        +'animation:splashFade 1.5s ease both;">'+_stars+'</div>'
+
+      // Mensagem (aparece em 2.8s)
+      +'<div style="position:absolute;top:22%;left:0;right:0;text-align:center;pointer-events:none;'
+        +'animation:trkMsg .85s cubic-bezier(.22,1,.36,1) 2.8s both;">'
+        +'<div style="font-size:2.1rem;font-weight:900;color:#fff;'
+          +'font-family:\'Montserrat\',sans-serif;letter-spacing:.005em;'
+          +'text-shadow:0 2px 36px rgba(0,212,255,.4),0 0 90px rgba(0,212,255,.15);">'
+          +'Dia encerrado'
+        +'</div>'
+        +'<div style="font-size:1rem;color:rgba(0,212,255,.78);margin-top:12px;'
+          +'font-family:\'Montserrat\',sans-serif;font-weight:600;letter-spacing:.02em;">'
+          +'Bom descanso, '+name+' 🌙'
+        +'</div>'
+      +'</div>'
+
+      // Estrada
+      +'<div style="position:absolute;bottom:0;left:0;right:0;height:36%;'
+        +'background:linear-gradient(180deg,#0a1b2c 0%,#050d18 100%);'
+        +'border-top:1px solid rgba(0,212,255,.08);overflow:hidden;">'
+
+        // sutil glow no chão
+        +'<div style="position:absolute;inset:0;pointer-events:none;'
+          +'background:radial-gradient(ellipse at center 75%,rgba(0,212,255,.05) 0%,transparent 60%);"></div>'
+
+        // Faixas rolando (mais lentas, ~1.1s)
+        +'<div style="position:absolute;top:62%;left:0;height:4px;width:200%;'
+          +'display:flex;animation:trkRoad 1.1s linear infinite;">'+_dashes+'</div>'
+
+        // Wrapper que percorre a tela (4.5s — bem mais cinematográfico)
+        +'<div style="position:absolute;inset:0;'
+          +'animation:trkDrive 4.5s cubic-bezier(.25,0,.35,1) .3s forwards;">'
+          +'<div style="position:absolute;bottom:6px;left:50%;margin-left:-160px;'
+            +'filter:drop-shadow(0 8px 22px rgba(0,0,0,.65));">'
+            +_TRUCK_HTML_FAST
+          +'</div>'
+        +'</div>'
+
+      +'</div>';
+
+    document.body.appendChild(ov);
+
+    setTimeout(() => {
+      ov.style.transition = 'opacity .55s ease';
+      ov.style.opacity = '0';
+      setTimeout(() => { ov.remove(); if (cb) cb(); }, 550);
+    }, 5000);
+  }
+
+  // Animação de retirada do CD — número conta de 0 até total (~3.8s)
+  function showDepartureAnim(total, cb) {
+    const ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9999;overflow:hidden;'
+      +'background:linear-gradient(165deg,#020d08 0%,#06180f 50%,#091f17 100%);'
+      +'display:flex;flex-direction:column;align-items:center;justify-content:center;';
+
+    ov.innerHTML = ''
+      // Glow verde de fundo
+      +'<div style="position:absolute;top:34%;left:50%;transform:translate(-50%,-50%);'
+        +'width:380px;height:380px;border-radius:50%;pointer-events:none;'
+        +'background:radial-gradient(circle,rgba(0,229,160,.08) 0%,transparent 65%);'
+        +'animation:splashFade 1s ease both;"></div>'
+
+      // Número + label
+      +'<div style="text-align:center;position:relative;z-index:2;">'
+        +'<div id="_depAnimNum" style="font-family:\'Montserrat\',sans-serif;'
+          +'font-size:6rem;font-weight:900;line-height:1;color:#00e5a0;'
+          +'text-shadow:0 0 60px rgba(0,229,160,.55),0 0 110px rgba(0,229,160,.22);'
+          +'animation:splashFade .5s ease .15s both;">0</div>'
+        +'<div style="font-size:.88rem;color:rgba(255,255,255,.45);margin-top:8px;'
+          +'font-family:\'Montserrat\',sans-serif;font-weight:600;letter-spacing:.16em;'
+          +'text-transform:uppercase;'
+          +'animation:splashFade .55s ease .25s both;">caixas no caminhão</div>'
+      +'</div>'
+
+      // Caminhão SVG com glow verde
+      +'<div style="margin-top:34px;filter:drop-shadow(0 0 24px rgba(0,229,160,.42)) drop-shadow(0 8px 20px rgba(0,0,0,.5));'
+        +'animation:splashSlide .8s cubic-bezier(.22,1,.36,1) .35s both;">'
+        +_TRUCK_HTML
+      +'</div>'
+
+      // CTA final
+      +'<div style="margin-top:30px;font-family:\'Montserrat\',sans-serif;font-size:1.18rem;'
+        +'font-weight:800;color:rgba(0,229,160,.9);letter-spacing:.03em;'
+        +'animation:trkMsg .65s cubic-bezier(.22,1,.36,1) 2.4s both;">'
+        +'Bora para a rota! 🚀'
+      +'</div>';
+
+    document.body.appendChild(ov);
+
+    // Conta de 0 até total em ~1.8s (mais cinematográfico)
+    const el = ov.querySelector('#_depAnimNum');
+    const steps = Math.min(Math.max(total, 8), 50);
+    const inc = total / steps;
+    let cur = 0;
+    setTimeout(() => {
+      const iv = setInterval(() => {
+        cur = Math.min(cur + inc, total);
+        if (el) {
+          el.textContent = Math.round(cur);
+          el.classList.remove('num-pop');
+          void el.offsetWidth;
+          if (cur >= total) el.classList.add('num-pop');
+        }
+        if (cur >= total) clearInterval(iv);
+      }, Math.round(1800 / steps));
+    }, 550); // começa após o número aparecer
+
+    setTimeout(() => {
+      ov.style.transition = 'opacity .5s ease';
+      ov.style.opacity = '0';
+      setTimeout(() => { ov.remove(); if (cb) cb(); }, 500);
+    }, 3700);
+  }
+
+  // Ripple delegado em todos os .btn-giant
+  document.addEventListener('click', function(e) {
+    const btn = e.target.closest('.btn-giant');
+    if (btn && !btn.disabled) addRipple(btn, e);
+  }, true);
+
+  function render() {
+    ({choose:vChoose,departure:vDeparture,client:vClient,cd_return:vCdReturn,finalize:vFinalize,summary:vSummary,done:vDone}[S.step]||vChoose)();
+  }
+
+  async function _loadWeekTotal() {
+    try {
+      const now = new Date();
+      const day = now.getDay();
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
+      monday.setHours(0,0,0,0);
+      const snap = await db.collection('ll_events')
+        .where('driverName','==',name)
+        .get().catch(()=>({docs:[]}));
+      let total = 0;
+      snap.docs.forEach(d => {
+        const ev = d.data();
+        const ts = ev.timestamp && ev.timestamp.toDate ? ev.timestamp.toDate() : null;
+        if (!ts || ts < monday) return;
+        if (ev.type === 'cd_departure') total += nn(ev.depTotal);
+        else if (ev.type === 'cd_return') total += nn(ev.retCx);
+        else if (ev.type === 'client_transaction') total += nn(ev.totalDel) + nn(ev.totalCol);
+      });
+      S._weekTotal = total;
+    } catch(e) { S._weekTotal = 0; }
+  }
+
+  /* ── Geolocalização ── */
+  function _capturaGeo() {
+    S.geoCoords=null;
+    if(!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        S.geoCoords={lat:pos.coords.latitude,lng:pos.coords.longitude,acc:Math.round(pos.coords.accuracy)};
+        const dot=$('geo-dot'); if(dot){dot.className='geo-dot ok';dot.title=`±${S.geoCoords.acc}m`;}
+      },
+      () => { const dot=$('geo-dot'); if(dot) dot.className='geo-dot err'; },
+      {timeout:12000,maximumAge:60000,enableHighAccuracy:true}
+    );
+  }
+
+  /* ── Live tracking: envia posição ao admin enquanto app aberto ── */
+  let _liveWatchId = null;
+  let _lastLiveSend = 0;
+  let _geoEnabled = false;
+
+  window._llRequestGeo = function() {
+    if (!navigator.geolocation) {
+      toast('Seu dispositivo não tem GPS', 3000);
+      return;
+    }
+    // getCurrentPosition força o navegador a pedir permissão
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        _geoEnabled = true;
+        _sendLocation(pos);
+        _startLiveTracking();
+        toast('📍 Localização ativada — admin pode ver sua posição', 2500);
+        const btn = $('geo-request-btn'); if (btn) btn.style.display = 'none';
+      },
+      err => {
+        console.warn('[Geo] permission:', err.message);
+        toast(err.code === err.PERMISSION_DENIED
+          ? 'Localização negada. Vá em ⚙ Configurações do app/navegador e permita.'
+          : 'Não foi possível pegar sua localização', 4000);
+      },
+      { enableHighAccuracy: true, timeout: 12000 }
+    );
+  };
+
+  async function _sendLocation(pos) {
+    const now = Date.now();
+    if (now - _lastLiveSend < 25000) return;     // throttle 25s
+    _lastLiveSend = now;
+    const coords = {
+      lat: pos.coords.latitude,
+      lng: pos.coords.longitude,
+      acc: Math.round(pos.coords.accuracy || 0)
+    };
+    try {
+      await db.collection('ll_drivers').doc(name).set({
+        currentLocation: {
+          ...coords,
+          ts: firebase.firestore.FieldValue.serverTimestamp(),
+          ua: navigator.userAgent.includes('Mobi') ? 'mobile' : 'desktop'
+        }
+      }, { merge: true });
+    } catch (e) { console.warn('[Geo send]', e.message); }
+  }
+
+  function _startLiveTracking() {
+    if (_liveWatchId !== null || !navigator.geolocation) return;
+    _liveWatchId = navigator.geolocation.watchPosition(
+      pos => _sendLocation(pos),
+      err => console.warn('[Geo watch]', err.message),
+      { enableHighAccuracy: true, maximumAge: 20000, timeout: 30000 }
+    );
+  }
+
+  // Pede localização logo no início — motoristas idosos precisam dessa orientação clara
+  if (navigator.permissions?.query) {
+    navigator.permissions.query({ name: 'geolocation' }).then(p => {
+      if (p.state === 'granted') {
+        _geoEnabled = true;
+        _startLiveTracking();
+      } else if (p.state === 'prompt') {
+        // Dispara prompt automaticamente após 800ms (UX: usuário vê a tela antes)
+        setTimeout(() => window._llRequestGeo && window._llRequestGeo(), 800);
+      }
+    }).catch(() => {
+      setTimeout(() => window._llRequestGeo && window._llRequestGeo(), 800);
+    });
+  } else {
+    _startLiveTracking();
+  }
+
+  // Para o tracking quando aba fica em background pra economizar bateria
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && _liveWatchId !== null) {
+      navigator.geolocation.clearWatch(_liveWatchId);
+      _liveWatchId = null;
+    } else if (!document.hidden && _geoEnabled && _liveWatchId === null) {
+      _startLiveTracking();
+    }
+  });
+
+  /* ── Carregar histórico + dados do cliente selecionado ── */
+  window._selecionarCliente = async function(nome) {
+    S.clientName=nome.trim().toUpperCase();
+    _fecharSugg();
+    await _carregarDadosCliente(S.clientName);
+    S.clientSubStep='deliver';
+    render();
+  };
+
+  async function _carregarDadosCliente(nome) {
+    S._fotoObrigatoria=false; S._clienteData=null;
+    try {
+      const snap=await db.collection('ll_clients').doc(nome).get();
+      if(!snap.exists) return;
+      const data=snap.data();
+      S._clienteData=data;
+      S._fotoObrigatoria=!!(data.fotoObrigatoria);
+    } catch(e){ /* offline */ }
+  }
+
+  /* Repetir última entrega */
+  window._repetirUltima = function() {
+    const lv=S._clienteData&&S._clienteData.lastVisit; if(!lv) return;
+    S.totalDel=nn(lv.totalDel)||(nn(lv.delBlack)+nn(lv.delWhite));
+    S.totalCol=nn(lv.totalCol)||(nn(lv.colBlack)+nn(lv.colWhite));
+    vibe(30); toast('✓ Valores da última visita aplicados!');
+  };
+
+  /* Atualiza estado do botão Registrar (bloqueio foto obrigatória) */
+  function _atualizarBotaoRegistrar() {
+    const btn=$('regBtn'); if(!btn) return;
+    const fotoOk=!S._fotoObrigatoria||(S.fotos.client_entrega||S.fotos.client_coleta);
+    btn.disabled=!fotoOk;
+    btn.title=fotoOk?'':'Foto obrigatória para este cliente';
+  }
+
+  /* ── Helpers ── */
+  function truckBadges() {
+    return `<span class="truck-badge">📦 <b>${S.truckCx}</b> cx</span>`;
+  }
+
+  function mCBlock(emoji,label,key,suf,warnClass='') {
+    const id=`mc-${key}-${suf}`;
+    return `<div class="mini-cblock">
+      <span class="mini-cb-label">${emoji} ${label}</span>
+      <div class="mini-cb-ctrl">
+        <button class="mini-cb-btn mini-cb-minus" onclick="madj('${key}','-1','${id}')">−</button>
+        <span class="mini-cb-val" id="${id}">${S[key]}</span>
+        <button class="mini-cb-btn mini-cb-plus ${warnClass}" onclick="madj('${key}','1','${id}')">+</button>
+      </div>
+    </div>`;
+  }
+
+  function cBlock(label,key,elId) {
+    return `<div style="margin-bottom:24px;">
+      <div style="font-family:'Montserrat',sans-serif;font-size:1.05rem;font-weight:800;margin-bottom:12px;">${label}</div>
+      <div class="counter-wrap">
+        <button class="counter-btn counter-minus" onclick="adj('${key}',-1,'${elId}')">−</button>
+        <input type="tel" inputmode="numeric" pattern="[0-9]*" id="${elId}"
+          class="counter-num-input" value="${S[key]}"
+          oninput="var v=parseInt(this.value.replace(/[^0-9]/g,''))||0;window._S['${key}']=Math.max(0,v);this.value=window._S['${key}']"
+          onfocus="this.select()" autocomplete="off"/>
+        <button class="counter-btn counter-plus" onclick="adj('${key}',1,'${elId}')">+</button>
+      </div>
+    </div>`;
+  }
+
+  /* ── Roteiro do dia (definido pelo admin) ── */
+  function _renderRoteiroDoDia() {
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+    const route = S.dailyRoute;
+    if (!route || route.date !== todayStr || !route.clients?.length) return '';
+
+    const completed = new Set(route.completed || []);
+    const total = route.clients.length;
+    const done = route.clients.filter(c => completed.has(c)).length;
+    const pct = total ? Math.round((done/total)*100) : 0;
+
+    return `
+      <div style="background:rgba(0,212,255,.05);border:1px solid rgba(0,212,255,.2);border-radius:14px;padding:14px 16px;margin-bottom:18px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:10px;">
+          <div>
+            <div style="font-size:.95rem;font-weight:700;color:var(--accent);letter-spacing:-.01em;">📋 Roteiro de hoje</div>
+            <div style="font-size:.78rem;color:rgba(228,240,246,.55);margin-top:2px;">${done}/${total} concluído(s) · ${pct}%</div>
+          </div>
+          <div style="width:54px;height:54px;border-radius:50%;background:conic-gradient(var(--accent) ${pct*3.6}deg, rgba(255,255,255,.08) 0);display:grid;place-items:center;">
+            <div style="width:42px;height:42px;border-radius:50%;background:var(--bg);display:grid;place-items:center;font-size:.82rem;font-weight:800;color:var(--accent);">${pct}%</div>
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:5px;">
+          ${route.clients.map(c => {
+            const isDone = completed.has(c);
+            const safe = c.replace(/'/g,"\\'");
+            return `
+              <div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:9px;background:${isDone?'rgba(74,222,128,.08)':'rgba(255,255,255,.03)'};border:1px solid ${isDone?'rgba(74,222,128,.25)':'rgba(255,255,255,.08)'};">
+                <button onclick="window._toggleRoteiro('${safe}')" aria-label="Marcar como concluído"
+                  style="width:22px;height:22px;border-radius:5px;border:1.5px solid ${isDone?'#4ade80':'rgba(255,255,255,.25)'};background:${isDone?'#4ade80':'transparent'};display:grid;place-items:center;flex-shrink:0;cursor:pointer;padding:0;">
+                  ${isDone ? '<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#0a0a0c" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : ''}
+                </button>
+                <span style="flex:1;font-size:.88rem;color:${isDone?'rgba(228,240,246,.55)':'var(--text)'};${isDone?'text-decoration:line-through;':''}font-weight:500;letter-spacing:-.005em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(c)}</span>
+                <button onclick="window._selecionarCliente('${safe}');window.escolherModo('client');"
+                  style="background:transparent;border:1px solid rgba(0,212,255,.3);color:var(--accent);font-size:.72rem;font-weight:600;padding:4px 10px;border-radius:6px;cursor:pointer;letter-spacing:-.005em;white-space:nowrap;">Ir →</button>
+              </div>`;
+          }).join('')}
+        </div>
+      </div>`;
+  }
+
+  window._toggleRoteiro = async function(cli) {
+    const route = S.dailyRoute;
+    if (!route) return;
+    const completed = new Set(route.completed || []);
+    if (completed.has(cli)) completed.delete(cli); else completed.add(cli);
+    const updated = { ...route, completed: Array.from(completed) };
+    S.dailyRoute = updated;
+    try {
+      await db.collection('ll_drivers').doc(name).set({ dailyRoute: updated }, { merge: true });
+      render();
+    } catch (e) { toast('Erro ao salvar', 2000); }
+  };
+  function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  /* ════ TELA INICIAL ════ */
+  function vChoose() {
+    const showGeoBtn = !_geoEnabled;
+    $('app').innerHTML=`<div id="driver-wrap" class="fade-in">
+
+      <!-- HEADER com logo -->
+      <div style="text-align:center;padding:22px 0 10px;">
+        <img src="${LOGO_SRC}" alt="Hetros" style="width:150px;max-width:60vw;
+          filter:drop-shadow(0 2px 12px rgba(0,0,0,.4));margin-bottom:16px;"/>
+        <div style="font-size:1rem;color:var(--muted);">
+          ${(()=>{const h=new Date().getHours();return h<12?'Bom dia':h<18?'Boa tarde':'Boa noite';})()},
+          <strong style="color:var(--text);font-size:1.05rem;">${name}</strong> 👋
+        </div>
+        ${S._weekTotal!==null&&S._weekTotal>0?`
+          <div style="margin-top:5px;font-size:.82rem;color:var(--muted);">
+            Você já movimentou <strong style="color:var(--accent);">${S._weekTotal} cxs</strong> esta semana.
+          </div>`:''
+        }
+      </div>
+
+      <!-- BADGE caixas no caminhão -->
+      <div style="margin:14px 0 20px;padding:20px 22px;position:relative;overflow:hidden;
+        background:linear-gradient(135deg,rgba(0,212,255,.1) 0%,rgba(0,229,160,.06) 100%);
+        border:1.5px solid rgba(0,212,255,.22);border-radius:22px;
+        display:flex;align-items:center;gap:18px;
+        box-shadow:0 8px 32px rgba(0,212,255,.08),inset 0 1px 0 rgba(255,255,255,.05);">
+        <div style="position:absolute;top:0;right:-20px;width:140px;height:140px;border-radius:50%;
+          background:radial-gradient(circle,rgba(0,229,160,.1) 0%,transparent 65%);
+          pointer-events:none;"></div>
+        <div style="width:64px;height:64px;border-radius:18px;flex-shrink:0;position:relative;z-index:1;
+          background:linear-gradient(135deg,rgba(0,212,255,.18),rgba(0,229,160,.1));
+          border:1px solid rgba(0,212,255,.35);
+          display:flex;align-items:center;justify-content:center;
+          box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 4px 14px rgba(0,212,255,.18);">
+          <span style="font-size:2.1rem;line-height:1;">🚛</span>
+        </div>
+        <div style="position:relative;z-index:1;flex:1;">
+          <div style="display:flex;align-items:baseline;gap:8px;">
+            <div style="font-family:'Montserrat',sans-serif;font-size:2.6rem;font-weight:900;
+              color:#fff;line-height:1;letter-spacing:-.02em;
+              text-shadow:0 0 30px rgba(0,212,255,.25);">${S.truckCx}</div>
+            <div style="font-size:.85rem;color:var(--accent);font-weight:700;letter-spacing:.04em;">cx</div>
+          </div>
+          <div style="font-size:.78rem;color:var(--muted);margin-top:3px;
+            font-family:'Montserrat',sans-serif;font-weight:600;
+            text-transform:uppercase;letter-spacing:.12em;">no caminhão</div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:8px;"><span class="offline-pill">📵 Offline</span></div>
+      ${showGeoBtn ? `
+        <button id="geo-request-btn" onclick="window._llRequestGeo()"
+          style="margin-bottom:14px;padding:10px 18px;border-radius:12px;
+          background:rgba(74,222,128,.12);border:1px solid rgba(74,222,128,.3);
+          color:#4ade80;font-size:.9rem;font-weight:600;cursor:pointer;
+          display:inline-flex;align-items:center;gap:8px;width:100%;justify-content:center;">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          Permitir localização
+        </button>
+      ` : ''}
+
+      ${_renderRoteiroDoDia()}
+      <div style="font-family:'Montserrat',sans-serif;font-size:1.1rem;font-weight:900;
+        margin-bottom:14px;color:rgba(228,240,246,.6);letter-spacing:.04em;text-transform:uppercase;font-size:.78rem;">
+        O que você vai fazer?
+      </div>
+      <div class="home-grid">
+        <button class="home-card cd anim-stagger" style="--d:60ms" onclick="window.escolherModo('cd')">
+          <span class="home-card-icon">🏭</span>
+          <div class="home-card-text">
+            <span class="home-card-title" style="color:var(--accent);">Retirar do CD</span>
+            <span class="home-card-sub">Busquei caixas no depósito</span>
+          </div>
+          <svg class="home-card-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+        <button class="home-card route anim-stagger" style="--d:130ms" onclick="window.escolherModo('client')">
+          <span class="home-card-icon">🚚</span>
+          <div class="home-card-text">
+            <span class="home-card-title" style="color:var(--success);">Estou no Cliente</span>
+            <span class="home-card-sub">Cheguei para entregar ou coletar</span>
+          </div>
+          <svg class="home-card-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+        <button class="home-card final anim-stagger" style="--d:200ms" onclick="window.escolherModo('finalize')">
+          <span class="home-card-icon">🏁</span>
+          <div class="home-card-text">
+            <span class="home-card-title" style="color:var(--alert);">Finalizar o Dia</span>
+            <span class="home-card-sub">Resumo + devolver caixas ao CD${S.transactions.length?` · ${S.transactions.length} cliente(s)`:''}</span>
+          </div>
+          <svg class="home-card-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </div>
+    </div>`;
+  }
+
+  /* ════ RETIRADA NO CD ════ */
+  function vDeparture() {
+    $('app').innerHTML=`<div id="driver-wrap" class="fade-in">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:22px;">
+        <button onclick="window.voltarEscolha()" style="padding:10px 16px;border-radius:12px;
+          background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+          font-size:.95rem;font-weight:700;color:rgba(228,240,246,.65);flex-shrink:0;">← Voltar</button>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:2rem;">🏭</span>
+          <span style="font-family:'Montserrat',sans-serif;font-size:1.3rem;font-weight:900;">Retirar do CD</span>
+        </div>
+      </div>
+      <div style="font-family:'Montserrat',sans-serif;font-size:1.4rem;font-weight:900;text-align:center;margin-bottom:8px;">
+        Quantas caixas está pegando?
+      </div>
+      <div style="font-size:.95rem;color:var(--muted);text-align:center;margin-bottom:22px;">
+        Total de caixas que estão entrando no caminhão
+      </div>
+
+      ${(S.truckCx)>0?`<div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);
+        border-radius:14px;padding:12px 20px;margin-bottom:20px;text-align:center;">
+        <span style="font-size:.9rem;color:var(--muted);">Já no caminhão: </span>
+        <span style="font-weight:900;font-size:1.05rem;">${S.truckCx} caixas</span>
+      </div>`:''}
+
+      <div style="display:flex;align-items:center;justify-content:center;gap:24px;margin:8px 0 32px;">
+        <button onclick="window._depMinus()"
+          style="width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,.07);
+          border:2px solid rgba(255,255,255,.15);font-size:2.5rem;font-weight:900;
+          color:var(--text);display:flex;align-items:center;justify-content:center;">−</button>
+        <div style="text-align:center;min-width:110px;">
+          <input id="dep-count" type="tel" inputmode="numeric" pattern="[0-9]*"
+            value="${S.depTotal}" onfocus="this.select()"
+            oninput="var v=parseInt(this.value.replace(/\D/g,''))||0;window._S.depTotal=v;this.value=v;"
+            style="font-family:'Montserrat',sans-serif;font-size:4rem;font-weight:900;
+            color:var(--accent);line-height:1;background:transparent;border:none;outline:none;
+            width:110px;text-align:center;padding:0;caret-color:var(--accent);"/>
+          <div style="font-size:.78rem;color:var(--muted);margin-top:2px;">caixas</div>
+          <div style="font-size:.7rem;color:rgba(228,240,246,.3);margin-top:3px;">👆 toque p/ digitar</div>
+        </div>
+        <button onclick="window._depPlus()"
+          style="width:80px;height:80px;border-radius:50%;background:rgba(0,212,255,.1);
+          border:2px solid rgba(0,212,255,.3);font-size:2.5rem;font-weight:900;
+          color:var(--accent);display:flex;align-items:center;justify-content:center;">+</button>
+      </div>
+      <button id="foto-cd-btn" class="foto-grande-btn" onclick="window.tirarFotoMini('cd_saida','foto-cd-btn')"
+        style="margin-bottom:18px;">
+        📷 &nbsp; Tirar foto das caixas no CD
+      </button>
+      <button onclick="confirmDeparture()" class="btn-giant">✅ Confirmar Retirada</button>
+    </div>`;
+  }
+
+  /* ════ DEIXAR NO CD ════ */
+  function vCdReturn() {
+    $('app').innerHTML=`<div id="driver-wrap" class="fade-in">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:22px;">
+        <button onclick="window.voltarEscolha()" style="padding:10px 16px;border-radius:12px;
+          background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+          font-size:.95rem;font-weight:700;color:rgba(228,240,246,.65);flex-shrink:0;">← Voltar</button>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:2rem;">🏠</span>
+          <span style="font-family:'Montserrat',sans-serif;font-size:1.3rem;font-weight:900;">Deixar no CD</span>
+        </div>
+      </div>
+      <div style="background:rgba(255,179,71,.07);border:1.5px solid rgba(255,179,71,.3);border-radius:18px;padding:20px;margin-bottom:20px;text-align:center;">
+        <div style="font-size:.88rem;color:rgba(228,240,246,.55);font-weight:700;letter-spacing:.04em;text-transform:uppercase;margin-bottom:10px;">📦 Caixas no seu caminhão agora</div>
+        <div style="font-family:'Montserrat',sans-serif;font-size:2.8rem;font-weight:900;color:var(--text);">${S.truckCx}</div>
+        <div style="font-size:.88rem;color:rgba(228,240,246,.55);font-weight:700;margin-top:4px;">caixas</div>
+        <div style="font-size:.95rem;color:rgba(255,179,71,.95);font-weight:700;margin-top:14px;">Quantas você vai deixar no CD?</div>
+      </div>
+      <div class="glass-card" style="padding:28px;margin-bottom:18px;">
+        ${cBlock('📦 CAIXAS a devolver','retCx','c-rB')}
+      </div>
+      <button id="foto-ret-btn" class="foto-grande-btn"
+        style="border-color:rgba(255,179,71,.4);color:var(--warning);background:rgba(255,179,71,.07);margin-bottom:18px;"
+        onclick="window.tirarFotoMini('cd_return','foto-ret-btn')">
+        📷 &nbsp; Tirar foto da devolução
+      </button>
+      <button id="retBtn" onclick="window.confirmCdReturn()" class="btn-giant"
+        style="background:linear-gradient(135deg,#ffb347,#e08010);box-shadow:0 6px 28px rgba(255,179,71,.35);">
+        ✅ Confirmar Devolução
+      </button>
+    </div>`;
+  }
+
+  /* ════ FINALIZAR O DIA — REVISÃO ════ */
+  function vFinalize() {
+    const totalClientes = S.transactions.length;
+    const totalDel = S.transactions.reduce((s,t)=>s + (nn(t.totalDel) || (nn(t.delBlack)+nn(t.delWhite))),0);
+    const totalCol = S.transactions.reduce((s,t)=>s + (nn(t.totalCol) || (nn(t.colBlack)+nn(t.colWhite))),0);
+    const fotoOk = !!S.fotos.cd_return;
+
+    $('app').innerHTML=`<div id="driver-wrap" class="fade-in">
+
+      <!-- Header -->
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:22px;">
+        <button onclick="window.voltarEscolha()" style="padding:10px 16px;border-radius:12px;
+          background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+          font-size:.95rem;font-weight:700;color:rgba(228,240,246,.65);flex-shrink:0;">← Voltar</button>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:1.8rem;">🏁</span>
+          <span style="font-family:'Montserrat',sans-serif;font-size:1.3rem;font-weight:900;">Finalizar o Dia</span>
+        </div>
+      </div>
+
+      <!-- Hero: caixas a deixar no CD -->
+      <div style="position:relative;overflow:hidden;
+        background:linear-gradient(135deg,rgba(255,91,112,.12) 0%,rgba(255,91,112,.04) 100%);
+        border:1.5px solid rgba(255,91,112,.32);border-radius:22px;
+        padding:24px 22px;margin-bottom:16px;text-align:center;">
+        <div style="position:absolute;top:-30px;right:-30px;width:160px;height:160px;border-radius:50%;
+          background:radial-gradient(circle,rgba(255,91,112,.15) 0%,transparent 65%);pointer-events:none;"></div>
+        <div style="position:relative;z-index:1;">
+          <div style="font-size:.76rem;color:rgba(255,255,255,.5);font-weight:700;letter-spacing:.16em;text-transform:uppercase;margin-bottom:10px;">📦 Deixando no CD</div>
+          <div style="font-family:'Montserrat',sans-serif;font-size:3.6rem;font-weight:900;color:#fff;line-height:1;
+            text-shadow:0 0 40px rgba(255,91,112,.3);">${S.truckCx}</div>
+          <div style="font-size:.82rem;color:rgba(228,240,246,.55);font-weight:700;margin-top:6px;letter-spacing:.05em;">caixas no caminhão</div>
+        </div>
+      </div>
+
+      <!-- Stats do dia -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:18px;">
+        <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+          border-radius:14px;padding:14px 10px;text-align:center;">
+          <div style="font-family:'Montserrat',sans-serif;font-size:1.55rem;font-weight:900;color:var(--accent);line-height:1;">${totalClientes}</div>
+          <div style="font-size:.7rem;color:var(--muted);font-weight:700;margin-top:4px;letter-spacing:.06em;text-transform:uppercase;">Clientes</div>
+        </div>
+        <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+          border-radius:14px;padding:14px 10px;text-align:center;">
+          <div style="font-family:'Montserrat',sans-serif;font-size:1.55rem;font-weight:900;color:var(--alert);line-height:1;">${totalDel}</div>
+          <div style="font-size:.7rem;color:var(--muted);font-weight:700;margin-top:4px;letter-spacing:.06em;text-transform:uppercase;">Entregues</div>
+        </div>
+        <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+          border-radius:14px;padding:14px 10px;text-align:center;">
+          <div style="font-family:'Montserrat',sans-serif;font-size:1.55rem;font-weight:900;color:var(--success);line-height:1;">${totalCol}</div>
+          <div style="font-size:.7rem;color:var(--muted);font-weight:700;margin-top:4px;letter-spacing:.06em;text-transform:uppercase;">Coletadas</div>
+        </div>
+      </div>
+
+      <!-- Editar quantidade (caso queira ajustar) -->
+      <div style="margin-bottom:14px;">
+        <div style="font-size:.75rem;font-weight:800;color:var(--muted);letter-spacing:.12em;
+          text-transform:uppercase;margin-bottom:10px;padding-left:4px;">Confirme a quantidade</div>
+        <div class="glass-card" style="padding:18px 22px;">
+          ${cBlock('Caixas a deixar','retCx','c-rB')}
+        </div>
+      </div>
+
+      <!-- Foto opcional -->
+      <button id="foto-fin-btn" class="foto-grande-btn ${fotoOk?'done':''}"
+        style="margin-bottom:18px;"
+        onclick="window.tirarFotoMini('cd_return','foto-fin-btn')">
+        ${fotoOk?'✅ &nbsp; Foto salva!':'📷 &nbsp; Foto da devolução (opcional)'}
+      </button>
+
+      <!-- Confirmar -->
+      <button id="finBtn" onclick="window.confirmFinalize()" class="btn-giant"
+        style="background:linear-gradient(135deg,#ff5b70,#c8324a);box-shadow:0 8px 32px rgba(255,91,112,.4);">
+        🏁 Confirmar e Finalizar
+      </button>
+    </div>`;
+  }
+
+  /* ════ ESTOU NO CLIENTE — FLUXO SEQUENCIAL ════ */
+
+  function _stepBar(active) {
+    const icons  = ['👤','📤','📥','📷'];
+    const labels = ['Cliente','Entrega','Coleta','Foto'];
+    return `<div style="display:flex;justify-content:center;align-items:center;gap:0;margin-bottom:28px;">
+      ${icons.map((icon,i)=>`
+        <div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;">
+          <div style="width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:1.1rem;
+            background:${i===active?'var(--accent)':i<active?'rgba(0,229,160,.3)':'rgba(255,255,255,.07)'};
+            border:2px solid ${i===active?'var(--accent)':i<active?'var(--success)':'rgba(255,255,255,.13)'};
+            color:${i===active?'#000':i<active?'var(--success)':'var(--muted)'};">${i<active?'✓':icon}</div>
+          <div style="font-size:.65rem;color:${i===active?'var(--accent)':i<active?'var(--success)':'var(--muted)'};">${labels[i]}</div>
+        </div>
+        ${i<icons.length-1?`<div style="flex:0 0 20px;height:2px;background:${i<active?'rgba(0,229,160,.4)':'rgba(255,255,255,.1)'};margin-bottom:18px;"></div>`:''}
+      `).join('')}
+    </div>`;
+  }
+
+  function vClient() {
+    _capturaGeo();
+    const sub=S.clientSubStep||'name';
+    if(sub==='name')        _vcName();
+    else if(sub==='deliver')_vcDeliver();
+    else if(sub==='collect')_vcCollect();
+    else if(sub==='photo')  _vcPhoto();
+    else if(sub==='done')   _vcDone();
+    else                    _vcName();
+  }
+
+  function _vcName() {
+    const rotaClientes=(S.dailyRoute?.clients||[]).map(c=>c.toUpperCase());
+    const chipsHtml=rotaClientes.map(c=>
+      `<button class="r-chip" style="min-height:52px;font-size:1rem;font-weight:700;padding:12px 20px;"
+        onmousedown="event.preventDefault();window._selecionarCliente('${c.replace(/'/g,"\\'")}');">${c}</button>`
+    ).join('');
+
+    $('app').innerHTML=`
+    <div class="fade-in" style="padding:0 20px 40px;">
+
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 0 20px;">
+        <button onclick="window.voltarEscolha()"
+          style="padding:10px 18px;border-radius:12px;background:rgba(255,255,255,.07);
+          border:1px solid rgba(255,255,255,.12);font-size:1rem;font-weight:700;color:rgba(228,240,246,.65);">← Início</button>
+        <span style="font-family:'Montserrat',sans-serif;font-size:1rem;font-weight:900;">🚚 Estou no Cliente</span>
+        <div style="text-align:right;">
+          <div style="font-family:'Montserrat',sans-serif;font-size:1.3rem;font-weight:900;">${S.truckCx}</div>
+          <div style="font-size:.65rem;color:var(--muted);">caixas</div>
+        </div>
+      </div>
+
+      ${_stepBar(0)}
+
+      <div style="font-family:'Montserrat',sans-serif;font-size:1.5rem;font-weight:900;text-align:center;margin-bottom:20px;">
+        Qual é o cliente?
+      </div>
+
+      <input id="clientInput" type="text" class="input-field"
+        style="font-size:1.15rem;min-height:62px;margin-bottom:12px;"
+        placeholder="🔍 Digite o nome..."
+        value="${S.clientName}"
+        oninput="window._S.clientName=this.value;_showSugg(this.value)"
+        onfocus="_showSugg(this.value)"
+        onblur="setTimeout(_fecharSugg,200)"
+        autocomplete="off" autocorrect="off" spellcheck="false"/>
+      <div id="client-sugg" style="display:none;"></div>
+
+      ${chipsHtml?`
+        <div style="font-size:.85rem;color:var(--muted);margin:16px 0 10px;font-weight:700;letter-spacing:.05em;">ROTA DE HOJE:</div>
+        <div id="recent-chips" style="display:flex;flex-wrap:wrap;gap:8px;">${chipsHtml}</div>
+      `:''}
+
+      <button onclick="window._vcNextDeliver()" class="btn-giant" style="margin-top:28px;">
+        Próximo →
+      </button>
+
+    </div>`;
+  }
+
+  function _vcDeliver() {
+    const cd=S._clienteData;
+    const saldo=cd?(nn(cd.balance)||(nn(cd.balanceBlack)+nn(cd.balanceWhite))):0;
+    const lv=cd&&cd.lastVisit;
+    const ultimaTotal=lv?(nn(lv.totalDel)||(nn(lv.delBlack)+nn(lv.delWhite))):0;
+
+    $('app').innerHTML=`
+    <div class="fade-in" style="padding:0 20px 40px;">
+
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 0 20px;">
+        <button onclick="window._vcBackName()"
+          style="padding:10px 18px;border-radius:12px;background:rgba(255,255,255,.07);
+          border:1px solid rgba(255,255,255,.12);font-size:1rem;font-weight:700;color:rgba(228,240,246,.65);">← Voltar</button>
+        <span style="font-family:'Montserrat',sans-serif;font-size:1rem;font-weight:900;">${S.clientName}</span>
+        <div style="text-align:right;">
+          <div style="font-family:'Montserrat',sans-serif;font-size:1.3rem;font-weight:900;">${S.truckCx}</div>
+          <div style="font-size:.65rem;color:var(--muted);">no caminhão</div>
+        </div>
+      </div>
+
+      ${_stepBar(1)}
+
+      <div style="font-family:'Montserrat',sans-serif;font-size:1.5rem;font-weight:900;text-align:center;margin-bottom:8px;">
+        📤 Quantas caixas entregou?
+      </div>
+      <div style="font-size:.95rem;color:var(--muted);text-align:center;margin-bottom:22px;">
+        Caixas que saíram do caminhão
+      </div>
+
+      ${saldo>=30?`<div style="background:rgba(255,179,71,.1);border:1px solid rgba(255,179,71,.35);
+        border-radius:14px;padding:14px 18px;margin-bottom:16px;font-size:.95rem;font-weight:700;color:var(--warning);text-align:center;">
+        ⚠️ ${S.clientName} tem <b>${saldo} caixas</b> em aberto — tente cobrar o retorno!
+      </div>`:''}
+
+      ${ultimaTotal?`<div style="background:rgba(0,212,255,.06);border:1px solid rgba(0,212,255,.15);
+        border-radius:14px;padding:12px 18px;margin-bottom:18px;display:flex;align-items:center;justify-content:space-between;gap:12px;">
+        <span style="font-size:.9rem;color:var(--muted);">Última vez: <b style="color:var(--text);">${ultimaTotal} caixas</b></span>
+        <button onclick="window._vcUsarUltimaDel(${ultimaTotal})"
+          style="padding:8px 16px;border-radius:10px;background:rgba(0,212,255,.12);flex-shrink:0;
+          border:1px solid rgba(0,212,255,.25);font-size:.85rem;font-weight:800;color:var(--accent);">🔄 Usar</button>
+      </div>`:''}
+
+      <div style="display:flex;align-items:center;justify-content:center;gap:24px;margin:16px 0 32px;">
+        <button onclick="window._vcDelMinus()"
+          style="width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,.07);
+          border:2px solid rgba(255,255,255,.15);font-size:2.5rem;font-weight:900;
+          color:var(--text);display:flex;align-items:center;justify-content:center;">−</button>
+        <div style="text-align:center;min-width:110px;">
+          <input id="del-count" type="tel" inputmode="numeric" pattern="[0-9]*"
+            value="${S.totalDel}" onfocus="this.select()"
+            oninput="var v=parseInt(this.value.replace(/\D/g,''))||0;window._S.totalDel=v;this.value=v;"
+            style="font-family:'Montserrat',sans-serif;font-size:4rem;font-weight:900;
+            color:var(--accent);line-height:1;background:transparent;border:none;outline:none;
+            width:110px;text-align:center;padding:0;caret-color:var(--accent);"/>
+          <div style="font-size:.78rem;color:var(--muted);margin-top:2px;">caixas</div>
+          <div style="font-size:.7rem;color:rgba(228,240,246,.3);margin-top:3px;">👆 toque p/ digitar</div>
+        </div>
+        <button onclick="window._vcDelPlus()"
+          style="width:80px;height:80px;border-radius:50%;background:rgba(0,212,255,.1);
+          border:2px solid rgba(0,212,255,.3);font-size:2.5rem;font-weight:900;
+          color:var(--accent);display:flex;align-items:center;justify-content:center;">+</button>
+      </div>
+
+      <button id="foto-del-mini-btn" class="foto-mini-btn" style="width:100%;justify-content:center;margin-bottom:20px;"
+        onclick="window.tirarFotoMini('client_entrega','foto-del-mini-btn')">
+        📷 &nbsp; Tirar foto da entrega
+      </button>
+
+      <button onclick="window._vcNextCollect()" class="btn-giant" style="margin-bottom:12px;">
+        Próximo →
+      </button>
+      <button onclick="window._vcSkipDeliver()"
+        style="width:100%;padding:14px;border-radius:14px;background:transparent;
+        border:1px solid rgba(255,255,255,.12);font-size:.95rem;font-weight:700;
+        color:rgba(228,240,246,.45);">Não entregou nada — Pular</button>
+
+    </div>`;
+    if(S.fotos.client_entrega){const b=$('foto-del-mini-btn');if(b){b.className='foto-mini-btn done';b.innerHTML='✅ &nbsp; Foto salva!';}}
+  }
+
+  function _vcCollect() {
+    $('app').innerHTML=`
+    <div class="fade-in" style="padding:0 20px 40px;">
+
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 0 20px;">
+        <button onclick="window._vcBackDeliver()"
+          style="padding:10px 18px;border-radius:12px;background:rgba(255,255,255,.07);
+          border:1px solid rgba(255,255,255,.12);font-size:1rem;font-weight:700;color:rgba(228,240,246,.65);">← Voltar</button>
+        <span style="font-family:'Montserrat',sans-serif;font-size:1rem;font-weight:900;">${S.clientName}</span>
+        <div style="text-align:right;">
+          <div style="font-family:'Montserrat',sans-serif;font-size:1.3rem;font-weight:900;">${S.truckCx}</div>
+          <div style="font-size:.65rem;color:var(--muted);">no caminhão</div>
+        </div>
+      </div>
+
+      ${_stepBar(2)}
+
+      <div style="font-family:'Montserrat',sans-serif;font-size:1.5rem;font-weight:900;text-align:center;margin-bottom:8px;">
+        📥 Quantas caixas coletou?
+      </div>
+      <div style="font-size:.95rem;color:var(--muted);text-align:center;margin-bottom:22px;">
+        Caixas que entraram no caminhão
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:center;gap:24px;margin:16px 0 32px;">
+        <button onclick="window._vcColMinus()"
+          style="width:80px;height:80px;border-radius:50%;background:rgba(255,255,255,.07);
+          border:2px solid rgba(255,255,255,.15);font-size:2.5rem;font-weight:900;
+          color:var(--text);display:flex;align-items:center;justify-content:center;">−</button>
+        <div style="text-align:center;min-width:110px;">
+          <input id="col-count" type="tel" inputmode="numeric" pattern="[0-9]*"
+            value="${S.totalCol}" onfocus="this.select()"
+            oninput="var v=parseInt(this.value.replace(/\D/g,''))||0;window._S.totalCol=v;this.value=v;"
+            style="font-family:'Montserrat',sans-serif;font-size:4rem;font-weight:900;
+            color:var(--success);line-height:1;background:transparent;border:none;outline:none;
+            width:110px;text-align:center;padding:0;caret-color:var(--success);"/>
+          <div style="font-size:.78rem;color:var(--muted);margin-top:2px;">caixas</div>
+          <div style="font-size:.7rem;color:rgba(228,240,246,.3);margin-top:3px;">👆 toque p/ digitar</div>
+        </div>
+        <button onclick="window._vcColPlus()"
+          style="width:80px;height:80px;border-radius:50%;background:rgba(0,229,160,.08);
+          border:2px solid rgba(0,229,160,.3);font-size:2.5rem;font-weight:900;
+          color:var(--success);display:flex;align-items:center;justify-content:center;">+</button>
+      </div>
+
+      <div style="margin:4px 0 16px;height:1px;background:rgba(255,255,255,.08);"></div>
+      <div style="font-size:.9rem;font-weight:800;color:var(--warning);text-align:center;margin-bottom:4px;">
+        📦 Ficaram cheias no cliente?
+      </div>
+      <div style="font-size:.82rem;color:var(--muted);text-align:center;margin-bottom:14px;">
+        Caixas cheias que não conseguiu esvaziar hoje
+      </div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:24px;margin:0 0 24px;">
+        <button onclick="window._vcOcpMinus()"
+          style="width:64px;height:64px;border-radius:50%;background:rgba(255,255,255,.07);
+          border:2px solid rgba(255,255,255,.15);font-size:2rem;font-weight:900;
+          color:var(--text);display:flex;align-items:center;justify-content:center;">−</button>
+        <div style="text-align:center;min-width:90px;">
+          <input id="ocp-count" type="tel" inputmode="numeric" pattern="[0-9]*"
+            value="${S.totalOcp}" onfocus="this.select()"
+            oninput="var v=parseInt(this.value.replace(/\D/g,''))||0;window._S.totalOcp=v;this.value=v;"
+            style="font-family:'Montserrat',sans-serif;font-size:3rem;font-weight:900;
+            color:var(--warning);line-height:1;background:transparent;border:none;outline:none;
+            width:90px;text-align:center;padding:0;caret-color:var(--warning);"/>
+          <div style="font-size:.72rem;color:var(--muted);margin-top:2px;">cx cheias</div>
+        </div>
+        <button onclick="window._vcOcpPlus()"
+          style="width:64px;height:64px;border-radius:50%;background:rgba(255,179,71,.1);
+          border:2px solid rgba(255,179,71,.3);font-size:2rem;font-weight:900;
+          color:var(--warning);display:flex;align-items:center;justify-content:center;">+</button>
+      </div>
+
+      <button id="foto-col-mini-btn" class="foto-mini-btn" style="width:100%;justify-content:center;margin-bottom:20px;border-color:rgba(0,229,160,.35);color:var(--success);background:rgba(0,229,160,.03);"
+        onclick="window.tirarFotoMini('client_coleta','foto-col-mini-btn')">
+        📷 &nbsp; Tirar foto da coleta
+      </button>
+
+      <button onclick="window._vcNextPhoto()" class="btn-giant" style="background:var(--success);margin-bottom:12px;">
+        Próximo →
+      </button>
+      <button onclick="window._vcSkipCollect()"
+        style="width:100%;padding:14px;border-radius:14px;background:transparent;
+        border:1px solid rgba(255,255,255,.12);font-size:.95rem;font-weight:700;
+        color:rgba(228,240,246,.45);">Não coletou nada — Pular</button>
+
+    </div>`;
+    if(S.fotos.client_coleta){const b=$('foto-col-mini-btn');if(b){b.className='foto-mini-btn done';b.innerHTML='✅ &nbsp; Foto salva!';}}
+  }
+
+  function _vcPhoto() {
+    $('app').innerHTML=`
+    <div class="fade-in" style="padding:0 20px 40px;">
+
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 0 20px;">
+        <button onclick="window._vcBackCollect()"
+          style="padding:10px 18px;border-radius:12px;background:rgba(255,255,255,.07);
+          border:1px solid rgba(255,255,255,.12);font-size:1rem;font-weight:700;color:rgba(228,240,246,.65);">← Voltar</button>
+        <span style="font-family:'Montserrat',sans-serif;font-size:1rem;font-weight:900;">${S.clientName}</span>
+        <div style="font-size:.68rem;color:var(--muted);text-align:right;">
+          <span class="geo-dot" id="geo-dot"></span> <span id="geo-txt">Localizando...</span>
+        </div>
+      </div>
+
+      ${_stepBar(3)}
+
+      <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:16px;
+        padding:16px 20px;margin-bottom:24px;display:flex;justify-content:center;gap:32px;align-items:center;">
+        <div style="text-align:center;">
+          <div style="font-size:2rem;font-weight:900;color:var(--accent);">${S.totalDel}</div>
+          <div style="font-size:.78rem;color:var(--muted);margin-top:4px;">📤 entregue${S.totalDel!==1?'s':''}</div>
+        </div>
+        <div style="width:1px;height:44px;background:rgba(255,255,255,.08);"></div>
+        <div style="text-align:center;">
+          <div style="font-size:2rem;font-weight:900;color:var(--success);">${S.totalCol}</div>
+          <div style="font-size:.78rem;color:var(--muted);margin-top:4px;">📥 coletad${S.totalCol!==1?'as':'a'}</div>
+        </div>
+      </div>
+
+      ${S._fotoObrigatoria?`<div style="background:rgba(255,179,71,.1);border:1px solid rgba(255,179,71,.35);
+        border-radius:14px;padding:12px 18px;margin-bottom:16px;font-size:.95rem;font-weight:700;
+        color:var(--warning);text-align:center;">📷 Foto obrigatória para este cliente</div>`:''}
+
+      <div style="font-size:.9rem;color:var(--muted);font-weight:700;letter-spacing:.05em;margin-bottom:12px;">
+        FOTOS${S._fotoObrigatoria?' — OBRIGATÓRIA':''}:
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:12px;margin-bottom:28px;">
+        <button id="foto-ent-btn" class="foto-grande-btn"
+          onclick="window.tirarFotoMini('client_entrega','foto-ent-btn')">
+          📷 &nbsp; Foto da entrega
+        </button>
+        <button id="foto-col-btn" class="foto-grande-btn"
+          style="border-color:rgba(0,229,160,.35);color:var(--success);background:rgba(0,229,160,.06);"
+          onclick="window.tirarFotoMini('client_coleta','foto-col-btn')">
+          📷 &nbsp; Foto da coleta
+        </button>
+      </div>
+
+      <button id="regBtn" onclick="registerClient()" class="btn-giant" style="font-size:1.2rem;min-height:68px;">
+        ✅ Registrar Visita
+      </button>
+
+    </div>`;
+
+    _watchGeoText();
+    _atualizarBotaoRegistrar();
+    if(S.fotos.client_entrega){const b=$('foto-ent-btn');if(b){b.className='foto-grande-btn done';b.innerHTML='✅ &nbsp; Foto salva!';}}
+    if(S.fotos.client_coleta){const b=$('foto-col-btn');if(b){b.className='foto-grande-btn done';b.innerHTML='✅ &nbsp; Foto salva!';}}
+  }
+
+  function _vcDone() {
+    const cn=S._lastRegistered||'Cliente';
+    $('app').innerHTML=`
+    <div class="fade-in" style="padding:40px 20px 60px;display:flex;flex-direction:column;align-items:center;text-align:center;">
+
+      <div style="font-size:64px;line-height:1;margin-bottom:16px;
+        filter:drop-shadow(0 0 24px rgba(0,229,160,.5));">✅</div>
+      <div style="font-family:'Montserrat',sans-serif;font-size:1.5rem;font-weight:900;margin-bottom:6px;">
+        ${cn} registrado!
+      </div>
+      <div style="font-size:.95rem;color:var(--muted);margin-bottom:40px;">
+        O que fazer agora?
+      </div>
+
+      <div style="width:100%;display:flex;flex-direction:column;gap:14px;">
+
+        <button onclick="window._vcNovoCliente()"
+          style="width:100%;min-height:72px;border-radius:18px;
+          background:rgba(0,212,255,.1);border:2px solid rgba(0,212,255,.35);
+          color:var(--accent);font-family:'Montserrat',sans-serif;font-size:1.1rem;font-weight:900;
+          display:flex;align-items:center;justify-content:center;gap:14px;">
+          ➕ &nbsp; Mais um cliente
+        </button>
+
+        <button onclick="window.escolherModo('finalize')"
+          style="width:100%;min-height:72px;border-radius:18px;
+          background:rgba(255,91,112,.09);border:2px solid rgba(255,91,112,.38);
+          color:var(--alert);font-family:'Montserrat',sans-serif;font-size:1.1rem;font-weight:900;
+          display:flex;align-items:center;justify-content:center;gap:14px;">
+          🏁 &nbsp; Resumo e Finalizar o Dia
+        </button>
+
+      </div>
+    </div>`;
+  }
+
+  window._vcNovoCliente=function(){
+    S.clientSubStep='name';S.clientName='';
+    S.totalDel=0;S.totalCol=0;S.totalOcp=0;S._fotoObrigatoria=false;S._clienteData=null;
+    S.fotos.client_entrega=null;S.fotos.client_coleta=null;
+    render();
+  };
+
+  /* Navegação entre sub-passos */
+  window._vcNextDeliver=function(){
+    const inp=$('clientInput'); const cn=(inp?inp.value:S.clientName).trim().toUpperCase();
+    if(!cn){toast('Digite o nome do cliente!');return;}
+    S.clientName=cn; S.clientSubStep='deliver'; render();
+  };
+  window._vcBackName=function(){S.clientSubStep='name';render();};
+  window._vcSkipDeliver=function(){S.totalDel=0;S.clientSubStep='collect';render();};
+  window._vcNextCollect=function(){
+    if(S.totalDel>(S.truckCx)){toast('Você não tem tantas caixas no caminhão!');return;}
+    S.clientSubStep='collect';render();
+  };
+  window._vcBackDeliver=function(){S.clientSubStep='deliver';render();};
+  window._vcSkipCollect=function(){S.totalCol=0;S.totalOcp=0;S.clientSubStep='photo';render();};
+  window._vcNextPhoto=function(){S.clientSubStep='photo';render();};
+  window._vcBackCollect=function(){S.clientSubStep='collect';render();};
+
+  /* Controles dos contadores */
+  window._vcDelPlus=function(){
+    if(S.totalDel>=(S.truckCx)){toast('Não tem mais caixas no caminhão!');return;}
+    S.totalDel++; const el=$('del-count');if(el){el.value=S.totalDel;numPop(el);} vibe(15);
+  };
+  window._vcDelMinus=function(){
+    if(S.totalDel<=0)return; S.totalDel--; const el=$('del-count');if(el){el.value=S.totalDel;numPop(el);} vibe(15);
+  };
+  window._vcColPlus=function(){
+    S.totalCol++; const el=$('col-count');if(el){el.value=S.totalCol;numPop(el);} vibe(15);
+  };
+  window._vcColMinus=function(){
+    if(S.totalCol<=0)return; S.totalCol--; const el=$('col-count');if(el){el.value=S.totalCol;numPop(el);} vibe(15);
+  };
+  window._vcOcpPlus=function(){
+    S.totalOcp++; const el=$('ocp-count');if(el){el.value=S.totalOcp;numPop(el);} vibe(15);
+  };
+  window._vcOcpMinus=function(){
+    if(S.totalOcp<=0)return; S.totalOcp--; const el=$('ocp-count');if(el){el.value=S.totalOcp;numPop(el);} vibe(15);
+  };
+  window._vcUsarUltimaDel=function(total){
+    S.totalDel=total; const el=$('del-count');if(el)el.value=total; vibe(30); toast('✓ Valor da última visita aplicado!');
+  };
+
+  function _watchGeoText(){
+    const interval=setInterval(()=>{
+      const dot=$('geo-dot'); const txt=$('geo-txt');
+      if(!dot||!txt){clearInterval(interval);return;}
+      if(S.geoCoords){
+        dot.className='geo-dot ok';
+        txt.textContent=`📍 ±${S.geoCoords.acc}m`;
+        clearInterval(interval);
+      }
+    },500);
+    setTimeout(()=>{
+      clearInterval(interval);
+      const txt=$('geo-txt');
+      if(txt&&!S.geoCoords)txt.textContent='📍 Indisponível';
+    },13000);
+  }
+
+  /* Mostra sugestões */
+  window._showSugg=function(query){
+    const sugg=$('client-sugg'); if(!sugg) return;
+    const matches=window._buscarClientes(query);
+    if(!matches.length){sugg.style.display='none';sugg.innerHTML='';return;}
+    sugg.style.display='block';
+    sugg.innerHTML=matches.map(m=>
+      `<div class="sugg-item" onmousedown="event.preventDefault();window._selecionarCliente('${m.replace(/'/g,"\\'")}');">${m}</div>`
+    ).join('');
+  };
+
+  /* ════ RESUMO ════ */
+  function vSummary() {
+    // Narrativa por cliente: "Deixou 10pt e pegou 8pt"
+    const txHtml=S.transactions.length?S.transactions.map(tx=>{
+      const partes = [];
+      const totalDel=tx.totalDel||(tx.delBlack||0)+(tx.delWhite||0);
+      const totalCol=tx.totalCol||(tx.colBlack||0)+(tx.colWhite||0);
+      const totalOcp=tx.totalOcp||0;
+      if(totalDel) partes.push(`<span style="color:var(--alert);">↓ Deixou <b>${totalDel}</b> cx</span>`);
+      if(totalCol) partes.push(`<span style="color:var(--success);">↑ Pegou <b>${totalCol}</b> cx</span>`);
+      if(totalOcp) partes.push(`<span style="color:var(--warning);">⚠ <b>${totalOcp}</b> cx cheias</span>`);
+      const linha = partes.join(' · ') || '<span style="color:rgba(228,240,246,.4);">sem caixas</span>';
+      return `
+        <div style="padding:12px 0;border-bottom:1px solid rgba(255,255,255,.06);">
+          <div style="font-size:.95rem;font-weight:800;margin-bottom:4px;display:flex;align-items:center;gap:6px;">
+            ${tx.clientName}${tx.geo?`<span style="font-size:.62rem;color:rgba(0,229,160,.6);">📍</span>`:''}${tx.temFoto?`<span style="font-size:.62rem;color:rgba(255,179,71,.7);">📷</span>`:''}
+          </div>
+          <div style="font-size:.82rem;letter-spacing:-.005em;">${linha}</div>
+        </div>`;
+    }).join(''):'<p class="empty">Nenhum cliente lançado ainda.</p>';
+
+    $('app').innerHTML=`<div id="driver-wrap" class="fade-in">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+        <img src="${LOGO_SRC}" alt="Hetros" style="height:36px;filter:drop-shadow(0 2px 8px rgba(0,0,0,.4));"/>
+        <span class="offline-pill">📵 Offline</span>
+      </div>
+      <div style="font-family:'Montserrat',sans-serif;font-size:1.35rem;font-weight:900;margin-bottom:14px;">📋 Resumo do Dia</div>
+      <div class="glass-card" style="padding:20px;margin-bottom:12px;">
+        <div class="label-section" style="margin-bottom:10px;">No Caminhão Agora</div>
+        <div style="display:flex;gap:24px;">
+          <div><div class="big-num" style="color:var(--accent);">${S.truckCx}</div><div class="big-num-label">📦 Total</div></div>
+        </div>
+      </div>
+      <div class="glass-card" style="padding:16px;margin-bottom:18px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div class="label-section">${S.transactions.length} cliente(s)</div>
+          <button onclick="backToClient()" style="font-size:.76rem;font-weight:700;color:var(--accent);
+            padding:5px 11px;border:1px solid rgba(0,212,255,.2);border-radius:7px;
+            background:rgba(0,212,255,.06);">+ Novo</button>
+        </div>
+        <div style="max-height:260px;overflow-y:auto;">${txHtml}</div>
+      </div>
+      <button onclick="window.escolherModo('finalize')" class="btn-giant" style="margin-bottom:10px;background:linear-gradient(135deg,#ff5b70,#c8324a);box-shadow:0 6px 28px rgba(255,91,112,.35);">🏁 Finalizar o Dia</button>
+      <button onclick="backToClient()" class="btn-sec">← Adicionar Mais</button>
+    </div>`;
+  }
+
+  /* ════ DONE ════ */
+  function vDone() {
+    // Monta mensagem WhatsApp formatada
+    const hoje = new Date().toLocaleDateString('pt-BR', { weekday:'long', day:'2-digit', month:'2-digit', year:'numeric' });
+    const totalEntregue = S.transactions.reduce((a,tx)=>(a+(tx.totalDel||(tx.delBlack||0)+(tx.delWhite||0))),0);
+    const totalColetado = S.transactions.reduce((a,tx)=>(a+(tx.totalCol||(tx.colBlack||0)+(tx.colWhite||0))),0);
+    const saldoPendente = totalEntregue - totalColetado;
+    const taxaRetorno   = totalEntregue > 0 ? Math.round(totalColetado/totalEntregue*100) : 0;
+
+    const linhasClientes = S.transactions.map((tx, i) => {
+      const partes = [];
+      const tDel=tx.totalDel||(tx.delBlack||0)+(tx.delWhite||0);
+      const tCol=tx.totalCol||(tx.colBlack||0)+(tx.colWhite||0);
+      const tOcp=tx.totalOcp||0;
+      if(tDel) partes.push(`   📤 Entregou: ${tDel} cx`);
+      if(tCol) partes.push(`   📥 Coletou: ${tCol} cx`);
+      if(tOcp) partes.push(`   ⚠️ Cheias no cliente: ${tOcp} cx`);
+      if(tx.temFoto) partes.push(`   📷 Foto registrada`);
+      if(tx.geo)     partes.push(`   📍 Localização confirmada`);
+      return `*${i+1}. ${tx.clientName}*\n${partes.join('\n')}`;
+    });
+
+    const waMsg = encodeURIComponent([
+      `🏢 *LUMIN LOG*`,
+      `👤 Motorista: *${name.toUpperCase()}*`,
+      `📅 ${hoje}`,
+      ``,
+      `━━━━━━━━━━━━━━━━━`,
+      `*CLIENTES VISITADOS (${S.transactions.length}):*`,
+      ``,
+      linhasClientes.join('\n\n'),
+      ``,
+      `━━━━━━━━━━━━━━━━━`,
+      `*📊 RESUMO DO DIA*`,
+      `📤 Total entregue: *${totalEntregue} cx*`,
+      `📥 Total coletado: *${totalColetado} cx*`,
+      `📈 Taxa de retorno: *${taxaRetorno}%*`,
+      saldoPendente > 0 ? `⏳ Saldo em rota: *${saldoPendente} cx*` : `✅ Tudo coletado!`,
+      ``,
+      `*🚚 CAMINHÃO FINAL*`,
+      `📦 Total: *${S.truckCx} caixas*`,
+    ].join('\n'));
+
+    $('app').innerHTML=`<div id="driver-wrap" class="fade-in"
+      style="display:flex;flex-direction:column;align-items:center;justify-content:center;
+      min-height:85svh;text-align:center;padding:40px 20px;">
+      <img src="${LOGO_SRC}" alt="Hetros" style="width:130px;margin-bottom:24px;
+        filter:drop-shadow(0 4px 16px rgba(0,0,0,.45));"/>
+      <div style="font-size:64px;line-height:1;margin-bottom:16px;
+        filter:drop-shadow(0 0 24px rgba(0,229,160,.45));">✅</div>
+      <h1 style="font-family:'Montserrat',sans-serif;font-size:2rem;font-weight:900;
+        margin-bottom:8px;line-height:1.1;">Dia Finalizado!</h1>
+      <p style="color:var(--muted);font-size:1rem;margin-bottom:4px;">Tudo salvo com sucesso.</p>
+      <p style="color:var(--muted);font-size:.95rem;margin-bottom:32px;">
+        Obrigado, <span style="color:var(--text);font-weight:700;">${name}</span>!
+      </p>
+      <div style="width:100%;max-width:320px;display:flex;flex-direction:column;gap:10px;">
+        <button onclick="newDay()" class="btn-giant">🔄 Novo Lançamento</button>
+        <a href="https://wa.me/?text=${waMsg}" target="_blank" class="whatsapp-btn">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M11.986 0C5.373 0 0 5.373 0 11.986c0 2.093.547 4.059 1.5 5.772L.057 23.857a.5.5 0 00.614.614l6.145-1.461A11.946 11.946 0 0011.986 24C18.599 24 24 18.627 24 12.014 24 5.373 18.599 0 11.986 0zm0 21.818a9.804 9.804 0 01-5.012-1.374l-.36-.214-3.724.886.903-3.63-.236-.374a9.804 9.804 0 01-1.389-5.126c0-5.418 4.41-9.827 9.818-9.827 5.418 0 9.828 4.41 9.828 9.827 0 5.419-4.41 9.832-9.828 9.832z"/></svg>
+          Enviar resumo no WhatsApp
+        </a>
+      </div>
+    </div>`;
+  }
+
+  /* ══ AÇÕES ══ */
+  window.S=S;
+
+  window.adj=function(key,delta,elId){
+    S[key]=Math.max(0,S[key]+delta); vibe();
+    const el=$(elId); if(el){if(el.tagName==='INPUT') el.value=S[key]; else el.textContent=S[key];}
+  };
+
+  window.madj=function(key,deltaStr,elId){
+    S[key]=Math.max(0,S[key]+(parseInt(deltaStr)||0)); vibe();
+    const el=$(elId); if(el) el.textContent=S[key];
+    _atualizarBotaoRegistrar();
+  };
+
+  window.escolherModo=function(mode){
+    S.mode=mode;
+    if(mode==='cd'){S.depTotal=0;S.step='departure';}
+    else if(mode==='client') S.step='client';
+    else if(mode==='cd_return'){S.retCx=S.truckCx;S.step='cd_return';}
+    else if(mode==='finalize'){S.retCx=S.truckCx;S.step='finalize';S.fotos.cd_return=null;}
+    render();
+  };
+
+  window.voltarEscolha=function(){
+    S.step='choose';
+    S.clientName='';S.totalDel=0;S.totalCol=0;S.totalOcp=0;S.clientSubStep='name';
+    S._fotoObrigatoria=false;S._clienteData=null;
+    render();
+  };
+
+  window._depPlus=function(){
+    S.depTotal++; const el=$('dep-count');if(el){el.value=S.depTotal;numPop(el);} vibe(15);
+  };
+  window._depMinus=function(){
+    if(S.depTotal<=0)return; S.depTotal--; const el=$('dep-count');if(el){el.value=S.depTotal;numPop(el);} vibe(15);
+  };
+
+  window.confirmDeparture=async function(){
+    const total=S.depTotal;
+    if(!total){toast('Informe quantas caixas está pegando!');return;}
+    if(S.saving) return; S.saving=true;
+    try{
+      const today=new Date().toISOString().split('T')[0];
+      const newCx=S.truckCx+total;
+      const batch=db.batch();
+      batch.set(db.collection('ll_drivers').doc(name),
+        {name,truckCx:newCx,lastUpdated:TS()},{merge:true});
+      const ev={type:'cd_departure',driverName:name,
+        depTotal:total,truckBefore:S.truckCx,truckAfter:newCx,timestamp:TS()};
+      if(S.fotos.cd_saida) ev.fotoUrl=S.fotos.cd_saida;
+      batch.set(db.collection('ll_events').doc(),ev);
+      batch.set(db.collection('controle_caixas').doc(),{tipo:'ENTRADA',data:today,
+        cliente:'Hetros — Retirada CD',fornecedor:name,motorista:name,
+        quantidadeCx:total,status:'OK',origem:'motorista_cd_departure',createdAt:TS()});
+      await batch.commit();
+      S.truckCx=newCx; S.depTotal=0;
+      S.step='client';S.mode='client';
+      showDepartureAnim(total, render);
+    }catch(e){toast('Erro ao salvar. Verifique a conexão.');}
+    finally{S.saving=false;}
+  };
+
+  window.confirmCdReturn=async function(){
+    if(S.saving) return;
+    const retCx=S.retCx;
+    if(!retCx){toast('Informe ao menos uma caixa!');return;}
+    S.saving=true;
+    const btn=$('retBtn');if(btn){btn.disabled=true;btn.textContent='⏳ Salvando...';}
+    try{
+      const today=new Date().toISOString().split('T')[0];
+      const newCx=Math.max(0,S.truckCx-retCx);
+      const batch=db.batch();
+      batch.update(db.collection('ll_drivers').doc(name),{truckCx:newCx,lastUpdated:TS()});
+      const ev={type:'cd_return',driverName:name,retCx,
+        truckBefore:S.truckCx,truckAfter:newCx,timestamp:TS()};
+      if(S.fotos.cd_return) ev.fotoUrl=S.fotos.cd_return;
+      batch.set(db.collection('ll_events').doc(),ev);
+      batch.set(db.collection('controle_caixas').doc(),{tipo:'SAÍDA',data:today,
+        cliente:'Hetros — Devolução CD',fornecedor:name,motorista:name,
+        quantidadeCx:retCx,status:'OK',origem:'motorista_cd_return',createdAt:TS()});
+      await batch.commit();
+      S.truckCx=newCx; S.retCx=0; S.fotos.cd_return=null;
+      S.step='choose';
+      showSuccess(() => { toast(`✓ ${retCx} caixas devolvidas ao CD!`); render(); });
+    }catch(e){
+      toast('Erro ao salvar. Tente novamente.');
+      if(btn){btn.disabled=false;btn.textContent='✅ Confirmar Devolução';}
+    }finally{S.saving=false;}
+  };
+
+  window.registerClient=async function(){
+    const inp=$('clientInput');
+    const cn=(inp?inp.value:S.clientName).trim().toUpperCase();
+    if(!cn){toast('Digite o nome do cliente!');return;}
+    if(S._fotoObrigatoria&&!S.fotos.client_entrega&&!S.fotos.client_coleta){
+      toast('📷 Foto obrigatória para este cliente!');return;
+    }
+    if(!S.totalDel&&!S.totalCol){toast('Informe ao menos uma caixa!');return;}
+    if(S.saving) return; S.saving=true;
+    const btn=$('regBtn');if(btn){btn.disabled=true;btn.textContent='Salvando...';}
+    try{
+      const today=new Date().toISOString().split('T')[0];
+      const finalCx=Math.max(0,S.truckCx-S.totalDel+S.totalCol);
+      const cRef=db.collection('ll_clients').doc(cn);
+      const cSnap=await cRef.get();
+      const cur=cSnap.exists?cSnap.data():{balance:0};
+      const batch=db.batch();
+      const cu={
+        name:cn,
+        balance:Math.max(0,nn(cur.balance||nn(cur.balanceBlack)+nn(cur.balanceWhite))+S.totalDel-S.totalCol),
+        lastUpdated:TS(),
+        lastVisit:{totalDel:S.totalDel,totalCol:S.totalCol,date:today},
+      };
+      if(S.geoCoords) cu.lastVisitGeo=S.geoCoords;
+      batch.set(cRef,cu,{merge:true});
+      batch.set(db.collection('luminlog_frequentes').doc('index'),
+        {nomes:firebase.firestore.FieldValue.arrayUnion(cn)},{merge:true});
+      batch.update(db.collection('ll_drivers').doc(name),{truckCx:finalCx,lastUpdated:TS()});
+      const ev={type:'client_transaction',driverName:name,clientName:cn,
+        totalDel:S.totalDel,totalCol:S.totalCol,totalOcp:S.totalOcp,
+        truckBefore:S.truckCx,truckAfter:finalCx,timestamp:TS()};
+      if(S.geoCoords)            ev.geo=S.geoCoords;
+      if(S.fotos.client_entrega) ev.fotoEntrega=S.fotos.client_entrega;
+      if(S.fotos.client_coleta)  ev.fotoColeta=S.fotos.client_coleta;
+      batch.set(db.collection('ll_events').doc(),ev);
+      if(S.totalDel>0) batch.set(db.collection('controle_caixas').doc(),{tipo:'SAÍDA',data:today,
+        cliente:cn,fornecedor:name,motorista:name,quantidadeCx:S.totalDel,
+        status:'OK',origem:'motorista',createdAt:TS()});
+      if(S.totalCol>0) batch.set(db.collection('controle_caixas').doc(),{tipo:'ENTRADA',data:today,
+        cliente:cn,fornecedor:name,motorista:name,quantidadeCx:S.totalCol,
+        status:'OK',origem:'motorista',createdAt:TS()});
+      await batch.commit();
+      if(!_clientesList.includes(cn)){_clientesList.push(cn);_clientesList.sort();}
+      if(!_recentClientes.includes(cn)) _recentClientes.unshift(cn);
+      _recentClientes=_recentClientes.slice(0,8);
+      const temFoto=!!(S.fotos.client_entrega||S.fotos.client_coleta);
+      S.transactions.push({clientName:cn,totalDel:S.totalDel,totalCol:S.totalCol,totalOcp:S.totalOcp,temFoto,geo:!!S.geoCoords});
+      S.truckCx=finalCx;
+      S._lastRegistered=cn;
+      S.clientName='';S.totalDel=0;S.totalCol=0;S.totalOcp=0;S.clientSubStep='done';
+      S._fotoObrigatoria=false;S._clienteData=null;
+      S.fotos.client_entrega=null;S.fotos.client_coleta=null;
+      showSuccess(render);
+    }catch(e){
+      console.error(e);toast('Erro ao salvar. Tente novamente.');
+      if(btn){btn.disabled=false;btn.textContent='✅ Registrar';}
+    }finally{S.saving=false;}
+  };
+
+  window.goSummary=function(){S.step='summary';render();};
+  window.backToClient=function(){
+    S.clientName='';S.totalDel=0;S.totalCol=0;S.totalOcp=0;S.clientSubStep='name';
+    S._fotoObrigatoria=false;S._clienteData=null;
+    S.step='client';render();
+  };
+
+  window.finalize=async function(){
+    if(S.saving) return; S.saving=true;
+    const btn=$('finalBtn');if(btn){btn.disabled=true;btn.textContent='Salvando...';}
+    try{
+      const today=new Date().toISOString().split('T')[0];
+      const batch=db.batch();
+
+      // Se ainda há caixas no caminhão, devolve automaticamente ao CD
+      if(S.truckCx>0){
+        const retCx=S.truckCx;
+        batch.update(db.collection('ll_drivers').doc(name),{truckCx:0,lastUpdated:TS()});
+        batch.set(db.collection('ll_events').doc(),{
+          type:'cd_return',driverName:name,retCx,
+          truckBefore:retCx,truckAfter:0,
+          auto:true, // marcador: foi automático ao finalizar o dia
+          timestamp:TS()
+        });
+        batch.set(db.collection('controle_caixas').doc(),{
+          tipo:'SAÍDA',data:today,
+          cliente:'Hetros — Devolução CD',fornecedor:name,motorista:name,
+          quantidadeCx:retCx,status:'OK',origem:'motorista_finalize_auto',createdAt:TS()
+        });
+      }
+
+      // Evento de encerramento do dia
+      batch.set(db.collection('ll_events').doc(),{
+        type:'day_finalized',driverName:name,
+        truckCx:S.truckCx,
+        totalClients:S.transactions.length,transactions:S.transactions,timestamp:TS()
+      });
+
+      await batch.commit();
+      S.truckCx=0;
+      showTruckAnim(()=>{ S.step='done'; render(); });
+    }catch(e){
+      toast('Erro ao finalizar. Tente novamente.');
+      if(btn){btn.disabled=false;btn.textContent='✅ Finalizar o Dia';}
+    }finally{S.saving=false;}
+  };
+
+  /* ════ CONFIRMAR FINALIZAÇÃO (tela de revisão) ════ */
+  window.confirmFinalize=async function(){
+    if(S.saving) return;
+    S.saving=true;
+    const btn=$('finBtn');
+    if(btn){btn.disabled=true;btn.textContent='Salvando...';}
+    try{
+      const today=new Date().toISOString().split('T')[0];
+      const retCx=Math.max(0, nn(S.retCx));
+      const batch=db.batch();
+
+      // 1) Devolução ao CD (mesmo se retCx === 0, gravamos um cd_return de 0 só se truckCx > 0)
+      if(S.truckCx>0 || retCx>0){
+        batch.update(db.collection('ll_drivers').doc(name),
+          {truckCx:0,lastUpdated:TS()});
+        const ev={type:'cd_return',driverName:name,retCx,
+          truckBefore:S.truckCx,truckAfter:0,
+          fromFinalize:true,timestamp:TS()};
+        if(S.fotos.cd_return) ev.fotoUrl=S.fotos.cd_return;
+        batch.set(db.collection('ll_events').doc(),ev);
+        if(retCx>0){
+          batch.set(db.collection('controle_caixas').doc(),{
+            tipo:'SAÍDA',data:today,
+            cliente:'Hetros — Devolução CD',fornecedor:name,motorista:name,
+            quantidadeCx:retCx,status:'OK',origem:'motorista_finalize',createdAt:TS()
+          });
+        }
+      }
+
+      // 2) Evento de encerramento do dia
+      batch.set(db.collection('ll_events').doc(),{
+        type:'day_finalized',driverName:name,
+        truckCx:S.truckCx,retCx,
+        totalClients:S.transactions.length,
+        transactions:S.transactions,
+        timestamp:TS()
+      });
+
+      await batch.commit();
+      S.truckCx=0; S.retCx=0; S.fotos.cd_return=null;
+      showTruckAnim(()=>{ S.step='done'; render(); });
+    }catch(e){
+      console.warn('[finalize]', e);
+      toast('Erro ao finalizar. Tente novamente.');
+      if(btn){btn.disabled=false;btn.textContent='🏁 Confirmar e Finalizar';}
+    }finally{S.saving=false;}
+  };
+
+  window.newDay=function(){
+    Object.assign(S,{step:'choose',mode:null,transactions:[],
+      clientName:'',totalDel:0,totalCol:0,depTotal:0,retCx:0,
+      geoCoords:null,_fotoObrigatoria:false,_clienteData:null,fotos:{}});
+    render();
+  };
+}
+</script>
+</body>
+</html>
