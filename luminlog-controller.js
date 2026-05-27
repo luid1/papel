@@ -17,7 +17,7 @@
 import { db } from './firebase-config.js';
 import {
   collection, doc, addDoc, updateDoc, deleteDoc, setDoc, getDoc,
-  onSnapshot, serverTimestamp
+  onSnapshot, serverTimestamp, query, where
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
 // ─── CONSTANTES ────────────────────────────────────────────────
@@ -31,6 +31,8 @@ let _registros      = [];
 let _dadosCarregados= false;   // true após primeiro snapshot do Firestore
 let _editandoId     = null;
 let _unsubscribe    = null;
+let _unsubRotas        = null;
+let _rotasFinalizadas  = [];
 // Chart.js instances
 let _chartDaily   = null;
 let _chartDrivers = null;
@@ -1080,7 +1082,84 @@ function startListener() {
     },
     err => console.error('[LuminLog] Firestore error:', err)
   );
+
+  // Listener para "Rotas finalizadas hoje"
+  _unsubRotas = onSnapshot(
+    query(collection(db, 'll_events'), where('type', '==', 'cd_return')),
+    snap => {
+      _rotasFinalizadas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderRotasFinalizadas();
+    },
+    err => console.error('[LuminLog] Rotas listener error:', err)
+  );
 }
+
+// ─── ROTAS FINALIZADAS HOJE ────────────────────────────────────
+function renderRotasFinalizadas() {
+  const panel = $('ll-rotas-finalizadas-panel');
+  if (!panel) return;
+
+  const hojeYmd = new Date().toISOString().split('T')[0];
+  const hoje = _rotasFinalizadas
+    .filter(r => {
+      const ts = r.timestamp?.toDate?.();
+      if (!ts) return false;
+      return ts.toISOString().split('T')[0] === hojeYmd;
+    })
+    .sort((a, b) => (b.timestamp?.toMillis?.() || 0) - (a.timestamp?.toMillis?.() || 0));
+
+  // Mantém só a rota mais recente de cada motorista
+  const porMotorista = {};
+  hoje.forEach(r => { if (!porMotorista[r.driverName]) porMotorista[r.driverName] = r; });
+  const rotas = Object.values(porMotorista);
+
+  if (!rotas.length) {
+    panel.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:4px 0;">Nenhuma rota finalizada ainda hoje.</div>`;
+    return;
+  }
+
+  panel.innerHTML = rotas.map(r => {
+    const ts = r.timestamp?.toDate?.();
+    const hora = ts ? `${String(ts.getHours()).padStart(2,'0')}:${String(ts.getMinutes()).padStart(2,'0')}` : '';
+    const foto = r.fotoUrl
+      ? `<img src="${r.fotoUrl}" alt="foto devolução"
+           onclick="window.llmOpenFoto('${esc(r.fotoUrl)}')"
+           style="width:100%;height:140px;object-fit:cover;border-radius:10px;cursor:zoom-in;
+           border:1px solid rgba(255,255,255,.08);"/>`
+      : `<div style="width:100%;height:140px;border-radius:10px;background:rgba(255,255,255,.03);
+           border:1px dashed rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;
+           color:rgba(228,240,246,.25);font-size:24px;">📷</div>`;
+    return `
+      <div style="background:rgba(0,229,160,.04);border:1.5px solid rgba(0,229,160,.25);
+        border-radius:16px;padding:14px;min-width:220px;flex:1;max-width:280px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div style="font-size:14px;font-weight:800;">🚚 ${esc(r.driverName)}</div>
+          <span style="font-size:10px;font-weight:800;color:#00e5a0;background:rgba(0,229,160,.12);
+            padding:3px 9px;border-radius:20px;border:1px solid rgba(0,229,160,.3);">✓ FINALIZADA</span>
+        </div>
+        ${foto}
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;font-size:12px;">
+          <span style="color:var(--muted);">Devolveu <b style="color:var(--text);font-family:'DM Mono',monospace;">${r.retCx || 0} cx</b></span>
+          <span style="color:rgba(228,240,246,.45);font-family:'DM Mono',monospace;">${hora}</span>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// Modal pra ampliar a foto
+window.llmOpenFoto = function(url) {
+  let m = document.getElementById('llm-foto-modal');
+  if (!m) {
+    m = document.createElement('div');
+    m.id = 'llm-foto-modal';
+    m.style.cssText = 'display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.85);align-items:center;justify-content:center;padding:20px;cursor:zoom-out;';
+    m.innerHTML = '<img id="llm-foto-modal-img" style="max-width:95vw;max-height:95vh;border-radius:12px;"/>';
+    m.addEventListener('click', () => { m.style.display = 'none'; });
+    document.body.appendChild(m);
+  }
+  document.getElementById('llm-foto-modal-img').src = url;
+  m.style.display = 'flex';
+};
 
 // ─── MODAIS ADICIONAR ──────────────────────────────────────────
 function openAddModal() {
