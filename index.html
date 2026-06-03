@@ -967,6 +967,23 @@
           </div>
         </div>
 
+        <!-- Nomes suspeitos / fusão -->
+        <div class="admin-card" id="llm-nomes-suspeitos-card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:12px;flex-wrap:wrap;">
+            <div>
+              <h3 style="margin:0 0 2px;display:inline-flex;align-items:center;gap:8px;">
+                🔍 Nomes parecidos
+                <span id="llm-suspeitos-count" style="font-size:11px;font-weight:500;color:var(--muted);background:rgba(255,255,255,.05);padding:1px 8px;border-radius:5px;">0</span>
+              </h3>
+              <p style="margin:0;font-size:13px;color:var(--muted);">Clientes com nomes possivelmente duplicados. Aprove a fusão para unificar.</p>
+            </div>
+            <button onclick="window.llmAnalisarNomes()" class="llm-action-btn">↺ Analisar</button>
+          </div>
+          <div id="llm-nomes-suspeitos-list">
+            <p style="color:var(--muted);font-size:13px;padding:6px 0;">Clique em "Analisar" para verificar nomes parecidos.</p>
+          </div>
+        </div>
+
         <!-- Saldo de clientes -->
         <div class="admin-card">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:12px;flex-wrap:wrap;">

@@ -592,6 +592,180 @@ function startListeners() {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════
+// FUSÃO DE NOMES DE CLIENTES
+// ═══════════════════════════════════════════════════════════════
+function _normNome(s) {
+  return (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+}
+
+function _levenshtein(a, b) {
+  if (!a) return b.length; if (!b) return a.length;
+  const m = a.length, n = b.length;
+  const dp = Array.from({ length: m + 1 }, (_, i) => [i, ...Array(n).fill(0)]);
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++)
+    dp[i][j] = a[i-1] === b[j-1] ? dp[i-1][j-1] : 1 + Math.min(dp[i-1][j-1], dp[i-1][j], dp[i][j-1]);
+  return dp[m][n];
+}
+
+function _similaridade(a, b) {
+  const na = _normNome(a), nb = _normNome(b);
+  if (na === nb) return 100;
+  if (nb.includes(na) || na.includes(nb)) return 88;
+  const wa = na.split(/\s+/), wb = nb.split(/\s+/);
+  const comuns = wa.filter(w => w.length > 2 && wb.some(x => x.includes(w) || w.includes(x)));
+  if (comuns.length > 0) return Math.min(85, 60 + comuns.length * 12);
+  const dist = _levenshtein(na, nb);
+  const maxLen = Math.max(na.length, nb.length);
+  return maxLen > 0 ? Math.round((1 - dist / maxLen) * 55) : 0;
+}
+
+window.llmAnalisarNomes = async function() {
+  const listEl  = document.getElementById('llm-nomes-suspeitos-list');
+  const cntEl   = document.getElementById('llm-suspeitos-count');
+  if (!listEl) return;
+  listEl.innerHTML = '<p style="color:var(--muted);font-size:13px;padding:6px 0;">⏳ Analisando...</p>';
+
+  try {
+    // Carrega todos os nomes de clientes do Firestore
+    const [snapCc, snapCl] = await Promise.all([
+      getDocs(query(collection(db, 'controle_caixas'))),
+      getDocs(collection(db, 'll_clients'))
+    ]);
+
+    const nomesSet = new Set();
+    snapCc.docs.forEach(d => {
+      const c = (d.data().cliente || '').trim().toUpperCase();
+      if (c && c.length > 2 && !/\b(CD|DEPOSITO|DEPÓSITO|RETIRADA|DEVOLU|RETORNO|HETROS)\b/.test(c) && c !== '—')
+        nomesSet.add(c);
+    });
+    snapCl.docs.forEach(d => { if (d.id) nomesSet.add(d.id.trim().toUpperCase()); });
+
+    const nomes = Array.from(nomesSet).sort();
+
+    // Agrupar nomes parecidos (score >= 55)
+    const visitado = new Set();
+    const grupos = [];
+
+    for (let i = 0; i < nomes.length; i++) {
+      if (visitado.has(nomes[i])) continue;
+      const grupo = [nomes[i]];
+      for (let j = i + 1; j < nomes.length; j++) {
+        if (visitado.has(nomes[j])) continue;
+        if (_similaridade(nomes[i], nomes[j]) >= 55) {
+          grupo.push(nomes[j]);
+          visitado.add(nomes[j]);
+        }
+      }
+      if (grupo.length > 1) {
+        grupos.push(grupo);
+        visitado.add(nomes[i]);
+      }
+    }
+
+    if (cntEl) cntEl.textContent = grupos.length;
+
+    if (!grupos.length) {
+      listEl.innerHTML = '<p style="color:#00e5a0;font-size:13px;padding:6px 0;">✓ Nenhum nome suspeito encontrado.</p>';
+      return;
+    }
+
+    listEl.innerHTML = grupos.map((grupo, gi) => {
+      const itens = grupo.map((nome, ni) => `
+        <label style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.05);cursor:pointer;">
+          <input type="radio" name="llm-grupo-${gi}" value="${esc(nome)}" ${ni===0?'checked':''}
+            style="accent-color:var(--accent);width:15px;height:15px;flex-shrink:0;"/>
+          <span style="font-size:13px;font-weight:${ni===0?'800':'600'};color:${ni===0?'var(--text)':'var(--muted)'};">${esc(nome)}</span>
+          ${ni===0?'<span style="font-size:10px;color:var(--accent);background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.2);border-radius:20px;padding:1px 7px;">sugerido</span>':''}
+        </label>`).join('');
+
+      return `
+        <div id="llm-grupo-${gi}" style="background:rgba(255,179,71,.05);border:1.5px solid rgba(255,179,71,.2);border-radius:14px;padding:14px 16px;margin-bottom:12px;">
+          <div style="font-size:11px;font-weight:800;color:#ffb347;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Grupo ${gi+1} — ${grupo.length} nomes parecidos</div>
+          <div style="margin-bottom:12px;">${itens}</div>
+          <div style="display:flex;gap:8px;">
+            <button onclick="window.llmFundirGrupo(${gi},'llm-grupo-${gi}')"
+              style="flex:1;padding:9px;border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;
+              background:rgba(0,229,160,.1);border:1px solid rgba(0,229,160,.3);color:#00e5a0;">
+              ✓ Fundir — usar nome selecionado
+            </button>
+            <button onclick="document.getElementById('llm-grupo-${gi}').remove();window.llmAjustarContadorSuspeitos();"
+              style="padding:9px 14px;border-radius:9px;font-size:12px;font-weight:800;cursor:pointer;
+              background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);color:var(--muted);">
+              Ignorar
+            </button>
+          </div>
+        </div>`;
+    }).join('');
+
+  } catch(err) {
+    console.error('[LLM] Analisar nomes:', err);
+    listEl.innerHTML = '<p style="color:var(--alert);font-size:13px;padding:6px 0;">Erro ao carregar dados. Tente novamente.</p>';
+  }
+};
+
+window.llmAjustarContadorSuspeitos = function() {
+  const cntEl = document.getElementById('llm-suspeitos-count');
+  if (!cntEl) return;
+  const grupos = document.querySelectorAll('[id^="llm-grupo-"]').length;
+  cntEl.textContent = grupos;
+};
+
+window.llmFundirGrupo = async function(gi, grupoId) {
+  const grupoEl = document.getElementById(grupoId);
+  if (!grupoEl) return;
+  const radio = grupoEl.querySelector(`input[name="llm-grupo-${gi}"]:checked`);
+  if (!radio) { toast('Selecione um nome canônico.', true); return; }
+  const nomeCanon = radio.value;
+
+  // Todos os outros nomes do grupo
+  const outros = Array.from(grupoEl.querySelectorAll(`input[name="llm-grupo-${gi}"]`))
+    .map(r => r.value).filter(v => v !== nomeCanon);
+
+  if (!outros.length) { grupoEl.remove(); window.llmAjustarContadorSuspeitos(); return; }
+
+  const confirmMsg = `Renomear:\n${outros.join('\n')}\n\n→ para: "${nomeCanon}"\n\nIsso vai atualizar todos os registros de caixas.`;
+  if (!confirm(confirmMsg)) return;
+
+  const btn = grupoEl.querySelector('button');
+  if (btn) { btn.disabled = true; btn.textContent = 'Fundindo...'; }
+
+  try {
+    // Busca todos os registros com os nomes antigos e renomeia em batch
+    for (const nomeAntigo of outros) {
+      const snap = await getDocs(
+        query(collection(db, 'controle_caixas'), where('cliente', '==', nomeAntigo))
+      );
+      if (snap.empty) continue;
+      const batch = writeBatch(db);
+      snap.docs.forEach(d => batch.update(d.ref, { cliente: nomeCanon }));
+      await batch.commit();
+
+      // Renomeia também em ll_clients se existir
+      try {
+        const clienteDoc = await getDocs(query(collection(db, 'll_clients'), where('name', '==', nomeAntigo)));
+        if (!clienteDoc.empty) {
+          const batch2 = writeBatch(db);
+          clienteDoc.docs.forEach(d => {
+            batch2.set(doc(db, 'll_clients', nomeCanon), { ...d.data(), name: nomeCanon }, { merge: true });
+            batch2.delete(d.ref);
+          });
+          await batch2.commit();
+        }
+      } catch(_) {}
+    }
+
+    toast(`✓ "${outros.join('", "')}" fundidos em "${nomeCanon}".`);
+    grupoEl.remove();
+    window.llmAjustarContadorSuspeitos();
+  } catch(err) {
+    console.error('[LLM] Fusão:', err);
+    toast('Erro ao fundir. Tente novamente.', true);
+    if (btn) { btn.disabled = false; btn.textContent = '✓ Fundir — usar nome selecionado'; }
+  }
+};
+
 // BOOT
 // ═══════════════════════════════════════════════════════════════
 window.addEventListener('lumin:admin-ready', () => {
