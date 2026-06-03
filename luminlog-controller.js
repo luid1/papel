@@ -448,6 +448,11 @@ function renderKpis() {
               ${noCaminhao > 0 ? `<span>No caminhão: <b style="color:var(--accent);">${noCaminhao}</b></span>` : ''}
             </div>
             ${clientesHtml ? `<div style="font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;">Em clientes</div>${clientesHtml}` : '<div style="font-size:12px;color:var(--muted);">Sem pendência em clientes</div>'}
+            <button onclick="window.llAbrirFinalizarRota('${esc(mot)}', ${v.total})"
+              style="margin-top:12px;width:100%;padding:9px;border-radius:9px;font-size:12px;font-weight:800;
+              cursor:pointer;background:rgba(0,229,160,.1);border:1px solid rgba(0,229,160,.3);color:#00e5a0;">
+              ✓ Finalizar Rota
+            </button>
           </div>`;
       }).join('');
     }
@@ -1143,6 +1148,11 @@ function renderRotasFinalizadas() {
           <span style="color:var(--muted);">Devolveu <b style="color:var(--text);font-family:'DM Mono',monospace;">${r.retCx || 0} cx</b></span>
           <span style="color:rgba(228,240,246,.45);font-family:'DM Mono',monospace;">${hora}</span>
         </div>
+        <button onclick="window.llEditarCxFinalizada('${esc(r.id)}', '${esc(r.driverName)}', ${r.retCx || 0})"
+          style="margin-top:10px;width:100%;padding:8px;border-radius:8px;font-size:11px;font-weight:800;
+          cursor:pointer;background:rgba(255,179,71,.08);border:1px solid rgba(255,179,71,.25);color:#ffb347;">
+          ✏️ Editar cx devolvidas
+        </button>
       </div>`;
   }).join('');
 }
@@ -1160,6 +1170,123 @@ window.llmOpenFoto = function(url) {
   }
   document.getElementById('llm-foto-modal-img').src = url;
   m.style.display = 'flex';
+};
+
+// ─── FINALIZAR ROTA MANUALMENTE (Admin) ───────────────────────
+function ensureFinalizarModal() {
+  if (document.getElementById('ll-finalizar-modal')) return;
+  const m = document.createElement('div');
+  m.id = 'll-finalizar-modal';
+  m.style.cssText = 'display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.65);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:20px;';
+  m.innerHTML = `
+    <div style="width:100%;max-width:400px;background:var(--bg2,#08141d);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:28px 24px;">
+      <h3 style="font-size:16px;font-weight:800;margin:0 0 6px;">✓ Finalizar Rota</h3>
+      <div id="ll-fin-nome" style="font-size:13px;color:var(--muted);margin-bottom:18px;"></div>
+      <label style="font-size:12px;font-weight:700;color:rgba(228,240,246,.5);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:8px;">Caixas retornadas ao CD</label>
+      <input id="ll-fin-cx" type="number" min="0"
+        style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:12px 14px;font-size:20px;font-family:'DM Mono',monospace;font-weight:700;color:var(--text,#e4f0f6);outline:none;margin-bottom:20px;"
+        placeholder="0"/>
+      <input id="ll-fin-driver" type="hidden"/>
+      <input id="ll-fin-total" type="hidden"/>
+      <div style="display:flex;gap:10px;">
+        <button id="ll-fin-cancel" style="flex:1;padding:13px;border-radius:10px;font-size:14px;font-weight:700;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(228,240,246,.6);cursor:pointer;">Cancelar</button>
+        <button id="ll-fin-save" style="flex:1;padding:13px;border-radius:10px;font-size:14px;font-weight:700;background:linear-gradient(135deg,#00e5a0,#00b87a);border:none;color:#021824;cursor:pointer;">Finalizar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(m);
+  const close = () => { m.style.display = 'none'; };
+  m.addEventListener('click', e => { if (e.target === m) close(); });
+  document.getElementById('ll-fin-cancel').addEventListener('click', close);
+  document.getElementById('ll-fin-save').addEventListener('click', async () => {
+    const driverName = document.getElementById('ll-fin-driver').value;
+    const cx = parseInt(document.getElementById('ll-fin-cx').value, 10) || 0;
+    const btn = document.getElementById('ll-fin-save');
+    btn.disabled = true; btn.textContent = 'Salvando…';
+    try {
+      const hoje = new Date().toISOString().split('T')[0];
+      // Evento cd_return
+      await addDoc(collection(db, 'll_events'), {
+        type: 'cd_return', driverName, retCx: cx,
+        fromAdmin: true, timestamp: serverTimestamp()
+      });
+      // Registro em controle_caixas
+      await addDoc(collection(db, 'controle_caixas'), {
+        tipo: 'SAÍDA', data: hoje,
+        cliente: 'HETROS — DEVOLUÇÃO CD',
+        fornecedor: driverName, motorista: driverName,
+        quantidadeCx: cx, status: 'OK',
+        origem: 'motorista_cd_return', createdAt: serverTimestamp()
+      });
+      close();
+      // Toast
+      const t = document.getElementById('toast');
+      if (t) { t.textContent = `✓ Rota de ${driverName} finalizada.`; t.className = 'show'; setTimeout(() => { t.className = ''; }, 3000); }
+    } catch(e) {
+      console.error('[FinalizarRota]', e);
+      alert('Erro ao finalizar. Tente novamente.');
+    } finally { btn.disabled = false; btn.textContent = 'Finalizar'; }
+  });
+}
+
+window.llAbrirFinalizarRota = function(driverName, totalCx) {
+  ensureFinalizarModal();
+  document.getElementById('ll-fin-driver').value = driverName;
+  document.getElementById('ll-fin-total').value  = totalCx;
+  document.getElementById('ll-fin-nome').textContent = `🚚 ${driverName} — ${totalCx} cx em rota`;
+  document.getElementById('ll-fin-cx').value = totalCx;
+  document.getElementById('ll-finalizar-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('ll-fin-cx')?.select(), 80);
+};
+
+// ─── EDITAR CX DE ROTA JÁ FINALIZADA ──────────────────────────
+function ensureEditCxModal() {
+  if (document.getElementById('ll-editcx-modal')) return;
+  const m = document.createElement('div');
+  m.id = 'll-editcx-modal';
+  m.style.cssText = 'display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.65);backdrop-filter:blur(6px);align-items:center;justify-content:center;padding:20px;';
+  m.innerHTML = `
+    <div style="width:100%;max-width:400px;background:var(--bg2,#08141d);border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:28px 24px;">
+      <h3 style="font-size:16px;font-weight:800;margin:0 0 6px;">✏️ Editar caixas devolvidas</h3>
+      <div id="ll-editcx-nome" style="font-size:13px;color:var(--muted);margin-bottom:18px;"></div>
+      <label style="font-size:12px;font-weight:700;color:rgba(228,240,246,.5);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:8px;">Nova quantidade devolvida ao CD</label>
+      <input id="ll-editcx-val" type="number" min="0"
+        style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:12px 14px;font-size:20px;font-family:'DM Mono',monospace;font-weight:700;color:var(--text,#e4f0f6);outline:none;margin-bottom:20px;"
+        placeholder="0"/>
+      <input id="ll-editcx-id" type="hidden"/>
+      <div style="display:flex;gap:10px;">
+        <button id="ll-editcx-cancel" style="flex:1;padding:13px;border-radius:10px;font-size:14px;font-weight:700;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);color:rgba(228,240,246,.6);cursor:pointer;">Cancelar</button>
+        <button id="ll-editcx-save" style="flex:1;padding:13px;border-radius:10px;font-size:14px;font-weight:700;background:linear-gradient(135deg,#ffb347,#e08000);border:none;color:#050d12;cursor:pointer;">Salvar</button>
+      </div>
+    </div>`;
+  document.body.appendChild(m);
+  const close = () => { m.style.display = 'none'; };
+  m.addEventListener('click', e => { if (e.target === m) close(); });
+  document.getElementById('ll-editcx-cancel').addEventListener('click', close);
+  document.getElementById('ll-editcx-save').addEventListener('click', async () => {
+    const eventId = document.getElementById('ll-editcx-id').value;
+    const novaCx  = parseInt(document.getElementById('ll-editcx-val').value, 10);
+    if (isNaN(novaCx) || novaCx < 0) { alert('Digite um número válido.'); return; }
+    const btn = document.getElementById('ll-editcx-save');
+    btn.disabled = true; btn.textContent = 'Salvando…';
+    try {
+      await updateDoc(doc(db, 'll_events', eventId), { retCx: novaCx });
+      close();
+      const t = document.getElementById('toast');
+      if (t) { t.textContent = '✓ Quantidade atualizada.'; t.className = 'show'; setTimeout(() => { t.className = ''; }, 3000); }
+    } catch(e) {
+      console.error('[EditCx]', e);
+      alert('Erro ao salvar. Tente novamente.');
+    } finally { btn.disabled = false; btn.textContent = 'Salvar'; }
+  });
+}
+
+window.llEditarCxFinalizada = function(eventId, driverName, retCx) {
+  ensureEditCxModal();
+  document.getElementById('ll-editcx-id').value  = eventId;
+  document.getElementById('ll-editcx-nome').textContent = `🚚 ${driverName}`;
+  document.getElementById('ll-editcx-val').value = retCx;
+  document.getElementById('ll-editcx-modal').style.display = 'flex';
+  setTimeout(() => document.getElementById('ll-editcx-val')?.select(), 80);
 };
 
 // ─── MODAIS ADICIONAR ──────────────────────────────────────────
