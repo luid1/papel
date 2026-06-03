@@ -326,6 +326,7 @@ function renderKpis() {
   const $ = id => document.getElementById(id);
   $('ll-today-entrada') && ($('ll-today-entrada').textContent = `${tEnt} cx`);
   $('ll-today-saida')   && ($('ll-today-saida').textContent   = `${tSai} cx`);
+  $('ll-today-dev')     && ($('ll-today-dev').textContent     = `${tDev} cx`);
   $('ll-today-drivers') && ($('ll-today-drivers').textContent = tDrivers);
   $('ll-today-count')   && ($('ll-today-count').textContent   = `${Math.max(0, tEnt - tSai - tDev)} cx`);
   const todayDateEl = $('ll-today-date');
