@@ -2065,6 +2065,295 @@ async function exportarExcel() {
   toast('✓ Relatório Excel exportado com sucesso! (5 abas)');
 }
 
+// ─── EXPORTAR RELATÓRIO LIMPO (cx por cliente, sem R$) ────────
+window.exportarRelatorioClientes = async function() {
+  if (typeof ExcelJS === 'undefined') {
+    toast('⏳ Carregando biblioteca Excel...', true);
+    await new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js';
+      s.onload = resolve; s.onerror = reject;
+      document.head.appendChild(s);
+    }).catch(() => { toast('❌ Falha ao carregar ExcelJS.', true); return; });
+    if (typeof ExcelJS === 'undefined') return;
+  }
+
+  if (!_dadosCarregados) {
+    toast('⏳ Aguardando dados...', true);
+    let t = 0;
+    await new Promise(r => {
+      const c = setInterval(() => { t++; if (_dadosCarregados || t >= 50) { clearInterval(c); r(); }}, 100);
+    });
+  }
+
+  const dados = [..._registros];
+  if (!dados.length) { toast('⚠ Nenhum dado encontrado.', true); return; }
+  toast('⏳ Gerando relatório...', true);
+
+  const nn  = v => Math.max(0, Number(v) || 0);
+  const esc = s => String(s ?? '');
+
+  // ── Paleta simplificada ──────────────────────────────────────
+  const AZUL     = 'FF1F3864';
+  const AZUL2    = 'FF2E75B6';
+  const VERMELHO = 'FFC00000';
+  const VERM_BG  = 'FFFCE4D6';
+  const AMBAR    = 'FFBF8F00';
+  const AMBAR_BG = 'FFFFF2CC';
+  const VERDE    = 'FF375623';
+  const VERDE_BG = 'FFE2EFDA';
+  const BRANCO   = 'FFFFFFFF';
+  const CINZA1   = 'FFF2F2F2';
+  const CINZA2   = 'FFD9D9D9';
+
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'Lumin'; wb.created = new Date();
+
+  const fill  = a => ({ type:'pattern', pattern:'solid', fgColor:{ argb:a } });
+  const font  = (o={}) => ({ name:'Calibri', size:11, ...o });
+  const borda = () => { const t={style:'thin'}; return {top:t,left:t,bottom:t,right:t}; };
+  const mid   = { horizontal:'center', vertical:'middle' };
+  const midL  = { horizontal:'left',   vertical:'middle' };
+  const midR  = { horizontal:'right',  vertical:'middle' };
+
+  function hdr(ws, row, col, val, bg=AZUL) {
+    const c = ws.getRow(row).getCell(col);
+    c.value = val;
+    c.font  = font({ bold:true, color:{ argb:BRANCO } });
+    c.fill  = fill(bg); c.alignment = mid; c.border = borda();
+    return c;
+  }
+  function cel(row, col, val, opts={}) {
+    const c = row.getCell(col);
+    c.value = val;
+    c.fill  = fill(opts.bg || BRANCO);
+    c.alignment = opts.align || midL;
+    c.border = borda();
+    if (opts.fmt)  c.numFmt = opts.fmt;
+    if (opts.font) c.font   = font(opts.font);
+    else           c.font   = font({});
+    return c;
+  }
+
+  // ── PRÉ-PROCESSAMENTO ──────────────────────────────────────
+  const porCliente   = {};
+  const porMotorista = {};
+
+  const ehOpCD = nome => {
+    const n = (nome || '').toUpperCase();
+    return /\b(CD|DEPOSITO|DEPÓSITO|RETIRADA|DEVOLU[CÇ][AÃ]O|RETORNO|HETROS)\b/.test(n) || n === '—';
+  };
+
+  dados.forEach(r => {
+    const cliente   = (r.cliente || r.remetente || 'Não identificado').trim().toUpperCase();
+    const motorista = (r.motorista || r.conferente || '—').trim().toUpperCase();
+    const isEnt     = (r.tipo || '').toUpperCase().includes('ENTRADA');
+    const isDev     = r.origem === 'motorista_cd_return' || (!isEnt && ehOpCD(cliente));
+    const cx        = nn(r.quantidadeCx);
+    const data      = r.data || '';
+
+    // Ignora operações internas do CD (retiradas/devoluções) no ranking de clientes
+    if (!ehOpCD(cliente)) {
+      if (!porCliente[cliente]) porCliente[cliente] = { recebeu:0, devolveu:0, motoristas:new Set(), ultData:'' };
+      if (!isEnt) { porCliente[cliente].recebeu  += cx; }
+      else        { porCliente[cliente].devolveu += cx; }
+      porCliente[cliente].motoristas.add(motorista);
+      if (data > porCliente[cliente].ultData) porCliente[cliente].ultData = data;
+    }
+
+    if (!porMotorista[motorista]) porMotorista[motorista] = { saiu:0, devolveu:0, entregou:0, clientes:new Set() };
+    if (r.origem === 'motorista_cd_departure' || (isEnt && ehOpCD(cliente))) {
+      porMotorista[motorista].saiu += cx;
+    } else if (isDev) {
+      porMotorista[motorista].devolveu += cx;
+    } else if (!isEnt) {
+      porMotorista[motorista].entregou += cx;
+      porMotorista[motorista].clientes.add(cliente);
+    }
+  });
+
+  /* ════════════════════════════════════════════════════════════
+     SHEET 1 — 🏆 CLIENTES — QUEM RETÉM MAIS CAIXAS
+  ════════════════════════════════════════════════════════════ */
+  const ws1 = wb.addWorksheet('🏆 Retenção por Cliente', { views:[{ state:'frozen', ySplit:2 }] });
+  ws1.columns = [
+    { width:34 }, // A Cliente
+    { width:14 }, // B Recebeu (cx)
+    { width:14 }, // C Devolveu (cx)
+    { width:14 }, // D Em posse
+    { width:13 }, // E % Devol.
+    { width:16 }, // F Motoristas
+    { width:14 }, // G Última visita
+  ];
+
+  ws1.mergeCells('A1:G1');
+  const t1 = ws1.getCell('A1');
+  t1.value = '🏆  CLIENTES — RETENÇÃO DE CAIXAS';
+  t1.font  = font({ bold:true, size:14, color:{ argb:BRANCO } });
+  t1.fill  = fill(AZUL); t1.alignment = midL;
+  ws1.getRow(1).height = 30;
+
+  ['Cliente','Recebeu (cx)','Devolveu (cx)','Em Posse','% Devol.','Motoristas','Última Visita'].forEach((h,i) => {
+    hdr(ws1, 2, i+1, h, 'FF243F60');
+  });
+  ws1.getRow(2).height = 22;
+  ws1.autoFilter = { from:'A2', to:'G2' };
+
+  // Ordena por "em posse" decrescente
+  const clientesRank = Object.entries(porCliente)
+    .map(([nome, v]) => ({ nome, ...v, emPosse: Math.max(0, v.recebeu - v.devolveu) }))
+    .sort((a, b) => b.emPosse - a.emPosse);
+
+  clientesRank.forEach((v, idx) => {
+    const rw  = ws1.getRow(idx + 3);
+    rw.height = 18;
+    const pct = v.recebeu > 0 ? Math.round(v.devolveu / v.recebeu * 100) : 100;
+    const bg  = v.emPosse > 20 ? VERM_BG : v.emPosse > 5 ? AMBAR_BG : (idx%2===0 ? BRANCO : CINZA1);
+    const ultFmt = v.ultData ? v.ultData.split('-').reverse().join('/') : '—';
+
+    cel(rw, 1, v.nome,            { bg, font:{ bold:true } });
+    cel(rw, 2, v.recebeu,         { bg, align:mid, font:{ bold:true, color:{ argb:AZUL2 } } });
+    cel(rw, 3, v.devolveu,        { bg, align:mid, font:{ color:{ argb:VERDE } } });
+
+    // Em posse — colorido por risco
+    const cEP = rw.getCell(4);
+    cEP.value = v.emPosse;
+    cEP.fill  = fill(v.emPosse > 20 ? VERM_BG : v.emPosse > 5 ? AMBAR_BG : VERDE_BG);
+    cEP.font  = font({ bold:true, color:{ argb: v.emPosse > 20 ? VERMELHO : v.emPosse > 5 ? AMBAR : VERDE } });
+    cEP.alignment = mid; cEP.border = borda();
+
+    // % Devolução
+    const cPct = rw.getCell(5);
+    cPct.value  = pct; cPct.numFmt = '0"%"';
+    cPct.fill   = fill(pct < 60 ? VERM_BG : pct < 90 ? AMBAR_BG : VERDE_BG);
+    cPct.font   = font({ bold:true, color:{ argb: pct < 60 ? VERMELHO : pct < 90 ? AMBAR : VERDE } });
+    cPct.alignment = mid; cPct.border = borda();
+
+    cel(rw, 6, v.motoristas.size, { bg, align:mid });
+    cel(rw, 7, ultFmt,            { bg, align:mid });
+  });
+
+  // Totais
+  const totR = clientesRank.length + 3;
+  ws1.mergeCells(`A${totR}:C${totR}`);
+  const cTl = ws1.getCell(`A${totR}`);
+  cTl.value = `TOTAL — ${clientesRank.length} clientes`;
+  cTl.font  = font({ bold:true, color:{ argb:BRANCO } });
+  cTl.fill  = fill(AZUL); cTl.alignment = midL; cTl.border = borda();
+  const totEmPosse = clientesRank.reduce((a,v) => a + v.emPosse, 0);
+  const totRecebeu = clientesRank.reduce((a,v) => a + v.recebeu, 0);
+  const cTP = ws1.getRow(totR).getCell(4);
+  cTP.value = totEmPosse;
+  cTP.font  = font({ bold:true, color:{ argb:BRANCO } });
+  cTP.fill  = fill(AZUL); cTP.alignment = mid; cTP.border = borda();
+  ws1.getRow(totR).height = 20;
+
+  /* ════════════════════════════════════════════════════════════
+     SHEET 2 — 📋 REGISTROS (simplificado, sem R$)
+  ════════════════════════════════════════════════════════════ */
+  const ws2 = wb.addWorksheet('📋 Registros', { views:[{ state:'frozen', ySplit:2 }] });
+  ws2.columns = [
+    { width:13 }, // A Data
+    { width:10 }, // B Tipo
+    { width:32 }, // C Cliente
+    { width:20 }, // D Motorista
+    { width:10 }, // E Cx
+    { width:8  }, // F Cor
+    { width:14 }, // G Origem
+  ];
+
+  ws2.mergeCells('A1:G1');
+  const t2 = ws2.getCell('A1');
+  t2.value = '📋  REGISTROS DE CAIXAS — LUMIN LOG';
+  t2.font  = font({ bold:true, size:14, color:{ argb:BRANCO } });
+  t2.fill  = fill(AZUL); t2.alignment = midL;
+  ws2.getRow(1).height = 30;
+
+  ['Data','Tipo','Cliente','Motorista','Cx','Cor','Origem'].forEach((h,i) => hdr(ws2, 2, i+1, h, 'FF243F60'));
+  ws2.getRow(2).height = 22;
+  ws2.autoFilter = { from:'A2', to:'G2' };
+
+  const dadosOrdenados = [...dados].sort((a,b)=>(b.data||'').localeCompare(a.data||''));
+  dadosOrdenados.forEach((r, idx) => {
+    const rw     = ws2.getRow(idx + 3); rw.height = 17;
+    const isEnt  = (r.tipo || '').toUpperCase().includes('ENTRADA');
+    const bg     = idx % 2 === 0 ? BRANCO : CINZA1;
+    const cliente   = (r.cliente || r.remetente || '—').trim().toUpperCase();
+    const motorista = (r.motorista || r.conferente || '—').trim().toUpperCase();
+
+    if (r.data) {
+      const [y,m,d] = r.data.split('-').map(Number);
+      const c = rw.getCell(1);
+      c.value = new Date(y,m-1,d); c.numFmt = 'dd/mm/yyyy';
+      c.fill = fill(bg); c.alignment = mid; c.border = borda(); c.font = font({});
+    } else { cel(rw,1,'—',{bg,align:mid}); }
+
+    const cTipo = rw.getCell(2);
+    cTipo.value = r.tipo || 'ENTRADA';
+    cTipo.font  = font({ bold:true, color:{ argb: isEnt ? AZUL2 : VERMELHO } });
+    cTipo.fill  = fill(bg); cTipo.alignment = mid; cTipo.border = borda();
+
+    cel(rw, 3, cliente,   { bg });
+    cel(rw, 4, motorista, { bg });
+    cel(rw, 5, nn(r.quantidadeCx), { bg, align:mid, font:{ bold:true } });
+    cel(rw, 6, (r.cor||'').toUpperCase(), { bg, align:mid });
+    cel(rw, 7, r.origem || '—', { bg });
+  });
+
+  /* ════════════════════════════════════════════════════════════
+     SHEET 3 — 🚚 MOTORISTAS
+  ════════════════════════════════════════════════════════════ */
+  const ws3 = wb.addWorksheet('🚚 Motoristas', { views:[{ state:'frozen', ySplit:2 }] });
+  ws3.columns = [
+    { width:24 }, // A Motorista
+    { width:14 }, // B Saiu do CD (cx)
+    { width:14 }, // C Entregou clientes
+    { width:14 }, // D Devolveu CD
+    { width:14 }, // E Em rota
+    { width:12 }, // F Clientes
+  ];
+
+  ws3.mergeCells('A1:F1');
+  const t3 = ws3.getCell('A1');
+  t3.value = '🚚  DESEMPENHO POR MOTORISTA';
+  t3.font  = font({ bold:true, size:14, color:{ argb:BRANCO } });
+  t3.fill  = fill(AZUL); t3.alignment = midL;
+  ws3.getRow(1).height = 30;
+
+  ['Motorista','Saiu do CD (cx)','Entregou (cx)','Devolveu CD (cx)','Em Rota','Clientes'].forEach((h,i) => hdr(ws3, 2, i+1, h, 'FF243F60'));
+  ws3.getRow(2).height = 22;
+  ws3.autoFilter = { from:'A2', to:'F2' };
+
+  Object.entries(porMotorista)
+    .sort((a,b) => b[1].saiu - a[1].saiu)
+    .forEach(([mot, v], idx) => {
+      const rw     = ws3.getRow(idx + 3); rw.height = 18;
+      const emRota = Math.max(0, v.saiu - v.entregou - v.devolveu);
+      const bg     = idx % 2 === 0 ? BRANCO : CINZA1;
+      cel(rw,1,mot,       {bg, font:{bold:true}});
+      cel(rw,2,v.saiu,    {bg, align:mid, font:{bold:true,color:{argb:AZUL2}}});
+      cel(rw,3,v.entregou,{bg, align:mid});
+      cel(rw,4,v.devolveu,{bg, align:mid, font:{color:{argb:VERDE}}});
+      const cER = rw.getCell(5);
+      cER.value = emRota;
+      cER.fill  = fill(emRota > 0 ? AMBAR_BG : VERDE_BG);
+      cER.font  = font({ bold:true, color:{ argb: emRota > 0 ? AMBAR : VERDE } });
+      cER.alignment = mid; cER.border = borda();
+      cel(rw,6,v.clientes.size,{bg,align:mid});
+    });
+
+  // ── DOWNLOAD ─────────────────────────────────────────────────
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob   = new Blob([buffer], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url    = URL.createObjectURL(blob);
+  const a      = document.createElement('a');
+  a.href = url;
+  a.download = `lumin_caixas_clientes_${new Date().toISOString().split('T')[0]}.xlsx`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('✓ Relatório de clientes exportado! (3 abas)');
+};
+
 // Helper: borda fina
 function _thinBorder() {
   const t = { style:'thin' };
