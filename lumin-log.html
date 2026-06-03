@@ -368,6 +368,32 @@ function _normStr(s) {
   return (s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim();
 }
 
+// Distância de Levenshtein simplificada
+function _levenshtein(a, b) {
+  if (!a) return b.length; if (!b) return a.length;
+  const m = a.length, n = b.length;
+  const dp = Array.from({length:m+1}, (_,i) => [i, ...Array(n).fill(0)]);
+  for (let j=0;j<=n;j++) dp[0][j]=j;
+  for (let i=1;i<=m;i++) for (let j=1;j<=n;j++)
+    dp[i][j] = a[i-1]===b[j-1] ? dp[i-1][j-1] : 1+Math.min(dp[i-1][j-1],dp[i-1][j],dp[i][j-1]);
+  return dp[m][n];
+}
+
+// Retorna score de similaridade 0-100 entre dois nomes normalizados
+function _similaridade(a, b) {
+  const na = _normStr(a), nb = _normStr(b);
+  if (na === nb) return 100;
+  if (nb.includes(na) || na.includes(nb)) return 90;
+  // Palavras em comum
+  const wa = na.split(/\s+/), wb = nb.split(/\s+/);
+  const comuns = wa.filter(w => w.length > 2 && wb.some(x => x.includes(w) || w.includes(x)));
+  if (comuns.length > 0) return 70 + Math.min(20, comuns.length * 10);
+  // Levenshtein sobre a string inteira
+  const dist = _levenshtein(na, nb);
+  const maxLen = Math.max(na.length, nb.length);
+  return maxLen > 0 ? Math.round((1 - dist/maxLen) * 60) : 0;
+}
+
 async function _loadClients() {
   try {
     const [snap1, snap2] = await Promise.all([
@@ -383,16 +409,32 @@ async function _loadClients() {
   } catch(e){ _clientesList=[]; }
 }
 
+// Busca fuzzy: retorna lista ordenada por relevância com flag de "parecido"
 window._buscarClientes = function(query) {
-  // Usa só clientes da rota do dia se existir
   const rotaClientes = (window._S?.dailyRoute?.clients || []).map(c => c.toUpperCase());
-  const lista = rotaClientes.length ? rotaClientes : [];
-  if(!query || query.length < 1) return lista.slice(0, 8);
-  const words = _normStr(query).split(/\s+/).filter(Boolean);
-  return lista.filter(nome => {
-    const n = _normStr(nome);
-    return words.every(w => n.includes(w));
-  }).slice(0, 8);
+  const lista = rotaClientes.length ? rotaClientes : _clientesList;
+  if (!query || query.length < 1) return lista.slice(0, 8).map(n => ({ nome:n, score:100, fuzzy:false }));
+
+  const q = _normStr(query);
+  const scored = lista.map(nome => {
+    const score = _similaridade(query, nome);
+    return { nome, score, fuzzy: score < 90 && score >= 45 };
+  }).filter(x => x.score >= 45).sort((a,b) => b.score - a.score).slice(0, 8);
+
+  return scored;
+};
+
+// Verifica se nome digitado é muito parecido com algum já existente (para aviso)
+window._checarNomeSuspeito = function(query) {
+  if (!query || query.length < 3) return null;
+  const lista = _clientesList;
+  const norm = _normStr(query);
+  // Não avisa se já existe exatamente
+  if (lista.some(n => _normStr(n) === norm)) return null;
+  const melhor = lista.map(n => ({ nome:n, score:_similaridade(query, n) }))
+    .filter(x => x.score >= 60 && x.score < 99)
+    .sort((a,b) => b.score - a.score)[0];
+  return melhor || null;
 };
 
 function _fecharSugg() {
@@ -1845,16 +1887,45 @@ function initDriver(name) {
     },13000);
   }
 
-  /* Mostra sugestões */
+  /* Mostra sugestões com fuzzy matching */
   window._showSugg=function(query){
     const sugg=$('client-sugg'); if(!sugg) return;
     const matches=window._buscarClientes(query);
-    if(!matches.length){sugg.style.display='none';sugg.innerHTML='';return;}
+    if(!matches.length){sugg.style.display='none';sugg.innerHTML='';_esconderAvisoNome();return;}
     sugg.style.display='block';
-    sugg.innerHTML=matches.map(m=>
-      `<div class="sugg-item" onmousedown="event.preventDefault();window._selecionarCliente('${m.replace(/'/g,"\\'")}');">${m}</div>`
-    ).join('');
+    sugg.innerHTML=matches.map(({nome,fuzzy})=>{
+      const safe=nome.replace(/'/g,"\\'");
+      const badge=fuzzy?`<span style="font-size:9px;font-weight:800;color:#ffb347;background:rgba(255,179,71,.15);border:1px solid rgba(255,179,71,.3);border-radius:20px;padding:1px 6px;margin-left:6px;">parecido</span>`:'';
+      return `<div class="sugg-item" style="display:flex;align-items:center;justify-content:space-between;" onmousedown="event.preventDefault();window._selecionarCliente('${safe}');">${nome}${badge}</div>`;
+    }).join('');
+
+    // Aviso de nome suspeito (só quando usuário parou de digitar)
+    clearTimeout(window._suggDebounce);
+    window._suggDebounce = setTimeout(()=>_verificarNomeSuspeito(query), 600);
   };
+
+  function _esconderAvisoNome(){
+    const el=$('nome-suspeito-aviso'); if(el) el.remove();
+  }
+
+  function _verificarNomeSuspeito(query){
+    _esconderAvisoNome();
+    if(!query||query.length<3) return;
+    const susp=window._checarNomeSuspeito(query);
+    if(!susp) return;
+    const input=$('clientInput'); if(!input) return;
+    const wrap=input.closest('[id="client-sugg-wrap"]')||input.parentNode;
+    const div=document.createElement('div');
+    div.id='nome-suspeito-aviso';
+    div.style.cssText='background:rgba(255,179,71,.1);border:1.5px solid rgba(255,179,71,.35);border-radius:10px;padding:9px 12px;margin-top:8px;font-size:12px;font-weight:700;color:#ffb347;display:flex;align-items:center;justify-content:space-between;gap:8px;';
+    div.innerHTML=`
+      <span>⚠ Já existe "<b>${susp.nome}</b>" — é esse?</span>
+      <button onmousedown="event.preventDefault();window._selecionarCliente('${susp.nome.replace(/'/g,"\\'")}');document.getElementById('nome-suspeito-aviso')?.remove();"
+        style="background:rgba(255,179,71,.2);border:1px solid rgba(255,179,71,.4);color:#ffb347;border-radius:7px;padding:4px 10px;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap;">
+        Sim, usar esse
+      </button>`;
+    wrap.appendChild(div);
+  }
 
   /* ════ RESUMO ════ */
   function vSummary() {
