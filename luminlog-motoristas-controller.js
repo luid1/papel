@@ -622,57 +622,62 @@ function _similaridade(a, b) {
 }
 
 window.llmAnalisarNomes = async function() {
-  const listEl  = document.getElementById('llm-nomes-suspeitos-list');
-  const cntEl   = document.getElementById('llm-suspeitos-count');
+  const listEl = document.getElementById('llm-nomes-suspeitos-list');
+  const cntEl  = document.getElementById('llm-suspeitos-count');
   if (!listEl) return;
-  listEl.innerHTML = '<p style="color:var(--muted);font-size:13px;padding:6px 0;">⏳ Analisando...</p>';
+  listEl.innerHTML = '<p style="color:var(--muted);font-size:13px;padding:6px 0;">⏳ Carregando nomes...</p>';
 
   try {
-    // Carrega todos os nomes de clientes do Firestore
+    // 1. Coleta todos os nomes de clientes do Firestore
     const [snapCc, snapCl] = await Promise.all([
       getDocs(query(collection(db, 'controle_caixas'))),
       getDocs(collection(db, 'll_clients'))
     ]);
 
     const nomesSet = new Set();
+    const CD_REGEX = /\b(CD|DEPOSITO|DEPÓSITO|RETIRADA|DEVOLU|RETORNO|HETROS)\b/;
     snapCc.docs.forEach(d => {
       const c = (d.data().cliente || '').trim().toUpperCase();
-      if (c && c.length > 2 && !/\b(CD|DEPOSITO|DEPÓSITO|RETIRADA|DEVOLU|RETORNO|HETROS)\b/.test(c) && c !== '—')
-        nomesSet.add(c);
+      if (c && c.length > 2 && !CD_REGEX.test(c) && c !== '—') nomesSet.add(c);
     });
     snapCl.docs.forEach(d => { if (d.id) nomesSet.add(d.id.trim().toUpperCase()); });
 
     const nomes = Array.from(nomesSet).sort();
-
-    // Agrupar nomes parecidos (score >= 55)
-    const visitado = new Set();
-    const grupos = [];
-
-    for (let i = 0; i < nomes.length; i++) {
-      if (visitado.has(nomes[i])) continue;
-      const grupo = [nomes[i]];
-      for (let j = i + 1; j < nomes.length; j++) {
-        if (visitado.has(nomes[j])) continue;
-        if (_similaridade(nomes[i], nomes[j]) >= 55) {
-          grupo.push(nomes[j]);
-          visitado.add(nomes[j]);
-        }
-      }
-      if (grupo.length > 1) {
-        grupos.push(grupo);
-        visitado.add(nomes[i]);
-      }
+    if (!nomes.length) {
+      listEl.innerHTML = '<p style="color:var(--muted);font-size:13px;padding:6px 0;">Nenhum cliente encontrado.</p>';
+      return;
     }
+
+    // 2. Envia para a IA analisar
+    listEl.innerHTML = `<p style="color:var(--muted);font-size:13px;padding:6px 0;">🤖 IA analisando ${nomes.length} nomes...</p>`;
+
+    const resp = await fetch('/api/analisar-nomes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nomes })
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${resp.status}`);
+    }
+
+    const data = await resp.json();
+    const grupos = (data.grupos || []).filter(g => g.variantes?.length > 0);
 
     if (cntEl) cntEl.textContent = grupos.length;
 
     if (!grupos.length) {
-      listEl.innerHTML = '<p style="color:#00e5a0;font-size:13px;padding:6px 0;">✓ Nenhum nome suspeito encontrado.</p>';
+      listEl.innerHTML = '<p style="color:#00e5a0;font-size:13px;padding:6px 0;">✓ Nenhum nome duplicado encontrado pela IA.</p>';
       return;
     }
 
+    // Salva os grupos para uso no fundir
+    window._llmGruposIA = grupos;
+
     listEl.innerHTML = grupos.map((grupo, gi) => {
-      const itens = grupo.map((nome, ni) => `
+      const todos = [grupo.canonico, ...grupo.variantes];
+      const itens = todos.map((nome, ni) => `
         <label style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.05);cursor:pointer;">
           <input type="radio" name="llm-grupo-${gi}" value="${esc(nome)}" ${ni===0?'checked':''}
             style="accent-color:var(--accent);width:15px;height:15px;flex-shrink:0;"/>
@@ -682,7 +687,8 @@ window.llmAnalisarNomes = async function() {
 
       return `
         <div id="llm-grupo-${gi}" style="background:rgba(255,179,71,.05);border:1.5px solid rgba(255,179,71,.2);border-radius:14px;padding:14px 16px;margin-bottom:12px;">
-          <div style="font-size:11px;font-weight:800;color:#ffb347;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px;">Grupo ${gi+1} — ${grupo.length} nomes parecidos</div>
+          <div style="font-size:11px;font-weight:800;color:#ffb347;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;">Grupo ${gi+1}</div>
+          <div style="font-size:12px;color:rgba(228,240,246,.5);margin-bottom:10px;font-style:italic;">${esc(grupo.motivo || '')}</div>
           <div style="margin-bottom:12px;">${itens}</div>
           <div style="display:flex;gap:8px;">
             <button onclick="window.llmFundirGrupo(${gi},'llm-grupo-${gi}')"
@@ -701,7 +707,7 @@ window.llmAnalisarNomes = async function() {
 
   } catch(err) {
     console.error('[LLM] Analisar nomes:', err);
-    listEl.innerHTML = '<p style="color:var(--alert);font-size:13px;padding:6px 0;">Erro ao carregar dados. Tente novamente.</p>';
+    listEl.innerHTML = `<p style="color:var(--alert);font-size:13px;padding:6px 0;">Erro: ${err.message}. Tente novamente.</p>`;
   }
 };
 
