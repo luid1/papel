@@ -707,7 +707,7 @@ window.llmAnalisarNomes = async function() {
 
     if (!resp.ok) {
       const err = await resp.json().catch(() => ({}));
-      throw new Error(err.error || `HTTP ${resp.status}`);
+      throw new Error(err.detail || err.error || `HTTP ${resp.status}`);
     }
 
     const data = await resp.json();
