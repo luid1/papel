@@ -772,9 +772,118 @@ window.llmFundirGrupo = async function(gi, grupoId) {
   }
 };
 
+// ═══════════════════════════════════════════════════════════════
+// GALERIA DE FOTOS
+// ═══════════════════════════════════════════════════════════════
+let _allFotos = [];   // cache de todos os eventos com foto
+let _unsubFotos = null;
+
+function startFotosListener() {
+  if (_unsubFotos) return;
+  // Ouve ll_events ordenado por timestamp desc (últimas 500)
+  const q = query(collection(db, COL_EVENTS), orderBy('timestamp', 'desc'));
+  _unsubFotos = onSnapshot(q, snap => {
+    _allFotos = [];
+    snap.docs.forEach(d => {
+      const ev = { id: d.id, ...d.data() };
+      const ts = ev.timestamp?.toDate ? ev.timestamp.toDate() : new Date(ev.timestamp || 0);
+      const base = { id: ev.id, tipo: ev.type, motorista: ev.driverName || ev.motorista || '', ts };
+
+      if (ev.type === 'cd_departure' && ev.fotoUrl) {
+        _allFotos.push({ ...base, url: ev.fotoUrl, label: '📦 Saída do CD', color: '#0af' });
+      }
+      if (ev.type === 'cd_return' && ev.fotoUrl) {
+        _allFotos.push({ ...base, url: ev.fotoUrl, label: '🏠 Devolução ao CD', color: '#00e5a0' });
+      }
+      if (ev.type === 'client_transaction') {
+        if (ev.fotoEntrega) {
+          _allFotos.push({ ...base, url: ev.fotoEntrega, label: '🤝 Entrega', color: '#f5a623',
+            cliente: ev.clientName || ev.cliente || '' });
+        }
+        if (ev.fotoColeta) {
+          _allFotos.push({ ...base, url: ev.fotoColeta, label: '📥 Coleta', color: '#c084fc',
+            cliente: ev.clientName || ev.cliente || '' });
+        }
+      }
+    });
+    window.llmFiltrarFotos();
+  }, err => console.error('[LLM-Fotos]', err));
+}
+
+window.llmFiltrarFotos = function() {
+  const gallery = document.getElementById('llm-photos-gallery');
+  if (!gallery) return;
+
+  const tipoFiltro = (document.getElementById('llm-foto-filtro-tipo') || {}).value || '';
+  const dataFiltro = (document.getElementById('llm-foto-filtro-data') || {}).value || 'hoje';
+
+  const agora = new Date();
+  const inicioHoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate());
+  const inicioSemana = new Date(inicioHoje); inicioSemana.setDate(inicioHoje.getDate() - inicioHoje.getDay());
+
+  const fotos = _allFotos.filter(f => {
+    if (tipoFiltro && f.tipo !== tipoFiltro) return false;
+    if (dataFiltro === 'hoje' && f.ts < inicioHoje) return false;
+    if (dataFiltro === 'semana' && f.ts < inicioSemana) return false;
+    return true;
+  });
+
+  // Atualiza contador
+  const cnt = document.getElementById('llm-photos-count');
+  if (cnt) cnt.textContent = fotos.length;
+
+  if (!fotos.length) {
+    gallery.innerHTML = `<p style="color:rgba(228,240,246,.4);font-size:13px;grid-column:1/-1;padding:8px 0;">
+      Nenhuma foto encontrada para o filtro selecionado.</p>`;
+    return;
+  }
+
+  gallery.innerHTML = fotos.map(f => {
+    const hora = f.ts.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    const data = f.ts.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    const sub  = f.cliente ? `<div style="font-size:10px;color:rgba(228,240,246,.45);margin-top:2px;
+      white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(f.cliente)}</div>` : '';
+    return `
+      <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+        border-radius:12px;overflow:hidden;cursor:pointer;"
+        onclick="window.llmVerFotoGrande('${f.url}','${esc(f.label)} — ${esc(f.motorista)}')">
+        <img src="${f.url}" loading="lazy"
+          style="width:100%;height:120px;object-fit:cover;display:block;"
+          onerror="this.parentElement.style.display='none'"/>
+        <div style="padding:8px 10px;">
+          <div style="font-size:10px;font-weight:800;color:${f.color};
+            text-transform:uppercase;letter-spacing:.05em;">${f.label}</div>
+          <div style="font-size:11px;color:rgba(228,240,246,.8);margin-top:3px;
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(f.motorista)}</div>
+          ${sub}
+          <div style="font-size:10px;color:rgba(228,240,246,.35);margin-top:4px;">${data} ${hora}</div>
+        </div>
+      </div>`;
+  }).join('');
+};
+
+window.llmVerFotoGrande = function(url, titulo) {
+  let ov = document.getElementById('llm-foto-overlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'llm-foto-overlay';
+    ov.style.cssText = 'display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.92);' +
+      'align-items:center;justify-content:center;flex-direction:column;padding:20px;cursor:zoom-out;';
+    ov.onclick = () => { ov.style.display = 'none'; };
+    document.body.appendChild(ov);
+  }
+  ov.innerHTML = `
+    <div style="font-size:13px;font-weight:700;color:rgba(228,240,246,.7);margin-bottom:12px;">${esc(titulo)}</div>
+    <img src="${url}" style="max-width:100%;max-height:80vh;border-radius:12px;box-shadow:0 8px 40px rgba(0,0,0,.6);"
+      onerror="this.src='';this.alt='Foto indisponível'"/>
+    <div style="font-size:11px;color:rgba(228,240,246,.35);margin-top:10px;">Clique para fechar</div>`;
+  ov.style.display = 'flex';
+};
+
 // BOOT
 // ═══════════════════════════════════════════════════════════════
 window.addEventListener('lumin:admin-ready', () => {
   ensureEditModal();
   startListeners();
+  startFotosListener();
 });
