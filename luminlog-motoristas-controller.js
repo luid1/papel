@@ -12,7 +12,7 @@
 
 import { db } from './firebase-config.js';
 import {
-  collection, doc, addDoc, updateDoc, setDoc, deleteDoc,
+  collection, doc, addDoc, updateDoc, setDoc, deleteDoc, deleteField,
   onSnapshot, query, orderBy, where, writeBatch, serverTimestamp, getDocs
 } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js';
 
@@ -840,18 +840,18 @@ function startFotosListener() {
       const base = { id: ev.id, tipo: ev.type, motorista: ev.driverName || ev.motorista || '', ts };
 
       if (ev.type === 'cd_departure' && ev.fotoUrl) {
-        _allFotos.push({ ...base, url: ev.fotoUrl, label: '📦 Saída do CD', color: '#0af' });
+        _allFotos.push({ ...base, url: ev.fotoUrl, campo: 'fotoUrl', label: '📦 Saída do CD', color: '#0af' });
       }
       if (ev.type === 'cd_return' && ev.fotoUrl) {
-        _allFotos.push({ ...base, url: ev.fotoUrl, label: '🏠 Devolução ao CD', color: '#00e5a0' });
+        _allFotos.push({ ...base, url: ev.fotoUrl, campo: 'fotoUrl', label: '🏠 Devolução ao CD', color: '#00e5a0' });
       }
       if (ev.type === 'client_transaction') {
         if (ev.fotoEntrega) {
-          _allFotos.push({ ...base, url: ev.fotoEntrega, label: '🤝 Entrega', color: '#f5a623',
+          _allFotos.push({ ...base, url: ev.fotoEntrega, campo: 'fotoEntrega', label: '🤝 Entrega', color: '#f5a623',
             cliente: ev.clientName || ev.cliente || '' });
         }
         if (ev.fotoColeta) {
-          _allFotos.push({ ...base, url: ev.fotoColeta, label: '📥 Coleta', color: '#c084fc',
+          _allFotos.push({ ...base, url: ev.fotoColeta, campo: 'fotoColeta', label: '📥 Coleta', color: '#c084fc',
             cliente: ev.clientName || ev.cliente || '' });
         }
       }
@@ -895,11 +895,19 @@ window.llmFiltrarFotos = function() {
       white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(f.cliente)}</div>` : '';
     return `
       <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
-        border-radius:12px;overflow:hidden;cursor:pointer;"
-        onclick="window.llmVerFotoGrande('${f.url}','${esc(f.label)} — ${esc(f.motorista)}')">
-        <img src="${f.url}" loading="lazy"
-          style="width:100%;height:120px;object-fit:cover;display:block;"
-          onerror="this.parentElement.style.display='none'"/>
+        border-radius:12px;overflow:hidden;position:relative;">
+        <div style="position:relative;cursor:pointer;"
+          onclick="window.llmVerFotoGrande('${f.url}','${esc(f.label)} — ${esc(f.motorista)}')">
+          <img src="${f.url}" loading="lazy"
+            style="width:100%;height:120px;object-fit:cover;display:block;"
+            onerror="this.closest('div[style*=border-radius]').style.display='none'"/>
+          <button onclick="event.stopPropagation();window.llmApagarFoto('${f.id}','${f.campo}')"
+            title="Apagar foto"
+            style="position:absolute;top:6px;right:6px;width:28px;height:28px;border-radius:7px;
+            background:rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.15);color:#ff5b70;
+            font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+            backdrop-filter:blur(4px);z-index:2;">🗑</button>
+        </div>
         <div style="padding:8px 10px;">
           <div style="font-size:10px;font-weight:800;color:${f.color};
             text-transform:uppercase;letter-spacing:.05em;">${f.label}</div>
@@ -928,6 +936,17 @@ window.llmVerFotoGrande = function(url, titulo) {
       onerror="this.src='';this.alt='Foto indisponível'"/>
     <div style="font-size:11px;color:rgba(228,240,246,.35);margin-top:10px;">Clique para fechar</div>`;
   ov.style.display = 'flex';
+};
+
+window.llmApagarFoto = async function(eventId, campo) {
+  if (!confirm('Apagar esta foto? A ação não pode ser desfeita.')) return;
+  try {
+    await updateDoc(doc(db, COL_EVENTS, eventId), { [campo]: deleteField() });
+    toast('🗑 Foto removida.');
+  } catch(err) {
+    console.error('[LLM] Apagar foto:', err);
+    toast('Erro ao apagar foto.', true);
+  }
 };
 
 // BOOT
