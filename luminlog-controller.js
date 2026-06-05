@@ -1173,6 +1173,21 @@ window.llmOpenFoto = function(url) {
 };
 
 // ─── FINALIZAR ROTA MANUALMENTE (Admin) ───────────────────────
+window._llFinAvisar = function() {
+  const cxReal  = parseInt((document.getElementById('ll-fin-cx') || {}).value, 10) || 0;
+  const cxTotal = parseInt((document.getElementById('ll-fin-total') || {}).value, 10) || 0;
+  const aviso   = document.getElementById('ll-fin-aviso');
+  const avisoN  = document.getElementById('ll-fin-aviso-n');
+  if (!aviso) return;
+  const diff = cxTotal - cxReal;
+  if (diff > 0) {
+    if (avisoN) avisoN.textContent = diff;
+    aviso.style.display = 'block';
+  } else {
+    aviso.style.display = 'none';
+  }
+};
+
 function ensureFinalizarModal() {
   if (document.getElementById('ll-finalizar-modal')) return;
   const m = document.createElement('div');
@@ -1184,8 +1199,11 @@ function ensureFinalizarModal() {
       <div id="ll-fin-nome" style="font-size:13px;color:var(--muted);margin-bottom:18px;"></div>
       <label style="font-size:12px;font-weight:700;color:rgba(228,240,246,.5);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:8px;">Caixas retornadas ao CD</label>
       <input id="ll-fin-cx" type="number" min="0"
-        style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:12px 14px;font-size:20px;font-family:'DM Mono',monospace;font-weight:700;color:var(--text,#e4f0f6);outline:none;margin-bottom:20px;"
-        placeholder="0"/>
+        style="width:100%;box-sizing:border-box;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:12px 14px;font-size:20px;font-family:'DM Mono',monospace;font-weight:700;color:var(--text,#e4f0f6);outline:none;margin-bottom:10px;"
+        placeholder="0" oninput="window._llFinAvisar()"/>
+      <div id="ll-fin-aviso" style="display:none;background:rgba(255,179,71,.1);border:1px solid rgba(255,179,71,.3);border-radius:8px;padding:8px 12px;font-size:12px;color:#ffb347;margin-bottom:14px;">
+        ⚠ Divergência: <span id="ll-fin-aviso-n"></span> cx não contabilizadas — serão registradas como pendência.
+      </div>
       <input id="ll-fin-driver" type="hidden"/>
       <input id="ll-fin-total" type="hidden"/>
       <div style="display:flex;gap:10px;">
@@ -1199,28 +1217,42 @@ function ensureFinalizarModal() {
   document.getElementById('ll-fin-cancel').addEventListener('click', close);
   document.getElementById('ll-fin-save').addEventListener('click', async () => {
     const driverName = document.getElementById('ll-fin-driver').value;
-    const cx = parseInt(document.getElementById('ll-fin-cx').value, 10) || 0;
+    const cxReal  = parseInt(document.getElementById('ll-fin-cx').value, 10) || 0;
+    // totalCx = saldo total em trânsito (valor salvo no hidden input ao abrir o modal)
+    const cxTotal = parseInt(document.getElementById('ll-fin-total').value, 10) || cxReal;
+    // Para zerar o saldo, o controle_caixas precisa registrar o saldo completo.
+    // Se o motorista devolveu menos, a diferença vira "perda/divergência".
+    const cxParaZerar = Math.max(cxReal, cxTotal);
+    const diferenca   = cxParaZerar - cxReal; // cx não devolvidas
     const btn = document.getElementById('ll-fin-save');
     btn.disabled = true; btn.textContent = 'Salvando…';
     try {
-      const hoje = new Date().toISOString().split('T')[0];
-      // Evento cd_return
+      const hoje = new Date().toLocaleDateString('en-CA');
+      // Evento cd_return — registra o que realmente voltou
       await addDoc(collection(db, 'll_events'), {
-        type: 'cd_return', driverName, retCx: cx,
+        type: 'cd_return', driverName,
+        retCx: cxReal,        // quantidade real confirmada
+        saldoZerado: cxParaZerar, // quanto foi usado para fechar o saldo
+        divergencia: diferenca,
         fromAdmin: true, timestamp: serverTimestamp()
       });
-      // Registro em controle_caixas
+      // controle_caixas — usa cxParaZerar para garantir que o saldo fique em 0
       await addDoc(collection(db, 'controle_caixas'), {
         tipo: 'SAÍDA', data: hoje,
         cliente: 'HETROS — DEVOLUÇÃO CD',
         fornecedor: driverName, motorista: driverName,
-        quantidadeCx: cx, status: 'OK',
+        quantidadeCx: cxParaZerar,
+        cxRealDevolvida: cxReal,
+        divergencia: diferenca,
+        status: diferenca > 0 ? 'REVISAR' : 'OK',
         origem: 'motorista_cd_return', createdAt: serverTimestamp()
       });
       close();
-      // Toast
       const t = document.getElementById('toast');
-      if (t) { t.textContent = `✓ Rota de ${driverName} finalizada.`; t.className = 'show'; setTimeout(() => { t.className = ''; }, 3000); }
+      const msg = diferenca > 0
+        ? `✓ Rota de ${driverName} finalizada. ⚠ ${diferenca} cx de divergência registrada.`
+        : `✓ Rota de ${driverName} finalizada com sucesso.`;
+      if (t) { t.textContent = msg; t.className = 'show'; setTimeout(() => { t.className = ''; }, 4000); }
     } catch(e) {
       console.error('[FinalizarRota]', e);
       alert('Erro ao finalizar. Tente novamente.');
