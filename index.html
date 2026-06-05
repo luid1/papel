@@ -680,6 +680,32 @@
           </div>
         </div>
 
+        <!-- Saldo de caixas por cliente -->
+        <div class="llm-section">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px;">
+            <p class="llm-section-title" style="margin:0;">
+              📦 Caixas com clientes
+              <span id="ll-clientes-devedores-count" style="font-size:11px;font-weight:500;color:var(--muted);background:rgba(255,255,255,.05);padding:1px 8px;border-radius:5px;margin-left:6px;">0</span>
+            </p>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <select id="ll-clientes-dev-periodo" onchange="window.llRenderClientesDevedores()"
+                style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:var(--text);padding:4px 10px;font-size:12px;cursor:pointer;">
+                <option value="hoje">Hoje</option>
+                <option value="semana">Esta semana</option>
+                <option value="tudo">Tudo</option>
+              </select>
+              <select id="ll-clientes-dev-filtro" onchange="window.llRenderClientesDevedores()"
+                style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:var(--text);padding:4px 10px;font-size:12px;cursor:pointer;">
+                <option value="devedores">Só devedores</option>
+                <option value="todos">Todos</option>
+              </select>
+            </div>
+          </div>
+          <div id="ll-clientes-devedores-panel" style="display:flex;flex-direction:column;gap:4px;">
+            <div style="color:var(--muted);font-size:13px;padding:4px 0;">Aguardando dados...</div>
+          </div>
+        </div>
+
         <!-- Atividade de hoje (feed) -->
         <div class="llm-section">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
@@ -957,13 +983,28 @@
 
         <!-- Galeria de fotos -->
         <div class="admin-card" id="llm-photos-card">
-          <h3 style="display:inline-flex;align-items:center;gap:8px;">
-            Fotos dos motoristas
-            <span id="llm-photos-count" style="font-size:11px;font-weight:500;color:var(--muted);background:rgba(255,255,255,.05);padding:1px 8px;border-radius:5px;letter-spacing:-.005em;">0</span>
-          </h3>
-          <p>Comprovantes enviados pelos motoristas durante as entregas.</p>
-          <div id="llm-photos-gallery">
-            <p style="color:var(--muted);font-size:13px;padding:6px 0;letter-spacing:-.005em;">Nenhuma foto enviada ainda.</p>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;gap:12px;flex-wrap:wrap;">
+            <h3 style="display:inline-flex;align-items:center;gap:8px;margin:0;">
+              📷 Fotos dos motoristas
+              <span id="llm-photos-count" style="font-size:11px;font-weight:500;color:var(--muted);background:rgba(255,255,255,.05);padding:1px 8px;border-radius:5px;">0</span>
+            </h3>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <select id="llm-foto-filtro-tipo" onchange="window.llmFiltrarFotos()" style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:var(--text);padding:5px 10px;font-size:12px;cursor:pointer;">
+                <option value="">Todos os tipos</option>
+                <option value="cd_departure">📦 Saída do CD</option>
+                <option value="cd_return">🏠 Devolução ao CD</option>
+                <option value="client_transaction">🤝 Entrega/Coleta cliente</option>
+              </select>
+              <select id="llm-foto-filtro-data" onchange="window.llmFiltrarFotos()" style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:var(--text);padding:5px 10px;font-size:12px;cursor:pointer;">
+                <option value="hoje">Hoje</option>
+                <option value="semana">Esta semana</option>
+                <option value="tudo">Tudo</option>
+              </select>
+            </div>
+          </div>
+          <p style="font-size:12px;color:var(--muted);margin:0 0 14px;">Comprovantes enviados pelos motoristas em tempo real.</p>
+          <div id="llm-photos-gallery" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;">
+            <p style="color:var(--muted);font-size:13px;padding:6px 0;">Carregando fotos...</p>
           </div>
         </div>
 
@@ -989,15 +1030,20 @@
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:12px;flex-wrap:wrap;">
             <div>
               <h3 style="margin:0 0 2px;display:inline-flex;align-items:center;gap:8px;">
-                Saldo devedor — clientes
+                📦 Saldo devedor — clientes
                 <span id="llm-client-count" style="font-size:11px;font-weight:500;color:var(--muted);background:rgba(255,255,255,.05);padding:1px 8px;border-radius:5px;letter-spacing:-.005em;">0</span>
               </h3>
-              <p style="margin:0;">Caixas pendentes de retorno por cliente.</p>
+              <p style="margin:0;font-size:12px;color:var(--muted);">Entregue − coletado por cliente. Laranja = deve caixas.</p>
             </div>
-            <button onclick="llmZerarClientes()" class="llm-action-btn" style="color:var(--alert);">Zerar clientes</button>
+            <select id="llm-cli-periodo" onchange="window.llmRenderCliPeriodo()"
+              style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:8px;color:var(--text);padding:5px 10px;font-size:12px;cursor:pointer;">
+              <option value="tudo">Todo período</option>
+              <option value="semana">Esta semana</option>
+              <option value="hoje">Hoje</option>
+            </select>
           </div>
           <div id="llm-clients-list">
-            <p style="color:var(--muted);font-size:13px;padding:16px 0;text-align:center;letter-spacing:-.005em;">Todos os saldos zerados.</p>
+            <p style="color:var(--muted);font-size:13px;padding:16px 0;text-align:center;letter-spacing:-.005em;">Carregando...</p>
           </div>
         </div>
 

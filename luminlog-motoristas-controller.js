@@ -25,10 +25,12 @@ const COL_CAIXAS   = 'controle_caixas';
 // ── Estado ──────────────────────────────────────────────────────
 let _drivers = [];
 let _clients = [];
+let _caixasRegs = [];   // registros de controle_caixas para saldo por cliente
 let _pendingAlerts = [];
 let _unsubDrivers = null;
 let _unsubClients = null;
 let _unsubAlerts  = null;
+let _unsubCaixas  = null;
 
 // ── Helpers ─────────────────────────────────────────────────────
 const $   = id => document.getElementById(id);
@@ -358,36 +360,72 @@ function renderClients() {
   const cnt = $('llm-client-count');
   if (!el) return;
 
-  const comSaldo = _clients
-    .filter(c => nn(c.balanceBlack) + nn(c.balanceWhite) > 0)
-    .sort((a, b) => (nn(b.balanceBlack)+nn(b.balanceWhite)) - (nn(a.balanceBlack)+nn(a.balanceWhite)));
+  const CD_RE = /\b(CD|DEPOSITO|DEPÓSITO|RETIRADA|DEVOLU[CÇ][AÃ]O|RETORNO|HETROS)\b/;
 
-  if (cnt) cnt.textContent = comSaldo.length;
+  // Filtra período selecionado
+  const periodoSel = ($('llm-cli-periodo') || {}).value || 'tudo';
+  const hoje  = new Date();
+  const hojeYmd = hoje.toLocaleDateString('en-CA');
+  const dow   = hoje.getDay();
+  const seg   = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() + ((dow===0)?-6:(1-dow)));
+  const segYmd = seg.toLocaleDateString('en-CA');
 
-  if (!comSaldo.length) {
+  const regs = _caixasRegs.filter(r => {
+    if (!r.data) return false;
+    if (periodoSel === 'hoje')   return r.data === hojeYmd;
+    if (periodoSel === 'semana') return r.data >= segYmd && r.data <= hojeYmd;
+    return true;
+  });
+
+  // Calcula saldo: SAÍDA para cliente = entregou (cliente deve) | ENTRADA = coletou de volta
+  const saldo = {};
+  regs.forEach(r => {
+    const cli = (r.cliente || '').trim();
+    if (!cli || CD_RE.test(cli.toUpperCase()) || cli === '—') return;
+    if (!saldo[cli]) saldo[cli] = { entregue: 0, coletado: 0, motoristas: new Set() };
+    if (r.tipo === 'SAÍDA')  saldo[cli].entregue  += nn(r.quantidadeCx);
+    else                      saldo[cli].coletado  += nn(r.quantidadeCx);
+    if (r.motorista) saldo[cli].motoristas.add(r.motorista);
+  });
+
+  // Só exibe clientes com saldo != 0
+  const lista = Object.entries(saldo)
+    .map(([nome, v]) => ({ nome, entregue: v.entregue, coletado: v.coletado,
+      saldo: v.entregue - v.coletado, motoristas: [...v.motoristas] }))
+    .filter(c => c.saldo !== 0)
+    .sort((a, b) => b.saldo - a.saldo);
+
+  if (cnt) cnt.textContent = lista.filter(c => c.saldo > 0).length;
+
+  if (!lista.length) {
     el.innerHTML = '<p style="color:rgba(228,240,246,.4);font-size:13px;padding:6px 0;">✓ Todos os saldos zerados.</p>';
     return;
   }
 
-  el.innerHTML = comSaldo.map((c, idx) => {
-    const b = nn(c.balanceBlack), w = nn(c.balanceWhite), total = b + w;
-    const isLast = idx === comSaldo.length - 1;
+  el.innerHTML = lista.map((c, idx) => {
+    const devendo = c.saldo > 0;
+    const cor     = devendo ? '#ff9f43' : '#00e5a0';
+    const bgRow   = devendo ? 'rgba(255,159,67,.07)' : 'rgba(0,229,160,.05)';
+    const borda   = devendo ? 'rgba(255,159,67,.22)'  : 'rgba(0,229,160,.18)';
+    const label   = devendo ? `⚠ deve ${c.saldo} cx` : `✓ ${Math.abs(c.saldo)} cx a mais`;
+    const mots    = c.motoristas.length
+      ? `<span style="font-size:11px;color:rgba(228,240,246,.35);">🚚 ${c.motoristas.join(', ')}</span>` : '';
+    const isLast  = idx === lista.length - 1;
     return `
       <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;
-        padding:14px 0;${isLast ? '' : 'border-bottom:1px solid rgba(255,255,255,.08);'}">
+        padding:12px 14px;border-radius:10px;margin-bottom:${isLast?'0':'6px'};
+        background:${bgRow};border:1px solid ${borda};">
         <div style="min-width:0;flex:1;">
-          <div style="font-size:15px;font-weight:700;margin-bottom:4px;">${esc(c.name)}</div>
-          <div style="font-size:13px;color:rgba(228,240,246,.5);">
-            Pretas: ${b} &nbsp;·&nbsp; Brancas: ${w}
+          <div style="font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(c.nome)}</div>
+          <div style="display:flex;gap:10px;margin-top:3px;flex-wrap:wrap;">
+            <span style="font-size:11px;color:rgba(228,240,246,.45);">Entregue: <b style="color:rgba(228,240,246,.7);">${c.entregue}</b></span>
+            <span style="font-size:11px;color:rgba(228,240,246,.45);">Coletado: <b style="color:rgba(228,240,246,.7);">${c.coletado}</b></span>
+            ${mots}
           </div>
         </div>
-        <div style="text-align:right;flex-shrink:0;">
-          <div style="font-family:'DM Mono',monospace;font-size:28px;font-weight:700;
-            color:var(--warning);line-height:1;">${total}</div>
-          <div style="font-size:11px;color:rgba(228,240,246,.4);margin-top:3px;">caixas</div>
-        </div>
-      </div>
-    `;
+        <div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:800;color:${cor};
+          white-space:nowrap;text-align:right;">${label}</div>
+      </div>`;
   }).join('');
 }
 
@@ -589,6 +627,16 @@ function startListeners() {
     },
     err => console.error('[LLM-Motoristas] Alerts:', err)
   );
+
+  // Listener controle_caixas — saldo real por cliente
+  _unsubCaixas = onSnapshot(
+    query(collection(db, COL_CAIXAS), orderBy('createdAt', 'desc')),
+    snap => {
+      _caixasRegs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      renderClients();
+    },
+    err => console.error('[LLM-Motoristas] Caixas:', err)
+  );
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -710,6 +758,8 @@ window.llmAnalisarNomes = async function() {
     listEl.innerHTML = `<p style="color:var(--alert);font-size:13px;padding:6px 0;">Erro: ${err.message}. Tente novamente.</p>`;
   }
 };
+
+window.llmRenderCliPeriodo = function() { renderClients(); };
 
 window.llmAjustarContadorSuspeitos = function() {
   const cntEl = document.getElementById('llm-suspeitos-count');

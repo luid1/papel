@@ -9,7 +9,8 @@ export default async function handler(req, res) {
   const { nomes } = req.body || {};
   if (!Array.isArray(nomes) || !nomes.length) return res.status(400).json({ error: 'Lista de nomes obrigatória' });
 
-  const apiKey = process.env.GROQ_API_KEY;
+  // Remove BOM (U+FEFF) e espaços extras que podem vir da env var
+  const apiKey = (process.env.GROQ_API_KEY || '').replace(/^﻿/, '').trim();
   if (!apiKey) return res.status(500).json({ error: 'GROQ_API_KEY não configurada' });
 
   const prompt = `Você receberá uma lista de nomes de clientes de uma empresa de logística/distribuição de caixas.

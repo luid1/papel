@@ -294,6 +294,88 @@ function calcCaixasNoCaminhao() {
   return saldo;
 }
 
+// ─── SALDO DE CAIXAS POR CLIENTE ──────────────────────────────
+window.llRenderClientesDevedores = function() {
+  const panel  = document.getElementById('ll-clientes-devedores-panel');
+  const cntEl  = document.getElementById('ll-clientes-devedores-count');
+  if (!panel) return;
+
+  const ehOpCD = (nome) => {
+    const n = (nome || '').toUpperCase();
+    return /\b(CD|DEPOSITO|DEPÓSITO|RETIRADA|DEVOLU[CÇ][AÃ]O|RETORNO|HETROS)\b/.test(n) || n === '—';
+  };
+
+  const periodo  = (document.getElementById('ll-clientes-dev-periodo') || {}).value || 'hoje';
+  const filtro   = (document.getElementById('ll-clientes-dev-filtro')  || {}).value || 'devedores';
+
+  const hoje     = new Date();
+  const hojeYmd  = hoje.toLocaleDateString('en-CA');
+  const dow      = hoje.getDay();
+  const seg      = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate() + ((dow === 0) ? -6 : (1 - dow)));
+  const segYmd   = seg.toLocaleDateString('en-CA');
+
+  const regs = _registros.filter(r => {
+    if (!r.data) return false;
+    if (periodo === 'hoje')   return r.data === hojeYmd;
+    if (periodo === 'semana') return r.data >= segYmd && r.data <= hojeYmd;
+    return true; // tudo
+  });
+
+  // Saldo por cliente: SAÍDA p/ cliente = +cx (ele deve) | ENTRADA de cliente = −cx (devolveu)
+  const saldo = {};
+  regs.forEach(r => {
+    const cli = (r.cliente || '').trim();
+    if (!cli || ehOpCD(cli)) return;
+    if (!saldo[cli]) saldo[cli] = { entregue: 0, coletado: 0, motoristas: new Set() };
+    if (r.tipo === 'SAÍDA')  saldo[cli].entregue  += (r.quantidadeCx || 0);
+    else                      saldo[cli].coletado  += (r.quantidadeCx || 0);
+    if (r.motorista) saldo[cli].motoristas.add(r.motorista);
+  });
+
+  // Ordena: maiores devedores primeiro; negativos (crédito) por último
+  let lista = Object.entries(saldo)
+    .map(([nome, v]) => ({ nome, entregue: v.entregue, coletado: v.coletado,
+      saldo: v.entregue - v.coletado, motoristas: [...v.motoristas] }))
+    .filter(c => filtro === 'devedores' ? c.saldo > 0 : c.saldo !== 0)
+    .sort((a, b) => b.saldo - a.saldo);
+
+  if (cntEl) cntEl.textContent = lista.filter(c => c.saldo > 0).length;
+
+  if (!lista.length) {
+    panel.innerHTML = `<div style="color:var(--muted);font-size:13px;padding:4px 0;">
+      ${filtro === 'devedores' ? 'Nenhum cliente com caixas pendentes 🎉' : 'Nenhum lançamento no período.'}
+    </div>`;
+    return;
+  }
+
+  panel.innerHTML = lista.map(c => {
+    const devendo  = c.saldo > 0;
+    const zerando  = c.saldo === 0;
+    const credito  = c.saldo < 0;
+    const cor      = devendo ? '#ff9f43' : credito ? '#00e5a0' : 'var(--muted)';
+    const bg       = devendo ? 'rgba(255,159,67,.08)'  : credito ? 'rgba(0,229,160,.06)' : 'rgba(255,255,255,.03)';
+    const borda    = devendo ? 'rgba(255,159,67,.25)'  : credito ? 'rgba(0,229,160,.2)'  : 'rgba(255,255,255,.07)';
+    const badge    = devendo ? `⚠ ${c.saldo} cx deve` : credito ? `✓ ${Math.abs(c.saldo)} cx a mais` : '✓ Zerado';
+    const mots     = c.motoristas.length ? `<span style="color:rgba(228,240,246,.35);font-size:11px;">🚚 ${c.motoristas.join(', ')}</span>` : '';
+    return `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;
+        padding:10px 14px;border-radius:10px;background:${bg};border:1px solid ${borda};">
+        <div style="min-width:0;flex:1;">
+          <div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.nome}</div>
+          <div style="display:flex;gap:10px;margin-top:3px;flex-wrap:wrap;">
+            <span style="font-size:11px;color:rgba(228,240,246,.45);">Entregue: <b style="color:rgba(228,240,246,.7);">${c.entregue} cx</b></span>
+            <span style="font-size:11px;color:rgba(228,240,246,.45);">Coletado: <b style="color:rgba(228,240,246,.7);">${c.coletado} cx</b></span>
+            ${mots}
+          </div>
+        </div>
+        <div style="font-family:'DM Mono',monospace;font-size:13px;font-weight:800;color:${cor};
+          white-space:nowrap;text-align:right;">
+          ${badge}
+        </div>
+      </div>`;
+  }).join('');
+};
+
 // ─── RENDER KPIs TOPO ─────────────────────────────────────────
 function renderKpis() {
   // ── Helpers de data ─────────────────────────────────────────
@@ -474,6 +556,7 @@ function renderTabela() {
   // KPIs sempre no topo
   renderKpis();
   renderMotChips();
+  if (typeof window.llRenderClientesDevedores === 'function') window.llRenderClientesDevedores();
 
   // ── Totalizadores filtrados ────────────────────────────────────
   const filtEntrada = dados.filter(r => r.tipo === 'ENTRADA').reduce((a, r) => a + (r.quantidadeCx || 0), 0);
