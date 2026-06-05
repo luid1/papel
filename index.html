@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
@@ -31,12 +31,12 @@
     #llm-panel-dashboard,
     #llm-panel-registros,
     #llm-panel-motoristas,
-    #llm-panel-clientes { display: none !important; }
-    /* Só mostra o painel da sub-aba ativa */
-    body.llm-sub-dashboard  #llm-panel-dashboard  { display: block !important; }
-    body.llm-sub-registros  #llm-panel-registros  { display: block !important; }
-    body.llm-sub-motoristas #llm-panel-motoristas { display: block !important; }
-    body.llm-sub-clientes   #llm-panel-clientes   { display: block !important; }
+    #llm-panel-clientes { display: none; }
+    /* Só mostra o painel da sub-aba ativa — JS também controla via inline style */
+    body.llm-sub-dashboard  #llm-panel-dashboard  { display: block; }
+    body.llm-sub-registros  #llm-panel-registros  { display: block; }
+    body.llm-sub-motoristas #llm-panel-motoristas { display: block; }
+    body.llm-sub-clientes   #llm-panel-clientes   { display: block; }
   </style>
 </head>
 <body>
@@ -2342,10 +2342,16 @@ document.addEventListener("DOMContentLoaded", () => {
     const sbBtn = document.querySelector(`.adm-sb-hetros-item[data-llm-tab="${tab}"]`);
     if (sbBtn) sbBtn.classList.add("active");
 
-    // Define display inline diretamente — esconde os inativos e mostra o ativo
+    // JS é a fonte de verdade — força display via setAttribute para superar qualquer CSS
     ['dashboard','registros','motoristas','clientes'].forEach(p => {
       const el = document.getElementById('llm-panel-' + p);
-      if (el) el.style.display = (p === tab) ? 'block' : 'none';
+      if (!el) return;
+      if (p === tab) {
+        el.removeAttribute('hidden');
+        el.style.setProperty('display','block','important');
+      } else {
+        el.style.setProperty('display','none','important');
+      }
     });
 
     // Define classe no body — CSS controla também
